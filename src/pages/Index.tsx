@@ -55,8 +55,8 @@ const Index = () => {
 
       {/* Hero Section */}
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-hero opacity-10" />
-        <div className="container mx-auto px-6 py-20 grid lg:grid-cols-2 gap-12 items-center">
+        <div className="absolute inset-0 bg-gradient-hero opacity-10 pointer-events-none" />
+        <div className="container relative z-10 mx-auto px-6 py-20 grid lg:grid-cols-2 gap-12 items-center">
           <div className="space-y-8">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-muted text-sm font-medium">
               <Sparkles className="w-4 h-4 text-primary" />
@@ -90,7 +90,7 @@ const Index = () => {
             </div>
           </div>
           <div className="relative">
-            <div className="absolute inset-0 bg-gradient-hero opacity-20 blur-3xl rounded-full" />
+            <div className="absolute inset-0 bg-gradient-hero opacity-20 blur-3xl rounded-full pointer-events-none" />
             <img 
               src={heroImage} 
               alt="Students learning with AI technology" 
