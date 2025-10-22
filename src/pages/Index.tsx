@@ -41,14 +41,14 @@ const Index = () => {
             <span className="text-xl font-bold text-foreground">AI Internship Provider</span>
           </div>
           <div className="flex items-center gap-4">
-            <Link to="/auth">
-              <Button variant="ghost">Login</Button>
-            </Link>
-            <Link to="/auth">
-              <Button variant="hero" size="lg">
+            <Button variant="ghost" asChild>
+              <Link to="/auth">Login</Link>
+            </Button>
+            <Button variant="hero" size="lg" asChild>
+              <Link to="/auth">
                 Get Started <ArrowRight className="w-4 h-4" />
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </div>
         </div>
       </nav>
@@ -69,11 +69,11 @@ const Index = () => {
               Transform your journey from student to professional with AI-powered skill verification, personalized learning, and smart internship matching.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
-              <Link to="/auth">
-                <Button variant="hero" size="lg" className="w-full sm:w-auto">
+              <Button variant="hero" size="lg" className="w-full sm:w-auto" asChild>
+                <Link to="/auth">
                   Start Your Journey <ArrowRight className="w-5 h-5" />
-                </Button>
-              </Link>
+                </Link>
+              </Button>
               <Button variant="outline" size="lg" className="w-full sm:w-auto">
                 Watch Demo
               </Button>
@@ -160,11 +160,11 @@ const Index = () => {
             <p className="text-xl text-muted-foreground">
               Join thousands of students who are already on their path to success with AI-powered guidance
             </p>
-            <Link to="/auth">
-              <Button variant="hero" size="lg">
+            <Button variant="hero" size="lg" asChild>
+              <Link to="/auth">
                 Get Started Now <ArrowRight className="w-5 h-5" />
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </div>
         </div>
       </section>
