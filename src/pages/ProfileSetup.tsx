@@ -9,9 +9,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { X, Upload, Plus, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import aiMentorIcon from "@/assets/ai-mentor-icon.jpg";
+import { useNavigate } from "react-router-dom";
 
 const ProfileSetup = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [selectedDomains, setSelectedDomains] = useState<string[]>([]);
   const [customDomain, setCustomDomain] = useState("");
   const [avatarPreview, setAvatarPreview] = useState("");
@@ -69,7 +71,7 @@ const ProfileSetup = () => {
       title: "Profile saved!",
       description: "Let's begin your assessment journey.",
     });
-    // Navigate to assessment intro
+    navigate("/assessment-intro");
   };
 
   return (

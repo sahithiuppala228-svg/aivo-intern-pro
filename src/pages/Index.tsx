@@ -4,8 +4,10 @@ import { ArrowRight, CheckCircle, Sparkles, Target, Award, Users } from "lucide-
 import heroImage from "@/assets/hero-image.jpg";
 import aiMentorIcon from "@/assets/ai-mentor-icon.jpg";
 import assessmentIcon from "@/assets/assessment-icon.jpg";
+import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
+  const { toast } = useToast();
   const features = [
     {
       icon: <CheckCircle className="w-8 h-8 text-primary" />,
@@ -74,7 +76,7 @@ const Index = () => {
                   Start Your Journey <ArrowRight className="w-5 h-5" />
                 </Link>
               </Button>
-              <Button variant="outline" size="lg" className="w-full sm:w-auto">
+              <Button variant="outline" size="lg" className="w-full sm:w-auto" onClick={() => toast({ title: "Demo", description: "A short demo video is coming soon." })}>
                 Watch Demo
               </Button>
             </div>

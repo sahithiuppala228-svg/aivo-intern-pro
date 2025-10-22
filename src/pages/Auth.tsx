@@ -5,13 +5,14 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const Auth = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -24,7 +25,7 @@ const Auth = () => {
         description: "Login successful. Redirecting to your profile...",
       });
       setIsLoading(false);
-      // Navigate to profile would happen here
+      navigate("/profile-setup");
     }, 1500);
   };
 
@@ -39,15 +40,16 @@ const Auth = () => {
         description: "Welcome aboard! Let's set up your profile.",
       });
       setIsLoading(false);
-      // Navigate to profile setup would happen here
+      navigate("/profile-setup");
     }, 1500);
   };
 
   const handleOAuthLogin = (provider: string) => {
     toast({
-      title: "Coming soon!",
-      description: `${provider} authentication will be available soon.`,
+      title: `${provider} sign-in`,
+      description: `Redirecting to ${provider}... (demo)`,
     });
+    navigate("/profile-setup");
   };
 
   return (
