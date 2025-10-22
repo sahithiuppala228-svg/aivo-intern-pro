@@ -1,0 +1,294 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { X, Upload, Plus, Sparkles } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import aiMentorIcon from "@/assets/ai-mentor-icon.jpg";
+
+const ProfileSetup = () => {
+  const { toast } = useToast();
+  const [selectedDomains, setSelectedDomains] = useState<string[]>([]);
+  const [customDomain, setCustomDomain] = useState("");
+  const [avatarPreview, setAvatarPreview] = useState("");
+
+  const availableDomains = [
+    "Web Development",
+    "Data Science",
+    "Machine Learning",
+    "Mobile Development",
+    "UI/UX Design",
+    "DevOps",
+    "Cloud Computing",
+    "Cybersecurity",
+    "Blockchain",
+    "Game Development"
+  ];
+
+  const handleDomainToggle = (domain: string) => {
+    if (selectedDomains.includes(domain)) {
+      setSelectedDomains(selectedDomains.filter(d => d !== domain));
+    } else {
+      setSelectedDomains([...selectedDomains, domain]);
+    }
+  };
+
+  const handleAddCustomDomain = () => {
+    if (customDomain && !selectedDomains.includes(customDomain)) {
+      setSelectedDomains([...selectedDomains, customDomain]);
+      setCustomDomain("");
+    }
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedDomains.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Select at least one domain",
+        description: "Please select at least one domain you want to intern in.",
+      });
+      return;
+    }
+    toast({
+      title: "Profile saved!",
+      description: "Let's begin your assessment journey.",
+    });
+    // Navigate to assessment intro
+  };
+
+  return (
+    <div className="min-h-screen bg-muted/30 py-12 px-6">
+      <div className="container mx-auto max-w-4xl space-y-8">
+        {/* Header */}
+        <div className="text-center space-y-3">
+          <h1 className="text-4xl font-bold">Complete Your Profile</h1>
+          <p className="text-xl text-muted-foreground">
+            Help us understand your goals and interests
+          </p>
+        </div>
+
+        {/* AI Mentor Card */}
+        <Card className="border-primary/20 bg-gradient-card shadow-soft">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <Avatar className="w-16 h-16 border-2 border-primary/20">
+                <AvatarImage src={aiMentorIcon} alt="Aivo" />
+                <AvatarFallback>AI</AvatarFallback>
+              </Avatar>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="font-semibold text-lg">Meet Aivo — Your AI Mentor</h3>
+                  <Sparkles className="w-5 h-5 text-primary" />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  💡 <strong>Pro tip:</strong> Link your LinkedIn or GitHub for better internship matches and personalized insights!
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Main Form */}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <Card className="shadow-soft">
+            <CardHeader>
+              <CardTitle>Basic Information</CardTitle>
+              <CardDescription>Tell us about yourself</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Avatar Upload */}
+              <div className="flex items-center gap-6">
+                <Avatar className="w-24 h-24 border-2 border-border">
+                  <AvatarImage src={avatarPreview} />
+                  <AvatarFallback className="text-2xl">JD</AvatarFallback>
+                </Avatar>
+                <div>
+                  <Label htmlFor="avatar" className="cursor-pointer">
+                    <div className="flex items-center gap-2 px-4 py-2 border border-input rounded-lg hover:bg-muted transition-colors">
+                      <Upload className="w-4 h-4" />
+                      <span className="text-sm">Upload Photo</span>
+                    </div>
+                  </Label>
+                  <Input
+                    id="avatar"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageUpload}
+                  />
+                  <p className="text-xs text-muted-foreground mt-2">JPG, PNG up to 5MB</p>
+                </div>
+              </div>
+
+              {/* Name */}
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">First Name</Label>
+                  <Input id="firstName" placeholder="John" required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">Last Name</Label>
+                  <Input id="lastName" placeholder="Doe" required />
+                </div>
+              </div>
+
+              {/* College/Institution */}
+              <div className="space-y-2">
+                <Label htmlFor="college">College/Institution</Label>
+                <Input id="college" placeholder="University of Technology" required />
+              </div>
+
+              {/* Course and Year */}
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="course">Course</Label>
+                  <Input id="course" placeholder="Computer Science" required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="year">Year</Label>
+                  <Select>
+                    <SelectTrigger id="year">
+                      <SelectValue placeholder="Select year" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1st Year</SelectItem>
+                      <SelectItem value="2">2nd Year</SelectItem>
+                      <SelectItem value="3">3rd Year</SelectItem>
+                      <SelectItem value="4">4th Year</SelectItem>
+                      <SelectItem value="graduate">Graduate</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-soft">
+            <CardHeader>
+              <CardTitle>Domains of Interest</CardTitle>
+              <CardDescription>Select the areas where you want to intern (select at least one)</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Domain Pills */}
+              <div className="flex flex-wrap gap-2">
+                {availableDomains.map((domain) => (
+                  <Badge
+                    key={domain}
+                    variant={selectedDomains.includes(domain) ? "default" : "outline"}
+                    className="cursor-pointer px-4 py-2 text-sm"
+                    onClick={() => handleDomainToggle(domain)}
+                  >
+                    {domain}
+                    {selectedDomains.includes(domain) && (
+                      <X className="w-3 h-3 ml-2" />
+                    )}
+                  </Badge>
+                ))}
+              </div>
+
+              {/* Custom Domain */}
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Add custom domain..."
+                  value={customDomain}
+                  onChange={(e) => setCustomDomain(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddCustomDomain())}
+                />
+                <Button type="button" variant="outline" onClick={handleAddCustomDomain}>
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-soft">
+            <CardHeader>
+              <CardTitle>Internship Preferences</CardTitle>
+              <CardDescription>Help us find the perfect match</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="internshipType">Internship Type</Label>
+                  <Select>
+                    <SelectTrigger id="internshipType">
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="paid">Paid Only</SelectItem>
+                      <SelectItem value="free">Unpaid</SelectItem>
+                      <SelectItem value="either">Either</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="availability">Availability</Label>
+                  <Select>
+                    <SelectTrigger id="availability">
+                      <SelectValue placeholder="Select availability" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="fulltime">Full-time</SelectItem>
+                      <SelectItem value="parttime">Part-time</SelectItem>
+                      <SelectItem value="flexible">Flexible</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-soft">
+            <CardHeader>
+              <CardTitle>Professional Links (Optional)</CardTitle>
+              <CardDescription>Connect your profiles for better matches</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="linkedin">LinkedIn URL</Label>
+                <Input
+                  id="linkedin"
+                  type="url"
+                  placeholder="https://linkedin.com/in/yourprofile"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="github">GitHub URL</Label>
+                <Input
+                  id="github"
+                  type="url"
+                  placeholder="https://github.com/yourusername"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Submit Button */}
+          <div className="flex justify-end">
+            <Button type="submit" variant="hero" size="lg" className="px-12">
+              Save & Continue
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default ProfileSetup;
