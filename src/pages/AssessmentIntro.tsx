@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, Clock, FileText, Code, AlertCircle } from "lucide-react";
+import { CheckCircle, Clock, FileText, Code, AlertCircle, ArrowLeft } from "lucide-react";
 import assessmentIcon from "@/assets/assessment-icon.jpg";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -37,6 +37,14 @@ const AssessmentIntro = () => {
   return (
     <div className="min-h-screen bg-muted/30 py-12 px-6">
       <div className="container mx-auto max-w-4xl space-y-8">
+        <Button
+          variant="ghost"
+          onClick={() => navigate(-1)}
+          className="mb-2"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back
+        </Button>
         {/* Header */}
         <div className="text-center space-y-4">
           <div className="flex justify-center mb-4">
@@ -153,7 +161,7 @@ const AssessmentIntro = () => {
             variant="hero" 
             size="lg" 
             className="sm:min-w-[200px]"
-            onClick={() => navigate("/mcq-test")}
+            onClick={() => navigate("/mcq-test", { state: { domain: "Web Development" } })}
           >
             Start MCQ Test
           </Button>

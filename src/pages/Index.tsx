@@ -1,9 +1,10 @@
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, CheckCircle, Sparkles, Target, Award, Users } from "lucide-react";
 import heroImage from "@/assets/hero-image.jpg";
 
 const Index = () => {
+  const navigate = useNavigate();
   const features = [
     {
       icon: <CheckCircle className="w-8 h-8 text-primary" />,
@@ -35,12 +36,17 @@ const Index = () => {
       <nav className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-hero" />
+          <div className="w-8 h-8 rounded-lg bg-gradient-hero" />
             <span className="text-xl font-bold text-foreground">AI Internship Provider</span>
           </div>
-          <Button variant="ghost" asChild>
-            <Link to="/auth">Login</Link>
-          </Button>
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" onClick={() => navigate(-1)}>
+              Back
+            </Button>
+            <Button variant="ghost" asChild>
+              <Link to="/auth">Login</Link>
+            </Button>
+          </div>
         </div>
       </nav>
 
