@@ -14,7 +14,117 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      mcq_questions: {
+        Row: {
+          correct_answer: string
+          created_at: string | null
+          difficulty: string | null
+          domain: string
+          id: string
+          option_a: string
+          option_b: string
+          option_c: string
+          option_d: string
+          question: string
+        }
+        Insert: {
+          correct_answer: string
+          created_at?: string | null
+          difficulty?: string | null
+          domain: string
+          id?: string
+          option_a: string
+          option_b: string
+          option_c: string
+          option_d: string
+          question: string
+        }
+        Update: {
+          correct_answer?: string
+          created_at?: string | null
+          difficulty?: string | null
+          domain?: string
+          id?: string
+          option_a?: string
+          option_b?: string
+          option_c?: string
+          option_d?: string
+          question?: string
+        }
+        Relationships: []
+      }
+      user_answers: {
+        Row: {
+          attempt_id: string | null
+          created_at: string | null
+          id: string
+          is_correct: boolean
+          question_id: string | null
+          user_answer: string | null
+        }
+        Insert: {
+          attempt_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_correct: boolean
+          question_id?: string | null
+          user_answer?: string | null
+        }
+        Update: {
+          attempt_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_correct?: boolean
+          question_id?: string | null
+          user_answer?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_answers_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: false
+            referencedRelation: "user_test_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "mcq_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_test_attempts: {
+        Row: {
+          created_at: string | null
+          domain: string
+          id: string
+          passed: boolean
+          score: number
+          total_questions: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          domain: string
+          id?: string
+          passed: boolean
+          score: number
+          total_questions: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          domain?: string
+          id?: string
+          passed?: boolean
+          score?: number
+          total_questions?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

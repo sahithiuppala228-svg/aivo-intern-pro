@@ -2,12 +2,8 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { ArrowRight, CheckCircle, Sparkles, Target, Award, Users } from "lucide-react";
 import heroImage from "@/assets/hero-image.jpg";
-import aiMentorIcon from "@/assets/ai-mentor-icon.jpg";
-import assessmentIcon from "@/assets/assessment-icon.jpg";
-import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
-  const { toast } = useToast();
   const features = [
     {
       icon: <CheckCircle className="w-8 h-8 text-primary" />,

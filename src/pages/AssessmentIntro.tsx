@@ -153,12 +153,7 @@ const AssessmentIntro = () => {
             variant="hero" 
             size="lg" 
             className="sm:min-w-[200px]"
-            onClick={() => {
-              toast({
-                title: "Starting Assessment",
-                description: "MCQ test module coming soon...",
-              });
-            }}
+            onClick={() => navigate("/mcq-test")}
           >
             Start MCQ Test
           </Button>
