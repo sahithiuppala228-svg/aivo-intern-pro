@@ -42,16 +42,9 @@ const Index = () => {
             <div className="w-8 h-8 rounded-lg bg-gradient-hero" />
             <span className="text-xl font-bold text-foreground">AI Internship Provider</span>
           </div>
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" asChild>
-              <Link to="/auth">Login</Link>
-            </Button>
-            <Button variant="hero" size="lg" asChild>
-              <Link to="/auth">
-                Get Started <ArrowRight className="w-4 h-4" />
-              </Link>
-            </Button>
-          </div>
+          <Button variant="ghost" asChild>
+            <Link to="/auth">Login</Link>
+          </Button>
         </div>
       </nav>
 
@@ -70,16 +63,11 @@ const Index = () => {
             <p className="text-xl text-muted-foreground leading-relaxed">
               Transform your journey from student to professional with AI-powered skill verification, personalized learning, and smart internship matching.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Button variant="hero" size="lg" className="w-full sm:w-auto" asChild>
-                <Link to="/auth">
-                  Start Your Journey <ArrowRight className="w-5 h-5" />
-                </Link>
-              </Button>
-              <Button variant="outline" size="lg" className="w-full sm:w-auto" onClick={() => toast({ title: "Demo", description: "A short demo video is coming soon." })}>
-                Watch Demo
-              </Button>
-            </div>
+            <Button variant="hero" size="lg" asChild>
+              <Link to="/auth">
+                Start Your Journey <ArrowRight className="w-5 h-5" />
+              </Link>
+            </Button>
             <div className="flex items-center gap-6 pt-4">
               <div className="flex items-center gap-2">
                 <Users className="w-5 h-5 text-primary" />
@@ -151,25 +139,6 @@ const Index = () => {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-20 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-hero opacity-10" />
-        <div className="container mx-auto px-6 text-center relative">
-          <div className="max-w-3xl mx-auto space-y-8">
-            <h2 className="text-4xl lg:text-5xl font-bold">
-              Ready to Launch Your Career?
-            </h2>
-            <p className="text-xl text-muted-foreground">
-              Join thousands of students who are already on their path to success with AI-powered guidance
-            </p>
-            <Button variant="hero" size="lg" asChild>
-              <Link to="/auth">
-                Get Started Now <ArrowRight className="w-5 h-5" />
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </section>
 
       {/* Footer */}
       <footer className="border-t border-border py-12 bg-muted/30">

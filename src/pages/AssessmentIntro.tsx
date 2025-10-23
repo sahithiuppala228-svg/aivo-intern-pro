@@ -3,8 +3,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, Clock, FileText, Code, AlertCircle } from "lucide-react";
 import assessmentIcon from "@/assets/assessment-icon.jpg";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 const AssessmentIntro = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  
   const assessmentFlow = [
     {
       icon: <FileText className="w-6 h-6 text-primary" />,
@@ -144,10 +149,30 @@ const AssessmentIntro = () => {
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Button variant="hero" size="lg" className="sm:min-w-[200px]">
+          <Button 
+            variant="hero" 
+            size="lg" 
+            className="sm:min-w-[200px]"
+            onClick={() => {
+              toast({
+                title: "Starting Assessment",
+                description: "MCQ test module coming soon...",
+              });
+            }}
+          >
             Start MCQ Test
           </Button>
-          <Button variant="outline" size="lg" className="sm:min-w-[200px]">
+          <Button 
+            variant="outline" 
+            size="lg" 
+            className="sm:min-w-[200px]"
+            onClick={() => {
+              toast({
+                title: "Practice Mode",
+                description: "Practice module coming soon...",
+              });
+            }}
+          >
             Practice Mode (Free)
           </Button>
         </div>
