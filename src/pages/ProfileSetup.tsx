@@ -6,10 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { X, Upload, Plus, Sparkles } from "lucide-react";
+import { X, Upload, Plus, Sparkles, ArrowLeft, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import aiMentorIcon from "@/assets/ai-mentor-icon.jpg";
 import { useNavigate } from "react-router-dom";
+import AIMentorChat from "@/components/AIMentorChat";
 
 const ProfileSetup = () => {
   const { toast } = useToast();
@@ -17,6 +18,16 @@ const ProfileSetup = () => {
   const [selectedDomains, setSelectedDomains] = useState<string[]>([]);
   const [customDomain, setCustomDomain] = useState("");
   const [avatarPreview, setAvatarPreview] = useState("");
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  
+  // Form field states
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [college, setCollege] = useState("");
+  const [course, setCourse] = useState("");
+  const [year, setYear] = useState("");
+  const [internshipType, setInternshipType] = useState("");
+  const [availability, setAvailability] = useState("");
 
   const availableDomains = [
     "Web Development",
@@ -59,6 +70,48 @@ const ProfileSetup = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate all required fields
+    if (!firstName.trim()) {
+      toast({
+        variant: "destructive",
+        title: "First name required",
+        description: "Please enter your first name.",
+      });
+      return;
+    }
+    if (!lastName.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Last name required",
+        description: "Please enter your last name.",
+      });
+      return;
+    }
+    if (!college.trim()) {
+      toast({
+        variant: "destructive",
+        title: "College required",
+        description: "Please enter your college or institution.",
+      });
+      return;
+    }
+    if (!course.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Course required",
+        description: "Please enter your course.",
+      });
+      return;
+    }
+    if (!year) {
+      toast({
+        variant: "destructive",
+        title: "Year required",
+        description: "Please select your current year.",
+      });
+      return;
+    }
     if (selectedDomains.length === 0) {
       toast({
         variant: "destructive",
@@ -67,6 +120,23 @@ const ProfileSetup = () => {
       });
       return;
     }
+    if (!internshipType) {
+      toast({
+        variant: "destructive",
+        title: "Internship type required",
+        description: "Please select your preferred internship type.",
+      });
+      return;
+    }
+    if (!availability) {
+      toast({
+        variant: "destructive",
+        title: "Availability required",
+        description: "Please select your availability.",
+      });
+      return;
+    }
+
     toast({
       title: "Profile saved!",
       description: "Let's begin your assessment journey.",
@@ -75,15 +145,26 @@ const ProfileSetup = () => {
   };
 
   return (
-    <div className="min-h-screen bg-muted/30 py-12 px-6">
-      <div className="container mx-auto max-w-4xl space-y-8">
-        {/* Header */}
-        <div className="text-center space-y-3">
-          <h1 className="text-4xl font-bold">Complete Your Profile</h1>
-          <p className="text-xl text-muted-foreground">
-            Help us understand your goals and interests
-          </p>
-        </div>
+    <>
+      <div className="min-h-screen bg-muted/30 py-12 px-6">
+        <div className="container mx-auto max-w-4xl space-y-8">
+          {/* Header with Back Button */}
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate(-1)}
+              className="flex-shrink-0"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div className="text-center flex-1 space-y-3">
+              <h1 className="text-4xl font-bold">Complete Your Profile</h1>
+              <p className="text-xl text-muted-foreground">
+                Help us understand your goals and interests
+              </p>
+            </div>
+          </div>
 
         {/* AI Mentor Card */}
         <Card className="border-primary/20 bg-gradient-card shadow-soft">
@@ -141,30 +222,54 @@ const ProfileSetup = () => {
               {/* Name */}
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="firstName">First Name</Label>
-                  <Input id="firstName" placeholder="John" required />
+                  <Label htmlFor="firstName">First Name *</Label>
+                  <Input 
+                    id="firstName" 
+                    placeholder="John" 
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    required 
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="lastName">Last Name</Label>
-                  <Input id="lastName" placeholder="Doe" required />
+                  <Label htmlFor="lastName">Last Name *</Label>
+                  <Input 
+                    id="lastName" 
+                    placeholder="Doe" 
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    required 
+                  />
                 </div>
               </div>
 
               {/* College/Institution */}
               <div className="space-y-2">
-                <Label htmlFor="college">College/Institution</Label>
-                <Input id="college" placeholder="University of Technology" required />
+                <Label htmlFor="college">College/Institution *</Label>
+                <Input 
+                  id="college" 
+                  placeholder="University of Technology" 
+                  value={college}
+                  onChange={(e) => setCollege(e.target.value)}
+                  required 
+                />
               </div>
 
               {/* Course and Year */}
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="course">Course</Label>
-                  <Input id="course" placeholder="Computer Science" required />
+                  <Label htmlFor="course">Course *</Label>
+                  <Input 
+                    id="course" 
+                    placeholder="Computer Science" 
+                    value={course}
+                    onChange={(e) => setCourse(e.target.value)}
+                    required 
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="year">Year</Label>
-                  <Select>
+                  <Label htmlFor="year">Year *</Label>
+                  <Select value={year} onValueChange={setYear}>
                     <SelectTrigger id="year">
                       <SelectValue placeholder="Select year" />
                     </SelectTrigger>
@@ -183,7 +288,7 @@ const ProfileSetup = () => {
 
           <Card className="shadow-soft">
             <CardHeader>
-              <CardTitle>Domains of Interest</CardTitle>
+              <CardTitle>Domains of Interest *</CardTitle>
               <CardDescription>Select the areas where you want to intern (select at least one)</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -227,8 +332,8 @@ const ProfileSetup = () => {
             <CardContent className="space-y-4">
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="internshipType">Internship Type</Label>
-                  <Select>
+                  <Label htmlFor="internshipType">Internship Type *</Label>
+                  <Select value={internshipType} onValueChange={setInternshipType}>
                     <SelectTrigger id="internshipType">
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
@@ -240,8 +345,8 @@ const ProfileSetup = () => {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="availability">Availability</Label>
-                  <Select>
+                  <Label htmlFor="availability">Availability *</Label>
+                  <Select value={availability} onValueChange={setAvailability}>
                     <SelectTrigger id="availability">
                       <SelectValue placeholder="Select availability" />
                     </SelectTrigger>
@@ -288,8 +393,25 @@ const ProfileSetup = () => {
             </Button>
           </div>
         </form>
+        </div>
       </div>
-    </div>
+
+      {/* AI Mentor Chat Button */}
+      {!isChatOpen && (
+        <Button
+          onClick={() => setIsChatOpen(true)}
+          variant="hero"
+          size="lg"
+          className="fixed bottom-6 right-6 rounded-full shadow-hover z-40"
+        >
+          <MessageCircle className="w-5 h-5 mr-2" />
+          Ask Aivo
+        </Button>
+      )}
+
+      {/* AI Mentor Chat */}
+      <AIMentorChat isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+    </>
   );
 };
 

@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { X, Send, Mic, Sparkles, MessageSquare } from "lucide-react";
+import { X, Send, Mic, MicOff, Volume2, Sparkles, MessageSquare } from "lucide-react";
 import aiMentorIcon from "@/assets/ai-mentor-icon.jpg";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Message {
   id: string;
@@ -21,6 +23,7 @@ interface AIMentorChatProps {
 }
 
 const AIMentorChat = ({ isOpen, onClose }: AIMentorChatProps) => {
+  const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
@@ -31,13 +34,27 @@ const AIMentorChat = ({ isOpen, onClose }: AIMentorChatProps) => {
   ]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const quickActions = [
     { label: "Practice 3 questions", icon: <MessageSquare className="w-4 h-4" /> },
     { label: "Explain last mistake", icon: <Sparkles className="w-4 h-4" /> },
   ];
 
-  const handleSend = () => {
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      }
+    }
+  }, [messages]);
+
+  const handleSend = async () => {
     if (!input.trim()) return;
 
     const userMessage: Message = {
@@ -51,17 +68,181 @@ const AIMentorChat = ({ isOpen, onClose }: AIMentorChatProps) => {
     setInput("");
     setIsTyping(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiMessage: Message = {
+    try {
+      const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-mentor-chat`;
+      const response = await fetch(CHAT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ messages: [...messages, userMessage].map(m => ({ role: m.role, content: m.content })) }),
+      });
+
+      if (!response.ok || !response.body) throw new Error("Failed to start stream");
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let textBuffer = "";
+      let streamDone = false;
+      let assistantContent = "";
+
+      const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "I understand you're asking about " + input + ". Let me help you with that! This is a simulated response. In the full version, I'll provide detailed, contextual guidance based on your learning journey.",
+        content: "",
         timestamp: new Date()
       };
-      setMessages(prev => [...prev, aiMessage]);
+      setMessages(prev => [...prev, assistantMessage]);
+
+      while (!streamDone) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        textBuffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+          let line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") {
+            streamDone = true;
+            break;
+          }
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            if (content) {
+              assistantContent += content;
+              setMessages(prev => prev.map(m => 
+                m.id === assistantMessage.id ? { ...m, content: assistantContent } : m
+              ));
+            }
+          } catch {
+            textBuffer = line + "\n" + textBuffer;
+            break;
+          }
+        }
+      }
+
       setIsTyping(false);
-    }, 1500);
+
+      // Text-to-speech for assistant response
+      if (assistantContent) {
+        speakText(assistantContent);
+      }
+
+    } catch (error) {
+      console.error("Error sending message:", error);
+      setIsTyping(false);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to send message. Please try again.",
+      });
+    }
+  };
+
+  const speakText = async (text: string) => {
+    try {
+      setIsSpeaking(true);
+      const { data, error } = await supabase.functions.invoke('text-to-speech', {
+        body: { text, voice: 'alloy' }
+      });
+
+      if (error) throw error;
+
+      const audioData = atob(data.audioContent);
+      const audioArray = new Uint8Array(audioData.length);
+      for (let i = 0; i < audioData.length; i++) {
+        audioArray[i] = audioData.charCodeAt(i);
+      }
+
+      const audioBlob = new Blob([audioArray], { type: 'audio/mpeg' });
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      
+      audio.onended = () => {
+        setIsSpeaking(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+      
+      await audio.play();
+    } catch (error) {
+      console.error("Error speaking text:", error);
+      setIsSpeaking(false);
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        await transcribeAudio(audioBlob);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (error) {
+      console.error("Error starting recording:", error);
+      toast({
+        variant: "destructive",
+        title: "Microphone Error",
+        description: "Could not access microphone. Please check permissions.",
+      });
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const transcribeAudio = async (audioBlob: Blob) => {
+    try {
+      const reader = new FileReader();
+      reader.readAsDataURL(audioBlob);
+      reader.onloadend = async () => {
+        const base64Audio = (reader.result as string).split(',')[1];
+        
+        const { data, error } = await supabase.functions.invoke('speech-to-text', {
+          body: { audio: base64Audio }
+        });
+
+        if (error) throw error;
+
+        if (data.text) {
+          setInput(data.text);
+        }
+      };
+    } catch (error) {
+      console.error("Error transcribing audio:", error);
+      toast({
+        variant: "destructive",
+        title: "Transcription Error",
+        description: "Failed to transcribe audio. Please try again.",
+      });
+    }
   };
 
   const handleQuickAction = (action: string) => {
@@ -112,7 +293,7 @@ const AIMentorChat = ({ isOpen, onClose }: AIMentorChatProps) => {
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4">
+      <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
         <div className="space-y-4">
           {messages.map((message) => (
             <div
@@ -170,19 +351,29 @@ const AIMentorChat = ({ isOpen, onClose }: AIMentorChatProps) => {
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSend()}
+            onKeyDown={(e) => e.key === "Enter" && !isTyping && handleSend()}
             placeholder="Ask Aivo anything..."
             className="flex-1"
+            disabled={isTyping || isRecording}
           />
-          <Button variant="ghost" size="icon">
-            <Mic className="w-5 h-5" />
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={isRecording ? stopRecording : startRecording}
+            className={cn(isRecording && "text-destructive animate-pulse")}
+          >
+            {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
           </Button>
-          <Button onClick={handleSend} disabled={!input.trim()}>
+          <Button 
+            onClick={handleSend} 
+            disabled={!input.trim() || isTyping || isRecording}
+          >
             <Send className="w-4 h-4" />
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground mt-2 text-center">
-          Voice & text support available
+        <p className="text-xs text-muted-foreground mt-2 text-center flex items-center justify-center gap-2">
+          {isSpeaking && <Volume2 className="w-3 h-3 animate-pulse" />}
+          {isRecording ? "Recording..." : isSpeaking ? "Speaking..." : "Voice & text support available"}
         </p>
       </div>
     </div>
