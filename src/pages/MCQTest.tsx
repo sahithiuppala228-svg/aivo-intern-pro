@@ -38,6 +38,7 @@ const MCQTest = () => {
   const [showResults, setShowResults] = useState(false);
   const [score, setScore] = useState(0);
   const [passed, setPassed] = useState(false);
+  const [explanations, setExplanations] = useState<any[]>([]);
 
   useEffect(() => {
     loadQuestions();
@@ -158,6 +159,24 @@ const MCQTest = () => {
 
         if (answersError) throw answersError;
       }
+
+      // Generate AI explanations for failed questions
+      if (!testPassed) {
+        const failedQuestions = questions
+          .map((question, index) => ({
+            ...question,
+            user_answer: selectedAnswers[index],
+          }))
+          .filter((q, index) => selectedAnswers[index] !== q.correct_answer);
+
+        const { data: explanationData } = await supabase.functions.invoke('generate-explanations', {
+          body: { failedQuestions }
+        });
+
+        if (explanationData?.explanations) {
+          setExplanations(explanationData.explanations);
+        }
+      }
     } catch (error: any) {
       console.error("Error saving test results:", error);
     }
@@ -173,11 +192,7 @@ const MCQTest = () => {
 
   const handleResultsClose = () => {
     if (passed) {
-      toast({
-        title: "Congratulations!",
-        description: "Coding test module coming soon...",
-      });
-      navigate("/assessment-intro");
+      navigate("/coding-test", { state: { domain } });
     } else {
       navigate("/assessment-intro");
     }
@@ -347,8 +362,23 @@ const MCQTest = () => {
               <p>
                 {passed
                   ? "You've passed the MCQ test! You can now proceed to the coding test."
-                  : "You need at least 8 correct answers to pass. Please try again."}
+                  : "You need at least 8 correct answers to pass. Review the explanations below."}
               </p>
+
+              {!passed && explanations.length > 0 && (
+                <div className="text-left space-y-4 max-h-96 overflow-y-auto">
+                  <h3 className="font-semibold text-foreground">AI-Generated Explanations:</h3>
+                  {explanations.map((exp, index) => (
+                    <div key={index} className="p-4 bg-muted rounded-lg">
+                      <p className="font-semibold text-sm mb-2">{exp.question}</p>
+                      <p className="text-sm text-destructive mb-1">Your answer: {exp.user_answer}</p>
+                      <p className="text-sm text-green-600 mb-2">Correct answer: {exp.correct_answer}</p>
+                      <p className="text-sm">{exp.explanation}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <Button variant="hero" onClick={handleResultsClose} className="w-full">
                 {passed ? "Continue to Coding Test" : "Back to Assessment"}
               </Button>
