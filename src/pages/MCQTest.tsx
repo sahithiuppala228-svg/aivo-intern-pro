@@ -59,11 +59,23 @@ const MCQTest = () => {
 
   const loadQuestions = async () => {
     try {
+      // Get total count of questions for this domain
+      const { count } = await supabase
+        .from("mcq_questions")
+        .select("*", { count: "exact", head: true })
+        .eq("domain", domain);
+
+      // Generate random offset to get different questions each time
+      const totalQuestions = count || 0;
+      const randomOffset = totalQuestions > 10 
+        ? Math.floor(Math.random() * (totalQuestions - 10)) 
+        : 0;
+
       const { data, error } = await supabase
         .from("mcq_questions")
         .select("*")
         .eq("domain", domain)
-        .limit(10);
+        .range(randomOffset, randomOffset + 9);
 
       if (error) throw error;
 
@@ -74,11 +86,20 @@ const MCQTest = () => {
           variant: "destructive",
         });
         
+        const { count: fallbackCount } = await supabase
+          .from("mcq_questions")
+          .select("*", { count: "exact", head: true })
+          .eq("domain", "Web Development");
+
+        const fallbackOffset = (fallbackCount || 0) > 10 
+          ? Math.floor(Math.random() * ((fallbackCount || 0) - 10)) 
+          : 0;
+
         const { data: fallbackData, error: fallbackError } = await supabase
           .from("mcq_questions")
           .select("*")
           .eq("domain", "Web Development")
-          .limit(10);
+          .range(fallbackOffset, fallbackOffset + 9);
 
         if (fallbackError) throw fallbackError;
         setQuestions(fallbackData || []);
@@ -194,7 +215,16 @@ const MCQTest = () => {
     if (passed) {
       navigate("/coding-test", { state: { domain } });
     } else {
-      navigate("/assessment-intro");
+      // Reset the test for retry
+      setShowResults(false);
+      setCurrentQuestionIndex(0);
+      setSelectedAnswers({});
+      setTimeLeft(600);
+      setScore(0);
+      setPassed(false);
+      setExplanations([]);
+      setLoading(true);
+      loadQuestions();
     }
   };
 
@@ -380,7 +410,7 @@ const MCQTest = () => {
               )}
 
               <Button variant="hero" onClick={handleResultsClose} className="w-full">
-                {passed ? "Continue to Coding Test" : "Back to Assessment"}
+                {passed ? "Continue to Coding Test" : "Retry Test"}
               </Button>
             </AlertDialogDescription>
           </AlertDialogHeader>
