@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { X, Send, Mic, MicOff, Volume2, Sparkles, MessageSquare } from "lucide-react";
+import { X, Send, Mic, MicOff, Volume2, Sparkles, MessageSquare, Target, TrendingUp, Download, Copy, Check } from "lucide-react";
 import aiMentorIcon from "@/assets/ai-mentor-icon.jpg";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -36,6 +36,7 @@ const AIMentorChat = ({ isOpen, onClose }: AIMentorChatProps) => {
   const [isTyping, setIsTyping] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -43,6 +44,8 @@ const AIMentorChat = ({ isOpen, onClose }: AIMentorChatProps) => {
   const quickActions = [
     { label: "Practice 3 questions", icon: <MessageSquare className="w-4 h-4" /> },
     { label: "Explain last mistake", icon: <Sparkles className="w-4 h-4" /> },
+    { label: "Create study plan", icon: <Target className="w-4 h-4" /> },
+    { label: "Review my progress", icon: <TrendingUp className="w-4 h-4" /> },
   ];
 
   useEffect(() => {
@@ -249,6 +252,27 @@ const AIMentorChat = ({ isOpen, onClose }: AIMentorChatProps) => {
     setInput(action);
   };
 
+  const copyToClipboard = (text: string, messageId: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedMessageId(messageId);
+    setTimeout(() => setCopiedMessageId(null), 2000);
+    toast({
+      title: "Copied!",
+      description: "Message copied to clipboard",
+    });
+  };
+
+  const downloadConversation = () => {
+    const content = messages.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n\n');
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ai-mentor-chat-${new Date().toISOString().split('T')[0]}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -268,9 +292,14 @@ const AIMentorChat = ({ isOpen, onClose }: AIMentorChatProps) => {
             </p>
           </div>
         </div>
-        <Button variant="ghost" size="icon" onClick={onClose}>
-          <X className="w-5 h-5" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={downloadConversation} title="Download conversation">
+            <Download className="w-4 h-4" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="w-5 h-5" />
+          </Button>
+        </div>
       </div>
 
       {/* Quick Actions */}
@@ -309,22 +338,48 @@ const AIMentorChat = ({ isOpen, onClose }: AIMentorChatProps) => {
                   <AvatarFallback>AI</AvatarFallback>
                 </Avatar>
               )}
-              <Card
-                className={cn(
-                  "p-3 max-w-[80%]",
-                  message.role === "user"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-card"
+              <div className="flex flex-col max-w-[80%]">
+                <Card
+                  className={cn(
+                    "p-3",
+                    message.role === "user"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-card"
+                  )}
+                >
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                  <p className={cn(
+                    "text-xs mt-1",
+                    message.role === "user" ? "text-primary-foreground/70" : "text-muted-foreground"
+                  )}>
+                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </Card>
+                {message.role === "assistant" && (
+                  <div className="flex gap-1 mt-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs"
+                      onClick={() => copyToClipboard(message.content, message.id)}
+                    >
+                      {copiedMessageId === message.id ? (
+                        <Check className="w-3 h-3" />
+                      ) : (
+                        <Copy className="w-3 h-3" />
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs"
+                      onClick={() => speakText(message.content)}
+                    >
+                      <Volume2 className="w-3 h-3" />
+                    </Button>
+                  </div>
                 )}
-              >
-                <p className="text-sm leading-relaxed">{message.content}</p>
-                <p className={cn(
-                  "text-xs mt-1",
-                  message.role === "user" ? "text-primary-foreground/70" : "text-muted-foreground"
-                )}>
-                  {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </p>
-              </Card>
+              </div>
             </div>
           ))}
           {isTyping && (
