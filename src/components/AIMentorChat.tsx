@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { X, Send, Mic, MicOff, Volume2, Sparkles, MessageSquare, Target, TrendingUp, Download, Copy, Check } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { X, Send, Mic, MicOff, Volume2, Sparkles, MessageSquare, Target, TrendingUp, Download, Copy, Check, Languages } from "lucide-react";
 import aiMentorIcon from "@/assets/ai-mentor-icon.jpg";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -22,6 +23,21 @@ interface AIMentorChatProps {
   onClose: () => void;
 }
 
+const INDIAN_LANGUAGES = [
+  { code: "en-IN", name: "English" },
+  { code: "hi-IN", name: "Hindi (हिन्दी)" },
+  { code: "bn-IN", name: "Bengali (বাংলা)" },
+  { code: "te-IN", name: "Telugu (తెలుగు)" },
+  { code: "mr-IN", name: "Marathi (मराठी)" },
+  { code: "ta-IN", name: "Tamil (தமிழ்)" },
+  { code: "gu-IN", name: "Gujarati (ગુજરાતી)" },
+  { code: "kn-IN", name: "Kannada (ಕನ್ನಡ)" },
+  { code: "ml-IN", name: "Malayalam (മലയാളം)" },
+  { code: "pa-IN", name: "Punjabi (ਪੰਜਾਬੀ)" },
+  { code: "or-IN", name: "Odia (ଓଡ଼ିଆ)" },
+  { code: "as-IN", name: "Assamese (অসমীয়া)" },
+];
+
 const AIMentorChat = ({ isOpen, onClose }: AIMentorChatProps) => {
   const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([
@@ -37,6 +53,8 @@ const AIMentorChat = ({ isOpen, onClose }: AIMentorChatProps) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [selectedLanguage, setSelectedLanguage] = useState("en-IN");
+  const [voiceMode, setVoiceMode] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -401,13 +419,37 @@ const AIMentorChat = ({ isOpen, onClose }: AIMentorChatProps) => {
       </ScrollArea>
 
       {/* Input */}
-      <div className="p-4 border-t border-border bg-card">
+      <div className="p-4 border-t border-border bg-card space-y-3">
+        <div className="flex items-center gap-2">
+          <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+            <SelectTrigger className="w-[180px] h-9">
+              <Languages className="w-4 h-4 mr-2" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {INDIAN_LANGUAGES.map((lang) => (
+                <SelectItem key={lang.code} value={lang.code}>
+                  {lang.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant={voiceMode ? "default" : "outline"}
+            size="sm"
+            onClick={() => setVoiceMode(!voiceMode)}
+            className="text-xs"
+          >
+            <Volume2 className="w-4 h-4 mr-2" />
+            Voice Mode
+          </Button>
+        </div>
         <div className="flex gap-2">
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !isTyping && handleSend()}
-            placeholder="Ask Aivo anything..."
+            placeholder={`Ask Aivo in ${INDIAN_LANGUAGES.find(l => l.code === selectedLanguage)?.name}...`}
             className="flex-1"
             disabled={isTyping || isRecording}
           />

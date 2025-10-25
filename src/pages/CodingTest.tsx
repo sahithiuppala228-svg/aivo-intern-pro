@@ -3,8 +3,9 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Copy, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Copy, AlertTriangle, CheckCircle2, XCircle, Code2, Play } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 
 interface CodingChallenge {
   title: string;
@@ -228,29 +229,47 @@ const CodingTest = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background py-8">
       <div className="container mx-auto px-6 max-w-7xl">
         <Button
           variant="ghost"
           onClick={() => navigate("/assessment-intro")}
-          className="mb-4"
+          className="mb-6 hover:bg-muted/80 transition-all duration-200"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Back
+          Back to Assessment
         </Button>
 
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Coding Test</h1>
-          <p className="text-muted-foreground">Domain: {domain}</p>
+        <div className="mb-8 relative">
+          <div className="absolute -inset-1 bg-gradient-hero opacity-20 blur-3xl rounded-full"></div>
+          <div className="relative">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-3 bg-gradient-hero rounded-xl shadow-glow">
+                <Code2 className="w-6 h-6 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="text-4xl font-bold bg-gradient-hero bg-clip-text text-transparent">Coding Challenge</h1>
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge variant="secondary" className="text-xs">{domain}</Badge>
+                  <Badge variant="outline" className="text-xs">Timed Assessment</Badge>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {copyAttempts > 0 && (
-          <Card className="p-4 mb-6 border-destructive bg-destructive/10">
-            <div className="flex items-center gap-2 text-destructive">
-              <AlertTriangle className="w-5 h-5" />
-              <p className="font-semibold">
-                Copy-Paste Attempts Detected: {copyAttempts}
-              </p>
+          <Card className="p-4 mb-6 border-2 border-destructive bg-destructive/5 shadow-lg animate-pulse">
+            <div className="flex items-center gap-3 text-destructive">
+              <div className="p-2 bg-destructive/10 rounded-lg">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="font-bold">Anti-Cheat Detection</p>
+                <p className="text-sm text-destructive/80">
+                  Copy-Paste Attempts: {copyAttempts}
+                </p>
+              </div>
             </div>
           </Card>
         )}
@@ -258,27 +277,37 @@ const CodingTest = () => {
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Left: Challenge & Code Editor */}
           <div className="space-y-6">
-            <Card className="p-6">
-              <h2 className="text-2xl font-semibold mb-4">{challenge.title}</h2>
-              <p className="text-muted-foreground mb-6 leading-relaxed">{challenge.description}</p>
+            <Card className="p-6 shadow-hover border-2 hover:border-primary/30 transition-all duration-300 bg-gradient-card">
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold mb-2 flex items-center gap-2">
+                  <span className="w-1 h-8 bg-gradient-hero rounded-full"></span>
+                  {challenge.title}
+                </h2>
+                <p className="text-muted-foreground leading-relaxed">{challenge.description}</p>
+              </div>
               
               <div className="mb-6">
-                <h3 className="font-semibold mb-3 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-primary"></span>
+                <h3 className="font-semibold mb-4 flex items-center gap-2">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <CheckCircle2 className="w-4 h-4 text-primary" />
+                  </div>
                   Test Cases
                 </h3>
                 <div className="space-y-3">
                   {challenge.testCases.map((tc, i) => (
-                    <div key={i} className="p-4 bg-muted/50 rounded-lg border border-border">
-                      <p className="text-xs font-semibold text-primary mb-2">{tc.description}</p>
-                      <div className="space-y-1">
+                    <div key={i} className="group p-4 bg-gradient-code rounded-lg border border-border hover:border-primary/50 hover:shadow-soft transition-all duration-200">
+                      <div className="flex items-start justify-between mb-2">
+                        <p className="text-xs font-bold text-primary">{tc.description}</p>
+                        <Badge variant="outline" className="text-xs">Case {i + 1}</Badge>
+                      </div>
+                      <div className="space-y-2">
                         <div className="flex items-start gap-2">
-                          <span className="text-xs font-mono text-muted-foreground min-w-[60px]">Input:</span>
-                          <code className="text-xs font-mono bg-background px-2 py-1 rounded flex-1">{tc.input}</code>
+                          <span className="text-xs font-mono text-muted-foreground min-w-[70px] font-semibold">Input:</span>
+                          <code className="text-xs font-mono bg-background px-3 py-1.5 rounded border border-border flex-1 group-hover:border-primary/30 transition-colors">{tc.input}</code>
                         </div>
                         <div className="flex items-start gap-2">
-                          <span className="text-xs font-mono text-muted-foreground min-w-[60px]">Expected:</span>
-                          <code className="text-xs font-mono bg-background px-2 py-1 rounded flex-1">{tc.expected}</code>
+                          <span className="text-xs font-mono text-muted-foreground min-w-[70px] font-semibold">Expected:</span>
+                          <code className="text-xs font-mono bg-background px-3 py-1.5 rounded border border-success/30 flex-1 text-success">{tc.expected}</code>
                         </div>
                       </div>
                     </div>
@@ -287,20 +316,26 @@ const CodingTest = () => {
               </div>
 
               <div>
-                <label className="block font-semibold mb-3 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-secondary"></span>
+                <label className="block font-semibold mb-4 flex items-center gap-2">
+                  <div className="p-2 bg-secondary/10 rounded-lg">
+                    <Code2 className="w-4 h-4 text-secondary" />
+                  </div>
                   Your Solution
                 </label>
-                <Textarea
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  placeholder="Write your code here..."
-                  className="font-mono min-h-[400px] bg-background border-2 focus:border-primary transition-colors"
-                  onPaste={(e) => e.preventDefault()}
-                />
+                <div className="relative group">
+                  <div className="absolute -inset-0.5 bg-gradient-hero opacity-0 group-hover:opacity-10 blur transition-opacity duration-300 rounded-lg"></div>
+                  <Textarea
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    placeholder="// Write your code here..."
+                    className="relative font-mono min-h-[400px] bg-gradient-code border-2 focus:border-primary focus:shadow-glow transition-all duration-300 resize-none"
+                    onPaste={(e) => e.preventDefault()}
+                  />
+                </div>
               </div>
 
-              <Button onClick={handleSubmit} variant="hero" size="lg" className="w-full mt-4">
+              <Button onClick={handleSubmit} variant="hero" size="lg" className="w-full mt-6 group">
+                <Play className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
                 Run Tests & Submit
               </Button>
             </Card>
@@ -308,51 +343,86 @@ const CodingTest = () => {
 
           {/* Right: Output & Results */}
           <div className="space-y-6">
-            <Card className="p-6">
-              <h3 className="font-semibold mb-4 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-accent"></span>
-                Test Results
-              </h3>
+            <Card className="p-6 shadow-hover border-2 bg-gradient-card sticky top-6">
+              <div className="flex items-center gap-2 mb-6">
+                <div className="p-2 bg-accent/10 rounded-lg">
+                  <Play className="w-4 h-4 text-accent" />
+                </div>
+                <h3 className="font-bold text-lg">Test Results</h3>
+              </div>
               
               {testResults.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <p className="text-sm">Run your code to see results here</p>
+                <div className="text-center py-16">
+                  <div className="p-4 bg-muted/30 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+                    <Code2 className="w-10 h-10 text-muted-foreground" />
+                  </div>
+                  <p className="text-muted-foreground font-medium">Run your code to see results</p>
+                  <p className="text-xs text-muted-foreground mt-1">Your test results will appear here</p>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                    <span className="font-semibold">Summary</span>
-                    <span className={`text-sm font-mono ${testResults.every(r => r.passed) ? "text-success" : "text-destructive"}`}>
-                      {testResults.filter(r => r.passed).length} / {testResults.length} Passed
-                    </span>
+                  <div className={`flex items-center justify-between p-5 rounded-xl border-2 shadow-soft ${testResults.every(r => r.passed) ? "bg-success/10 border-success/30" : "bg-destructive/10 border-destructive/30"}`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${testResults.every(r => r.passed) ? "bg-success/20" : "bg-destructive/20"}`}>
+                        {testResults.every(r => r.passed) ? (
+                          <CheckCircle2 className="w-5 h-5 text-success" />
+                        ) : (
+                          <XCircle className="w-5 h-5 text-destructive" />
+                        )}
+                      </div>
+                      <span className="font-bold">Summary</span>
+                    </div>
+                    <div className="text-right">
+                      <div className={`text-2xl font-bold font-mono ${testResults.every(r => r.passed) ? "text-success" : "text-destructive"}`}>
+                        {testResults.filter(r => r.passed).length} / {testResults.length}
+                      </div>
+                      <p className="text-xs text-muted-foreground">Tests Passed</p>
+                    </div>
                   </div>
                   
                   {testResults.map((result, i) => (
-                    <Card key={i} className={`p-4 border-2 ${result.passed ? "border-success/30 bg-success/5" : "border-destructive/30 bg-destructive/5"}`}>
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <h4 className="font-semibold text-sm mb-1">Test Case {i + 1}</h4>
-                          <p className="text-xs text-muted-foreground">{result.description}</p>
+                    <Card key={i} className={`group p-5 border-2 transition-all duration-200 hover:shadow-lg ${result.passed ? "border-success/30 bg-success/5 hover:border-success/50" : "border-destructive/30 bg-destructive/5 hover:border-destructive/50"}`}>
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-start gap-3">
+                          <div className={`p-2 rounded-lg ${result.passed ? "bg-success/20" : "bg-destructive/20"}`}>
+                            {result.passed ? (
+                              <CheckCircle2 className="w-4 h-4 text-success" />
+                            ) : (
+                              <XCircle className="w-4 h-4 text-destructive" />
+                            )}
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-sm mb-1">Test Case {i + 1}</h4>
+                            <p className="text-xs text-muted-foreground">{result.description}</p>
+                          </div>
                         </div>
-                        <span className={`text-lg font-bold ${result.passed ? "text-success" : "text-destructive"}`}>
-                          {result.passed ? "✓" : "✗"}
-                        </span>
+                        <Badge variant={result.passed ? "default" : "destructive"} className="font-mono">
+                          {result.passed ? "PASS" : "FAIL"}
+                        </Badge>
                       </div>
                       
-                      <div className="space-y-2 text-xs font-mono">
-                        <div className="grid grid-cols-[80px_1fr] gap-2">
-                          <span className="text-muted-foreground">Input:</span>
-                          <code className="bg-background px-2 py-1 rounded">{result.input}</code>
+                      <div className="space-y-3 text-xs font-mono">
+                        <div className="p-3 bg-background/50 rounded-lg border border-border">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="font-bold text-muted-foreground">Input:</span>
+                          </div>
+                          <code className="block text-foreground">{result.input}</code>
                         </div>
-                        <div className="grid grid-cols-[80px_1fr] gap-2">
-                          <span className="text-muted-foreground">Expected:</span>
-                          <code className="bg-background px-2 py-1 rounded text-success">{result.expected}</code>
-                        </div>
-                        <div className="grid grid-cols-[80px_1fr] gap-2">
-                          <span className="text-muted-foreground">Your Output:</span>
-                          <code className={`bg-background px-2 py-1 rounded ${result.passed ? "text-success" : "text-destructive"}`}>
-                            {result.got}
-                          </code>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="p-3 bg-success/10 rounded-lg border border-success/30">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="font-bold text-success">Expected:</span>
+                            </div>
+                            <code className="block text-success break-all">{result.expected}</code>
+                          </div>
+                          <div className={`p-3 rounded-lg border ${result.passed ? "bg-success/10 border-success/30" : "bg-destructive/10 border-destructive/30"}`}>
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className={`font-bold ${result.passed ? "text-success" : "text-destructive"}`}>Your Output:</span>
+                            </div>
+                            <code className={`block break-all ${result.passed ? "text-success" : "text-destructive"}`}>
+                              {result.got}
+                            </code>
+                          </div>
                         </div>
                       </div>
                     </Card>

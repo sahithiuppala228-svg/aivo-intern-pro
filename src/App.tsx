@@ -10,6 +10,7 @@ import AssessmentIntro from "./pages/AssessmentIntro";
 import MCQTest from "./pages/MCQTest";
 import CodingTest from "./pages/CodingTest";
 import NotFound from "./pages/NotFound";
+import GlobalAIMentor from "./components/GlobalAIMentor";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ const App = () => (
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+        <GlobalAIMentor />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
