@@ -404,7 +404,6 @@ const ProfileSetup = () => {
           size="lg"
           className="fixed bottom-6 right-6 rounded-full shadow-hover z-40"
         >
-          <MessageCircle className="w-5 h-5 mr-2" />
           Ask Aivo
         </Button>
       )}
