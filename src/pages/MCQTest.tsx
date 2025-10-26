@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Clock, CheckCircle, XCircle } from "lucide-react";
@@ -30,6 +32,7 @@ const MCQTest = () => {
   const { toast } = useToast();
   const domain = location.state?.domain || "Web Development";
 
+  const [showInstructions, setShowInstructions] = useState(true);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
@@ -217,6 +220,7 @@ const MCQTest = () => {
     } else {
       // Reset the test for retry
       setShowResults(false);
+      setShowInstructions(true);
       setCurrentQuestionIndex(0);
       setSelectedAnswers({});
       setTimeLeft(600);
@@ -230,7 +234,7 @@ const MCQTest = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-muted-foreground">Loading questions...</p>
@@ -239,136 +243,164 @@ const MCQTest = () => {
     );
   }
 
-  const currentQuestion = questions[currentQuestionIndex];
-  const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
-  const answeredCount = Object.keys(selectedAnswers).length;
-
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 py-8">
-      <div className="container mx-auto px-6 max-w-4xl">
-        {/* Header */}
-        <div className="mb-8">
+  // Instructions Screen
+  if (showInstructions) {
+    return (
+      <div className="min-h-screen bg-background py-8">
+        <div className="container mx-auto px-6 max-w-3xl">
           <Button
             variant="ghost"
             onClick={() => navigate("/assessment-intro")}
-            className="mb-4"
+            className="mb-6"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Assessment Intro
+            Back
           </Button>
 
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-3xl font-bold">MCQ Test</h1>
-              <p className="text-muted-foreground">Domain: {domain}</p>
+          <Card className="p-8 shadow-sm border">
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold mb-2">{domain} MCQ Test</h1>
+              <p className="text-muted-foreground">Please read the instructions carefully before starting</p>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-lg font-semibold">
-                <Clock className="w-5 h-5" />
-                {formatTime(timeLeft)}
+
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-semibold mb-4">Instructions:</h2>
+                <div className="space-y-4 text-muted-foreground">
+                  <div className="flex gap-3">
+                    <span className="font-semibold text-foreground min-w-[24px]">1.</span>
+                    <p><span className="font-semibold text-foreground">Number of Questions:</span> {questions.length}</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="font-semibold text-foreground min-w-[24px]">2.</span>
+                    <p><span className="font-semibold text-foreground">Types of Questions:</span> Multiple Choice Questions (MCQs)</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="font-semibold text-foreground min-w-[24px]">3.</span>
+                    <div>
+                      <p><span className="font-semibold text-foreground">Marking Scheme:</span> All questions have equal weightage. Every correct response gets +1 mark.</p>
+                      <p className="mt-1">There is no negative marking.</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="font-semibold text-foreground min-w-[24px]">4.</span>
+                    <p>You must score <span className="font-semibold text-foreground">≥80%</span> (at least 8 correct answers) to pass this test.</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="font-semibold text-foreground min-w-[24px]">5.</span>
+                    <p><span className="font-semibold text-foreground">Time Limit:</span> 10 minutes</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-6 flex justify-center">
+                <Button 
+                  onClick={() => setShowInstructions(false)}
+                  size="lg"
+                  className="px-8"
+                  variant="hero"
+                >
+                  START TEST →
+                </Button>
               </div>
             </div>
-          </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Question {currentQuestionIndex + 1} of {questions.length}</span>
-              <span>Answered: {answeredCount}/{questions.length}</span>
+  const currentQuestion = questions[currentQuestionIndex];
+  const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
+
+  return (
+    <div className="min-h-screen bg-background py-8">
+      <div className="container mx-auto px-6 max-w-4xl">
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-2xl font-bold">{domain} MCQ Test</h1>
+              <p className="text-sm text-muted-foreground">Question {currentQuestionIndex + 1} of {questions.length}</p>
             </div>
-            <Progress value={progress} />
+            <div className="flex items-center gap-2 px-4 py-2 bg-muted rounded-lg">
+              <Clock className="w-5 h-5 text-primary" />
+              <span className="text-lg font-semibold">{formatTime(timeLeft)}</span>
+            </div>
           </div>
+          <Progress value={progress} className="h-2" />
         </div>
 
         {/* Question Card */}
-        <Card className="p-8 mb-6">
-          <h2 className="text-2xl font-semibold mb-6">{currentQuestion?.question}</h2>
+        <Card className="p-8 mb-6 shadow-sm border">
+          <h2 className="text-xl font-semibold mb-8 leading-relaxed">{currentQuestion?.question}</h2>
 
-          <div className="space-y-3">
+          <RadioGroup
+            value={selectedAnswers[currentQuestionIndex] || ""}
+            onValueChange={(value) => handleAnswerSelect(value)}
+            className="space-y-4"
+          >
             {["A", "B", "C", "D"].map((option) => {
               const optionText = currentQuestion?.[`option_${option.toLowerCase()}` as keyof Question];
-              const isSelected = selectedAnswers[currentQuestionIndex] === option;
-
               return (
-                <button
-                  key={option}
-                  onClick={() => handleAnswerSelect(option)}
-                  className={`w-full p-4 text-left rounded-lg border-2 transition-all ${
-                    isSelected
-                      ? "border-primary bg-primary/10"
-                      : "border-border hover:border-primary/50 hover:bg-muted"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${
-                        isSelected
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {option}
-                    </div>
-                    <span>{optionText}</span>
-                  </div>
-                </button>
+                <div key={option} className="flex items-center space-x-3 p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer">
+                  <RadioGroupItem value={option} id={`option-${option}`} />
+                  <Label
+                    htmlFor={`option-${option}`}
+                    className="flex-1 cursor-pointer text-base"
+                  >
+                    {optionText}
+                  </Label>
+                </div>
               );
             })}
-          </div>
+          </RadioGroup>
         </Card>
 
         {/* Navigation Buttons */}
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center gap-4">
           <Button
             variant="outline"
             onClick={handlePrevious}
             disabled={currentQuestionIndex === 0}
+            size="lg"
           >
-            Previous
+            ← Previous
           </Button>
 
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             {currentQuestionIndex === questions.length - 1 ? (
               <Button
-                variant="hero"
                 onClick={handleSubmitTest}
-                disabled={answeredCount < questions.length}
+                disabled={Object.keys(selectedAnswers).length < questions.length}
+                size="lg"
+                className="px-8"
               >
                 Submit Test
               </Button>
             ) : (
-              <Button variant="default" onClick={handleNext}>
-                Next
+              <Button 
+                onClick={handleNext}
+                size="lg"
+                className="px-8"
+              >
+                Next →
               </Button>
             )}
           </div>
         </div>
 
-        {/* Question Navigation */}
-        <div className="mt-8 p-4 bg-muted/50 rounded-lg">
-          <p className="text-sm text-muted-foreground mb-3">Quick Navigation:</p>
-          <div className="flex flex-wrap gap-2">
-            {questions.map((_, index) => (
-              <button
-                key={index}
-                onClick={() => setCurrentQuestionIndex(index)}
-                className={`w-10 h-10 rounded-lg font-semibold transition-all ${
-                  currentQuestionIndex === index
-                    ? "bg-primary text-primary-foreground"
-                    : selectedAnswers[index]
-                    ? "bg-primary/20 text-primary"
-                    : "bg-background text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                {index + 1}
-              </button>
-            ))}
-          </div>
+        {/* Progress Indicator */}
+        <div className="mt-6 text-center">
+          <p className="text-sm text-muted-foreground">
+            Answered: {Object.keys(selectedAnswers).length}/{questions.length}
+          </p>
         </div>
       </div>
 
       {/* Results Dialog */}
       <AlertDialog open={showResults} onOpenChange={setShowResults}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-2xl">
           <AlertDialogHeader>
             <div className="flex justify-center mb-4">
               {passed ? (
@@ -409,7 +441,7 @@ const MCQTest = () => {
                 </div>
               )}
 
-              <Button variant="hero" onClick={handleResultsClose} className="w-full">
+              <Button variant="hero" onClick={handleResultsClose} className="w-full" size="lg">
                 {passed ? "Continue to Coding Test" : "Retry Test"}
               </Button>
             </AlertDialogDescription>
