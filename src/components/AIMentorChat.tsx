@@ -171,13 +171,22 @@ const AIMentorChat = ({ isOpen, onClose }: AIMentorChatProps) => {
   };
 
   const speakText = async (text: string) => {
+    if (!voiceMode) return; // Only speak if voice mode is enabled
+    
     try {
       setIsSpeaking(true);
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
         body: { text, voice: 'alloy' }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("TTS error:", error);
+        throw error;
+      }
+
+      if (!data?.audioContent) {
+        throw new Error("No audio content received");
+      }
 
       const audioData = atob(data.audioContent);
       const audioArray = new Uint8Array(audioData.length);
@@ -189,6 +198,16 @@ const AIMentorChat = ({ isOpen, onClose }: AIMentorChatProps) => {
       const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);
       
+      audio.onerror = () => {
+        setIsSpeaking(false);
+        URL.revokeObjectURL(audioUrl);
+        toast({
+          variant: "destructive",
+          title: "Audio Playback Error",
+          description: "Failed to play audio. Please try again.",
+        });
+      };
+      
       audio.onended = () => {
         setIsSpeaking(false);
         URL.revokeObjectURL(audioUrl);
@@ -198,13 +217,27 @@ const AIMentorChat = ({ isOpen, onClose }: AIMentorChatProps) => {
     } catch (error) {
       console.error("Error speaking text:", error);
       setIsSpeaking(false);
+      toast({
+        variant: "destructive",
+        title: "Text-to-Speech Error",
+        description: "Failed to convert text to speech. Please check your connection.",
+      });
     }
   };
 
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          sampleRate: 24000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+        } 
+      });
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm'
+      });
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
@@ -222,6 +255,10 @@ const AIMentorChat = ({ isOpen, onClose }: AIMentorChatProps) => {
 
       mediaRecorder.start();
       setIsRecording(true);
+      toast({
+        title: "Recording...",
+        description: "Speak now. Click the mic button again to stop.",
+      });
     } catch (error) {
       console.error("Error starting recording:", error);
       toast({
@@ -241,6 +278,11 @@ const AIMentorChat = ({ isOpen, onClose }: AIMentorChatProps) => {
 
   const transcribeAudio = async (audioBlob: Blob) => {
     try {
+      toast({
+        title: "Processing...",
+        description: "Transcribing your voice message...",
+      });
+
       const reader = new FileReader();
       reader.readAsDataURL(audioBlob);
       reader.onloadend = async () => {
@@ -250,11 +292,24 @@ const AIMentorChat = ({ isOpen, onClose }: AIMentorChatProps) => {
           body: { audio: base64Audio }
         });
 
-        if (error) throw error;
-
-        if (data.text) {
-          setInput(data.text);
+        if (error) {
+          console.error("STT error:", error);
+          throw error;
         }
+
+        if (data?.text) {
+          setInput(data.text);
+          toast({
+            title: "Voice Message Received",
+            description: "Your message has been transcribed successfully.",
+          });
+        } else {
+          throw new Error("No text received from transcription");
+        }
+      };
+      
+      reader.onerror = () => {
+        throw new Error("Failed to read audio file");
       };
     } catch (error) {
       console.error("Error transcribing audio:", error);
