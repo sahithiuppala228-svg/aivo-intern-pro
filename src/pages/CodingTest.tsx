@@ -118,6 +118,8 @@ const CodingTest = () => {
   const [copyAttempts, setCopyAttempts] = useState(0);
   const [testResults, setTestResults] = useState<Array<{ passed: boolean; message: string; input: string; expected: string; got: string; description: string }>>([]);
   const [actualOutput, setActualOutput] = useState<string>("");
+  const [userInput, setUserInput] = useState<string>("");
+  const [expectedOutput, setExpectedOutput] = useState<string>("");
   
   // Randomly select a challenge from the pool
   const [challenge] = useState<CodingChallenge>(() => {
@@ -161,68 +163,38 @@ const CodingTest = () => {
 
   const handleSubmit = () => {
     const results: Array<{ passed: boolean; message: string; input: string; expected: string; got: string; description: string }> = [];
-    
     try {
-      // Simple evaluation - in production, use a sandboxed environment
       const userFunction = new Function('return ' + code)();
-      
-      challenge.testCases.forEach((testCase, index) => {
-        try {
-          const input = JSON.parse(testCase.input);
-          const result = Array.isArray(input) ? userFunction(...input) : userFunction(input);
-          const resultStr = typeof result === 'object' ? JSON.stringify(result) : String(result);
-          
-          if (resultStr === testCase.expected) {
-            results.push({
-              passed: true,
-              message: `Test ${index + 1}: Passed ✓`,
-              input: testCase.input,
-              expected: testCase.expected,
-              got: resultStr,
-              description: testCase.description
-            });
-          } else {
-            results.push({
-              passed: false,
-              message: `Test ${index + 1}: Failed ✗`,
-              input: testCase.input,
-              expected: testCase.expected,
-              got: resultStr,
-              description: testCase.description
-            });
-          }
-        } catch (error) {
-          results.push({
-            passed: false,
-            message: `Test ${index + 1}: Error`,
-            input: testCase.input,
-            expected: testCase.expected,
-            got: `Error: ${error}`,
-            description: testCase.description
-          });
-        }
-      });
-      
-      setTestResults(results);
-      
-      const passed = results.every(r => r.passed);
-      if (passed) {
-        toast({
-          title: "Congratulations!",
-          description: "All test cases passed! Redirecting...",
-        });
-        setTimeout(() => navigate("/"), 2000);
-      } else {
-        toast({
-          title: "Some tests failed",
-          description: "Review the output and try again.",
-          variant: "destructive",
-        });
+      let parsedInput: any;
+      try {
+        parsedInput = userInput ? JSON.parse(userInput) : null;
+      } catch (e) {
+        throw new Error("Invalid JSON in Input");
       }
-    } catch (error) {
+      const result = Array.isArray(parsedInput) ? userFunction(...parsedInput) : userFunction(parsedInput);
+      const resultStr = typeof result === 'object' ? JSON.stringify(result) : String(result);
+      setActualOutput(resultStr);
+
+      const passed = String(resultStr) === String(expectedOutput);
+      results.push({
+        passed,
+        message: passed ? "Matched ✓" : "Did not match ✗",
+        input: userInput,
+        expected: expectedOutput,
+        got: resultStr,
+        description: "Your single test"
+      });
+
+      setTestResults(results);
+      if (passed) {
+        toast({ title: "Great!", description: "Your output matches expected." });
+      } else {
+        toast({ title: "Mismatch", description: "Your output doesn't match expected. Try again.", variant: "destructive" });
+      }
+    } catch (error: any) {
       toast({
-        title: "Code Error",
-        description: "Please check your code syntax.",
+        title: "Run Error",
+        description: error?.message || "Please check your code and input.",
         variant: "destructive",
       });
     }
@@ -291,27 +263,27 @@ const CodingTest = () => {
                   <div className="p-2 bg-primary/10 rounded-lg">
                     <CheckCircle2 className="w-4 h-4 text-primary" />
                   </div>
-                  Test Cases
+                  Input & Expected Output
                 </h3>
-                <div className="space-y-3">
-                  {challenge.testCases.map((tc, i) => (
-                    <div key={i} className="group p-4 bg-gradient-code rounded-lg border border-border hover:border-primary/50 hover:shadow-soft transition-all duration-200">
-                      <div className="flex items-start justify-between mb-2">
-                        <p className="text-xs font-bold text-primary">{tc.description}</p>
-                        <Badge variant="outline" className="text-xs">Case {i + 1}</Badge>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex items-start gap-2">
-                          <span className="text-xs font-mono text-muted-foreground min-w-[70px] font-semibold">Input:</span>
-                          <code className="text-xs font-mono bg-background px-3 py-1.5 rounded border border-border flex-1 group-hover:border-primary/30 transition-colors">{tc.input}</code>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <span className="text-xs font-mono text-muted-foreground min-w-[70px] font-semibold">Expected:</span>
-                          <code className="text-xs font-mono bg-background px-3 py-1.5 rounded border border-success/30 flex-1 text-success">{tc.expected}</code>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Your Input (JSON)</label>
+                    <Textarea
+                      value={userInput}
+                      onChange={(e) => setUserInput(e.target.value)}
+                      placeholder='e.g., ["Buy milk","Walk dog"] or {"name":"John"}'
+                      className="font-mono min-h-[120px] bg-gradient-code border-2 focus:border-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Expected Output (string or JSON)</label>
+                    <Textarea
+                      value={expectedOutput}
+                      onChange={(e) => setExpectedOutput(e.target.value)}
+                      placeholder='e.g., <ul><li>Buy milk</li></ul> or "16:9" or {"mean":3}'
+                      className="font-mono min-h-[120px] bg-gradient-code border-2 focus:border-primary"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -336,7 +308,7 @@ const CodingTest = () => {
 
               <Button onClick={handleSubmit} variant="hero" size="lg" className="w-full mt-6 group">
                 <Play className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
-                Run Tests & Submit
+                Run & Compare
               </Button>
             </Card>
           </div>
@@ -348,7 +320,7 @@ const CodingTest = () => {
                 <div className="p-2 bg-accent/10 rounded-lg">
                   <Play className="w-4 h-4 text-accent" />
                 </div>
-                <h3 className="font-bold text-lg">Test Results</h3>
+                <h3 className="font-bold text-lg">Output</h3>
               </div>
               
               {testResults.length === 0 ? (
@@ -356,8 +328,8 @@ const CodingTest = () => {
                   <div className="p-4 bg-muted/30 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">
                     <Code2 className="w-10 h-10 text-muted-foreground" />
                   </div>
-                  <p className="text-muted-foreground font-medium">Run your code to see results</p>
-                  <p className="text-xs text-muted-foreground mt-1">Your test results will appear here</p>
+                  <p className="text-muted-foreground font-medium">Run your code to see output</p>
+                  <p className="text-xs text-muted-foreground mt-1">Your output will appear here</p>
                 </div>
               ) : (
                 <div className="space-y-4">

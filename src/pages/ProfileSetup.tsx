@@ -6,11 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { X, Upload, Plus, Sparkles, ArrowLeft, MessageCircle } from "lucide-react";
+import { X, Upload, Plus, Sparkles, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import aiMentorIcon from "@/assets/ai-mentor-icon.jpg";
 import { useNavigate } from "react-router-dom";
-import AIMentorChat from "@/components/AIMentorChat";
+
 
 const ProfileSetup = () => {
   const { toast } = useToast();
@@ -18,7 +18,6 @@ const ProfileSetup = () => {
   const [selectedDomains, setSelectedDomains] = useState<string[]>([]);
   const [customDomain, setCustomDomain] = useState("");
   const [avatarPreview, setAvatarPreview] = useState("");
-  const [isChatOpen, setIsChatOpen] = useState(false);
   
   // Form field states
   const [firstName, setFirstName] = useState("");
@@ -397,20 +396,6 @@ const ProfileSetup = () => {
         </div>
       </div>
 
-      {/* AI Mentor Chat Button */}
-      {!isChatOpen && (
-        <Button
-          onClick={() => setIsChatOpen(true)}
-          variant="hero"
-          size="lg"
-          className="fixed bottom-6 right-6 rounded-full shadow-hover z-40"
-        >
-          Ask Aivo
-        </Button>
-      )}
-
-      {/* AI Mentor Chat */}
-      <AIMentorChat isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
     </>
   );
 };

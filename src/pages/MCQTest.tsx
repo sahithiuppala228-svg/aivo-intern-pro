@@ -62,52 +62,49 @@ const MCQTest = () => {
 
   const loadQuestions = async () => {
     try {
-      // Get total count of questions for this domain
-      const { count } = await supabase
-        .from("mcq_questions")
-        .select("*", { count: "exact", head: true })
-        .eq("domain", domain);
-
-      // Generate random offset to get different questions each time
-      const totalQuestions = count || 0;
-      const randomOffset = totalQuestions > 10 
-        ? Math.floor(Math.random() * (totalQuestions - 10)) 
-        : 0;
-
-      const { data, error } = await supabase
+      // Fetch up to 100 questions for the selected domain
+      const { data: domainData, error: domainError } = await supabase
         .from("mcq_questions")
         .select("*")
         .eq("domain", domain)
-        .range(randomOffset, randomOffset + 9);
+        .limit(100);
 
-      if (error) throw error;
+      if (domainError) throw domainError;
 
-      if (!data || data.length === 0) {
+      const prevKey = `mcq_prev_ids_${domain}`;
+      const prevIds: string[] = JSON.parse(sessionStorage.getItem(prevKey) || "[]");
+
+      const pickSet = (pool: Question[]) => {
+        const shuffled = [...pool].sort(() => Math.random() - 0.5);
+        const notPrev = shuffled.filter(q => !prevIds.includes(q.id)).slice(0, 10);
+        if (notPrev.length < 10) {
+          const remaining = shuffled.filter(q => !notPrev.some(n => n.id === q.id)).slice(0, 10 - notPrev.length);
+          return [...notPrev, ...remaining];
+        }
+        return notPrev;
+      };
+
+      if (!domainData || domainData.length === 0) {
         toast({
           title: "No questions found",
           description: `No questions available for ${domain}. Using Web Development questions.`,
           variant: "destructive",
         });
-        
-        const { count: fallbackCount } = await supabase
-          .from("mcq_questions")
-          .select("*", { count: "exact", head: true })
-          .eq("domain", "Web Development");
-
-        const fallbackOffset = (fallbackCount || 0) > 10 
-          ? Math.floor(Math.random() * ((fallbackCount || 0) - 10)) 
-          : 0;
 
         const { data: fallbackData, error: fallbackError } = await supabase
           .from("mcq_questions")
           .select("*")
           .eq("domain", "Web Development")
-          .range(fallbackOffset, fallbackOffset + 9);
+          .limit(100);
 
         if (fallbackError) throw fallbackError;
-        setQuestions(fallbackData || []);
+        const picked = pickSet(fallbackData || []);
+        setQuestions(picked);
+        sessionStorage.setItem(prevKey, JSON.stringify(picked.map(q => q.id)));
       } else {
-        setQuestions(data);
+        const picked = pickSet(domainData);
+        setQuestions(picked);
+        sessionStorage.setItem(prevKey, JSON.stringify(picked.map(q => q.id)));
       }
     } catch (error: any) {
       toast({

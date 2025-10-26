@@ -171,12 +171,7 @@ const AssessmentIntro = () => {
             variant="outline" 
             size="lg" 
             className="sm:min-w-[200px]"
-            onClick={() => {
-              toast({
-                title: "Practice Mode",
-                description: "Practice module coming soon...",
-              });
-            }}
+            onClick={() => navigate("/mcq-test", { state: { domain, practice: true } })}
           >
             Practice Mode (Free)
           </Button>
