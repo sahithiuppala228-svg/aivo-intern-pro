@@ -3,12 +3,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, Clock, FileText, Code, AlertCircle, ArrowLeft } from "lucide-react";
 import assessmentIcon from "@/assets/assessment-icon.jpg";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 
 const AssessmentIntro = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+  const domain = location.state?.domain || "Web Development";
   
   const assessmentFlow = [
     {
@@ -161,7 +163,7 @@ const AssessmentIntro = () => {
             variant="hero" 
             size="lg" 
             className="sm:min-w-[200px]"
-            onClick={() => navigate("/mcq-test", { state: { domain: "Web Development" } })}
+            onClick={() => navigate("/mcq-test", { state: { domain } })}
           >
             Start MCQ Test
           </Button>

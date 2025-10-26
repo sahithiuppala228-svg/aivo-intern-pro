@@ -141,7 +141,8 @@ const ProfileSetup = () => {
       title: "Profile saved!",
       description: "Let's begin your assessment journey.",
     });
-    navigate("/assessment-intro");
+    // Pass the first selected domain to the assessment
+    navigate("/assessment-intro", { state: { domain: selectedDomains[0] } });
   };
 
   return (
