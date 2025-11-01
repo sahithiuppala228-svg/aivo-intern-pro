@@ -95,6 +95,15 @@ Return via the provided tool only.`;
         if (!resp.ok) {
           const t = await resp.text();
           console.error("AI gateway tool-call error:", resp.status, t);
+          
+          // Handle rate limiting and payment errors specifically
+          if (resp.status === 429) {
+            throw new Error("RATE_LIMITED");
+          }
+          if (resp.status === 402) {
+            throw new Error("PAYMENT_REQUIRED");
+          }
+          
           useFallback = true;
         } else {
           const data = await resp.json();
@@ -167,6 +176,15 @@ Exactly 4 options per question. Difficulty: mix of Easy, Medium, Hard.`;
           if (!resp2.ok) {
             const t = await resp2.text();
             console.error("AI gateway fallback error:", resp2.status, t);
+            
+            // Handle rate limiting and payment errors specifically
+            if (resp2.status === 429) {
+              throw new Error("RATE_LIMITED");
+            }
+            if (resp2.status === 402) {
+              throw new Error("PAYMENT_REQUIRED");
+            }
+            
             throw new Error("Failed to generate questions");
           }
 
@@ -225,8 +243,32 @@ Exactly 4 options per question. Difficulty: mix of Easy, Medium, Hard.`;
     });
   } catch (error) {
     console.error("Error generating MCQ questions:", error);
+    
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    
+    // Return specific status codes for rate limiting and payment errors
+    if (errorMessage === "RATE_LIMITED") {
+      return new Response(
+        JSON.stringify({ 
+          error: "RATE_LIMITED",
+          message: "Too many requests. Please wait a moment and try again, or upgrade for higher limits."
+        }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    if (errorMessage === "PAYMENT_REQUIRED") {
+      return new Response(
+        JSON.stringify({ 
+          error: "PAYMENT_REQUIRED",
+          message: "AI credits depleted. Please add credits to your workspace to continue."
+        }),
+        { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      JSON.stringify({ error: errorMessage }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

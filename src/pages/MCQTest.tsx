@@ -70,7 +70,28 @@ const MCQTest = () => {
         body: { domain, count: 50 }
       });
 
-      if (error) throw error;
+      if (error) {
+        // Handle specific error types
+        if (error.message?.includes('RATE_LIMITED') || (error as any)?.error === 'RATE_LIMITED') {
+          toast({
+            title: "Rate Limit Reached",
+            description: "Too many requests. Please wait a moment and try again, or upgrade for higher limits.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        if (error.message?.includes('PAYMENT_REQUIRED') || (error as any)?.error === 'PAYMENT_REQUIRED') {
+          toast({
+            title: "Credits Depleted",
+            description: "AI credits have been used up. Please add credits to your workspace to continue.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        throw error;
+      }
 
       if (!data || data.length === 0) {
         toast({
