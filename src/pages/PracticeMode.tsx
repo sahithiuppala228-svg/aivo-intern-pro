@@ -58,7 +58,7 @@ const PracticeMode = () => {
       setLoading(true);
       
       const { data, error } = await supabase.functions.invoke('generate-practice-questions', {
-        body: { domain }
+        body: { domain, count: 25 }
       });
 
       if (error) throw error;
