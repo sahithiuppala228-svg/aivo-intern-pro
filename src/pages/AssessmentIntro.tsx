@@ -64,11 +64,18 @@ const AssessmentIntro = () => {
         {/* Assessment Flow */}
         <div className="grid md:grid-cols-2 gap-6">
           {assessmentFlow.map((step, idx) => (
-            <Card key={idx} className="shadow-soft border-2 hover:border-primary/50 transition-all">
+            <Card 
+              key={idx} 
+              className={`shadow-soft border-2 hover:shadow-hover transition-all ${
+                idx === 0 
+                  ? 'bg-primary/5 border-primary/30 hover:border-primary' 
+                  : 'bg-secondary/5 border-secondary/30 hover:border-secondary'
+              }`}
+            >
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="p-3 rounded-lg bg-muted">
+                    <div className={`p-3 rounded-lg ${idx === 0 ? 'bg-primary/10' : 'bg-secondary/10'}`}>
                       {step.icon}
                     </div>
                     <div>
@@ -76,7 +83,14 @@ const AssessmentIntro = () => {
                       <CardDescription className="mt-1">{step.description}</CardDescription>
                     </div>
                   </div>
-                  <Badge variant="outline" className="text-xs">
+                  <Badge 
+                    variant="outline" 
+                    className={`text-xs ${
+                      idx === 0 
+                        ? 'border-primary text-primary bg-primary/10' 
+                        : 'border-secondary text-secondary bg-secondary/10'
+                    }`}
+                  >
                     Step {idx + 1}
                   </Badge>
                 </div>
