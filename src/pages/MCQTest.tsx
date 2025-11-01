@@ -62,54 +62,40 @@ const MCQTest = () => {
 
   const loadQuestions = async () => {
     try {
-      // Fetch up to 100 questions for the selected domain
-      const { data: domainData, error: domainError } = await supabase
-        .from("mcq_questions")
-        .select("*")
-        .eq("domain", domain)
-        .limit(100);
+      setLoading(true);
+      
+      const { data, error } = await supabase.functions.invoke('generate-mcq-questions', {
+        body: { domain, count: 10 }
+      });
 
-      if (domainError) throw domainError;
+      if (error) throw error;
 
-      const prevKey = `mcq_prev_ids_${domain}`;
-      const prevIds: string[] = JSON.parse(sessionStorage.getItem(prevKey) || "[]");
-
-      const pickSet = (pool: Question[]) => {
-        const shuffled = [...pool].sort(() => Math.random() - 0.5);
-        const notPrev = shuffled.filter(q => !prevIds.includes(q.id)).slice(0, 10);
-        if (notPrev.length < 10) {
-          const remaining = shuffled.filter(q => !notPrev.some(n => n.id === q.id)).slice(0, 10 - notPrev.length);
-          return [...notPrev, ...remaining];
-        }
-        return notPrev;
-      };
-
-      if (!domainData || domainData.length === 0) {
+      if (!data || data.length === 0) {
         toast({
-          title: "No questions found",
-          description: `No questions available for ${domain}. Using Web Development questions.`,
+          title: "Error",
+          description: "Failed to generate questions. Please try again.",
           variant: "destructive",
         });
-
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from("mcq_questions")
-          .select("*")
-          .eq("domain", "Web Development")
-          .limit(100);
-
-        if (fallbackError) throw fallbackError;
-        const picked = pickSet(fallbackData || []);
-        setQuestions(picked);
-        sessionStorage.setItem(prevKey, JSON.stringify(picked.map(q => q.id)));
-      } else {
-        const picked = pickSet(domainData);
-        setQuestions(picked);
-        sessionStorage.setItem(prevKey, JSON.stringify(picked.map(q => q.id)));
+        return;
       }
-    } catch (error: any) {
+
+      // Transform AI-generated questions to match our interface
+      const transformedQuestions = data.map((q: any) => ({
+        id: q.id,
+        question: q.question,
+        option_a: q.options[0],
+        option_b: q.options[1],
+        option_c: q.options[2],
+        option_d: q.options[3],
+        correct_answer: q.correctAnswer,
+      }));
+
+      setQuestions(transformedQuestions);
+    } catch (error) {
+      console.error('Error loading questions:', error);
       toast({
-        title: "Error loading questions",
-        description: error.message,
+        title: "Error",
+        description: "Failed to generate questions. Please try again.",
         variant: "destructive",
       });
     } finally {

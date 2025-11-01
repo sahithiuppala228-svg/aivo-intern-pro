@@ -3,110 +3,29 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Copy, AlertTriangle, CheckCircle2, XCircle, Code2, Play } from "lucide-react";
+import { ArrowLeft, AlertTriangle, CheckCircle2, XCircle, Code2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
 
-interface CodingChallenge {
+interface Challenge {
+  id: string;
   title: string;
   description: string;
-  starterCode: string;
-  testCases: { input: string; expected: string; description: string }[];
+  difficulty: string;
+  domain: string;
+  inputFormat: string;
+  outputFormat: string;
+  constraints: string[];
+  testCases: Array<{
+    input: string;
+    output: string;
+    explanation: string;
+  }>;
+  sampleInput: string;
+  sampleOutput: string;
 }
-
-// Multiple challenges per domain to randomize
-const challengePools: Record<string, CodingChallenge[]> = {
-  "Web Development": [
-    {
-      title: "Create a Todo List Component",
-      description: "Write a function that takes an array of tasks and returns HTML markup for a todo list with proper structure.",
-      starterCode: `function createTodoList(tasks) {
-  // Your code here
-  
-}`,
-      testCases: [
-        { input: '["Buy milk", "Walk dog"]', expected: '<ul><li>Buy milk</li><li>Walk dog</li></ul>', description: "Basic list with 2 items" },
-        { input: '["Task 1"]', expected: '<ul><li>Task 1</li></ul>', description: "Single item list" },
-        { input: '[]', expected: '<ul></ul>', description: "Empty list" },
-      ],
-    },
-    {
-      title: "Button Click Counter",
-      description: "Create a function that generates HTML for a button with click count display.",
-      starterCode: `function createCounter(label, initialCount) {
-  // Your code here
-  
-}`,
-      testCases: [
-        { input: '["Click Me", 0]', expected: '<div><button>Click Me</button><span>Count: 0</span></div>', description: "Initial counter" },
-        { input: '["Submit", 5]', expected: '<div><button>Submit</button><span>Count: 5</span></div>', description: "Counter with initial value" },
-      ],
-    },
-    {
-      title: "Format User Card",
-      description: "Create a function that formats user data into a card HTML structure.",
-      starterCode: `function formatUserCard(user) {
-  // user has: name, email, role
-  
-}`,
-      testCases: [
-        { input: '{"name": "John", "email": "john@test.com", "role": "Developer"}', expected: '<div class="user-card"><h3>John</h3><p>john@test.com</p><span>Developer</span></div>', description: "Standard user card" },
-      ],
-    },
-  ],
-  "Data Science": [
-    {
-      title: "Calculate Statistics",
-      description: "Write a function that calculates mean, median, and mode from an array of numbers.",
-      starterCode: `function calculateStats(numbers) {
-  // Return object with mean, median
-  
-}`,
-      testCases: [
-        { input: '[1, 2, 3, 4, 5]', expected: '{"mean":3,"median":3}', description: "Odd length array" },
-        { input: '[10, 20, 30, 40]', expected: '{"mean":25,"median":25}', description: "Even length array" },
-      ],
-    },
-    {
-      title: "Data Filtering",
-      description: "Filter an array of objects based on a threshold value.",
-      starterCode: `function filterData(data, threshold) {
-  // Filter items where value > threshold
-  
-}`,
-      testCases: [
-        { input: '[[{"value": 10}, {"value": 20}, {"value": 5}], 8]', expected: '[{"value":10},{"value":20}]', description: "Filter by threshold" },
-      ],
-    },
-  ],
-  "Mobile Development": [
-    {
-      title: "Validate Input Formats",
-      description: "Validate phone numbers and email addresses.",
-      starterCode: `function validatePhone(phone) {
-  // Return true if format is (XXX) XXX-XXXX
-  
-}`,
-      testCases: [
-        { input: '"(123) 456-7890"', expected: 'true', description: "Valid phone format" },
-        { input: '"123-456-7890"', expected: 'false', description: "Invalid format" },
-        { input: '"(999) 888-7777"', expected: 'true', description: "Another valid format" },
-      ],
-    },
-    {
-      title: "Screen Dimension Calculator",
-      description: "Calculate aspect ratio from width and height.",
-      starterCode: `function getAspectRatio(width, height) {
-  // Return simplified ratio as string like "16:9"
-  
-}`,
-      testCases: [
-        { input: '[1920, 1080]', expected: '"16:9"', description: "HD resolution" },
-        { input: '[1024, 768]', expected: '"4:3"', description: "Standard resolution" },
-      ],
-    },
-  ],
-};
 
 const CodingTest = () => {
   const navigate = useNavigate();
@@ -114,37 +33,57 @@ const CodingTest = () => {
   const { toast } = useToast();
   const domain = location.state?.domain || "Web Development";
 
-  // Select 5 random challenges from the pool
-  const [challenges] = useState<CodingChallenge[]>(() => {
-    const pool = challengePools[domain] || challengePools["Web Development"];
-    const shuffled = [...pool].sort(() => Math.random() - 0.5);
-    // If pool has fewer than 5, repeat to get 5
-    const selected = [];
-    while (selected.length < 5) {
-      selected.push(...shuffled.slice(0, Math.min(5 - selected.length, shuffled.length)));
-    }
-    return selected.slice(0, 5);
-  });
-
+  const [challenges, setChallenges] = useState<Challenge[]>([]);
+  const [loading, setLoading] = useState(true);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [code, setCode] = useState("");
   const [copyAttempts, setCopyAttempts] = useState(0);
   const [userInput, setUserInput] = useState<string>("");
-  const [timeLeft, setTimeLeft] = useState(30 * 60); // 30 minutes in seconds
+  const [timeLeft, setTimeLeft] = useState(30 * 60);
   const [answerRevealed, setAnswerRevealed] = useState(false);
   const [results, setResults] = useState<Array<{ questionIndex: number; passed: boolean; answerShown: boolean; score: number }>>([]);
   const [isFinished, setIsFinished] = useState(false);
 
   const currentChallenge = challenges[currentQuestionIndex];
 
-  // Set starter code when question changes
+  const loadChallenges = async () => {
+    try {
+      setLoading(true);
+      const generatedChallenges: Challenge[] = [];
+
+      for (let i = 0; i < 5; i++) {
+        const { data, error } = await supabase.functions.invoke('generate-coding-problem', {
+          body: { domain }
+        });
+
+        if (error) throw error;
+        generatedChallenges.push(data);
+      }
+
+      setChallenges(generatedChallenges);
+    } catch (error) {
+      console.error('Error loading challenges:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate coding challenges. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    setCode(currentChallenge.starterCode);
+    loadChallenges();
+  }, [domain]);
+
+  useEffect(() => {
+    if (!currentChallenge) return;
+    setCode("");
     setUserInput("");
     setAnswerRevealed(false);
   }, [currentQuestionIndex, currentChallenge]);
 
-  // Timer countdown
   useEffect(() => {
     if (timeLeft <= 0 || isFinished) return;
     
@@ -215,7 +154,6 @@ const CodingTest = () => {
       const userFunction = new Function('return ' + code)();
       let parsedInput: any;
       
-      // Use the first test case as reference
       const testCase = currentChallenge.testCases[0];
       try {
         parsedInput = userInput ? JSON.parse(userInput) : JSON.parse(testCase.input);
@@ -225,10 +163,10 @@ const CodingTest = () => {
       
       const result = Array.isArray(parsedInput) ? userFunction(...parsedInput) : userFunction(parsedInput);
       const resultStr = typeof result === 'object' ? JSON.stringify(result) : String(result);
-      const expectedStr = testCase.expected;
+      const expectedStr = testCase.output;
 
       const passed = String(resultStr) === String(expectedStr);
-      const score = passed ? (answerRevealed ? 0.5 : 1) : 0; // 50% if answer shown, 100% if solved independently
+      const score = passed ? (answerRevealed ? 0.5 : 1) : 0;
 
       setResults(prev => [...prev, {
         questionIndex: currentQuestionIndex,
@@ -245,7 +183,6 @@ const CodingTest = () => {
         variant: passed ? "default" : "destructive",
       });
 
-      // Move to next question or finish
       if (currentQuestionIndex < challenges.length - 1) {
         setCurrentQuestionIndex(prev => prev + 1);
       } else {
@@ -262,6 +199,17 @@ const CodingTest = () => {
 
   const totalScore = results.reduce((sum, r) => sum + r.score, 0);
   const percentage = isFinished ? (totalScore / 5) * 100 : 0;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background flex items-center justify-center">
+        <Card className="p-8 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Generating coding challenges...</p>
+        </Card>
+      </div>
+    );
+  }
 
   if (isFinished) {
     return (
@@ -335,27 +283,24 @@ const CodingTest = () => {
         </Button>
 
         <div className="mb-8 relative">
-          <div className="absolute -inset-1 bg-gradient-hero opacity-20 blur-3xl rounded-full"></div>
-          <div className="relative">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-gradient-hero rounded-xl shadow-glow">
-                  <Code2 className="w-6 h-6 text-primary-foreground" />
-                </div>
-                <div>
-                  <h1 className="text-4xl font-bold bg-gradient-hero bg-clip-text text-transparent">Coding Challenge</h1>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Badge variant="secondary" className="text-xs">{domain}</Badge>
-                    <Badge variant="outline" className="text-xs">Question {currentQuestionIndex + 1} of 5</Badge>
-                  </div>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-gradient-hero rounded-xl shadow-glow">
+                <Code2 className="w-6 h-6 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="text-4xl font-bold bg-gradient-hero bg-clip-text text-transparent">Coding Challenge</h1>
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge variant="secondary" className="text-xs">{domain}</Badge>
+                  <Badge variant="outline" className="text-xs">Question {currentQuestionIndex + 1} of 5</Badge>
                 </div>
               </div>
-              <div className="text-right">
-                <div className={`text-3xl font-bold font-mono ${timeLeft < 300 ? "text-destructive" : "text-foreground"}`}>
-                  {formatTime(timeLeft)}
-                </div>
-                <p className="text-xs text-muted-foreground">Time Remaining</p>
+            </div>
+            <div className="text-right">
+              <div className={`text-3xl font-bold font-mono ${timeLeft < 300 ? "text-destructive" : "text-foreground"}`}>
+                {formatTime(timeLeft)}
               </div>
+              <p className="text-xs text-muted-foreground">Time Remaining</p>
             </div>
           </div>
         </div>
@@ -376,155 +321,107 @@ const CodingTest = () => {
           </Card>
         )}
 
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* Left: Challenge & Code Editor */}
-          <div className="space-y-6">
-            <Card className="p-6 shadow-hover border-2 hover:border-primary/30 transition-all duration-300 bg-gradient-card">
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold mb-2 flex items-center gap-2">
-                  <span className="w-1 h-8 bg-gradient-hero rounded-full"></span>
-                  {currentChallenge.title}
-                </h2>
-                <p className="text-muted-foreground leading-relaxed">{currentChallenge.description}</p>
-              </div>
-              
-              <div className="mb-6">
-                <h3 className="font-semibold mb-4 flex items-center gap-2">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <CheckCircle2 className="w-4 h-4 text-primary" />
-                  </div>
-                  Your Input
-                </h3>
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Input (JSON)</label>
-                  <Textarea
-                    value={userInput}
-                    onChange={(e) => setUserInput(e.target.value)}
-                    placeholder={`e.g., ${currentChallenge.testCases[0].input}`}
-                    className="font-mono min-h-[120px] bg-gradient-code border-2 focus:border-primary"
-                  />
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Leave empty to use default test input
-                  </p>
-                </div>
-              </div>
-
-              {answerRevealed && (
-                <Card className="p-4 mb-6 border-2 border-primary bg-primary/5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                      <CheckCircle2 className="w-4 h-4 text-primary" />
-                    </div>
-                    <p className="font-bold text-primary">Answer Revealed (50% marks)</p>
-                  </div>
-                  <div className="space-y-2 text-sm">
-                    <p className="font-mono bg-background/50 p-3 rounded border">
-                      <span className="text-muted-foreground">Expected: </span>
-                      <span className="text-success font-bold">{currentChallenge.testCases[0].expected}</span>
-                    </p>
-                  </div>
-                </Card>
-              )}
-
-              <div>
-                <label className="block font-semibold mb-4 flex items-center gap-2">
-                  <div className="p-2 bg-secondary/10 rounded-lg">
-                    <Code2 className="w-4 h-4 text-secondary" />
-                  </div>
-                  Your Solution
-                </label>
-                <div className="relative group">
-                  <div className="absolute -inset-0.5 bg-gradient-hero opacity-0 group-hover:opacity-10 blur transition-opacity duration-300 rounded-lg"></div>
-                  <Textarea
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                    placeholder="// Write your code here..."
-                    className="relative font-mono min-h-[400px] bg-gradient-code border-2 focus:border-primary focus:shadow-glow transition-all duration-300 resize-none"
-                    onPaste={(e) => e.preventDefault()}
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3 mt-6">
-                {!answerRevealed && timeLeft > 0 && (
-                  <Button onClick={handleShowAnswer} variant="outline" size="lg" className="flex-1">
-                    Show Answer (50% marks)
-                  </Button>
-                )}
-                <Button onClick={handleSubmit} variant="hero" size="lg" className="flex-1 group">
-                  <Play className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
-                  Submit & Continue
-                </Button>
-              </div>
-            </Card>
+        <div className="bg-card rounded-lg shadow-lg p-6">
+          <div className="mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold text-card-foreground">
+                {currentChallenge.title}
+              </h2>
+              <Badge variant="outline">{currentChallenge.difficulty}</Badge>
+            </div>
+            <p className="text-muted-foreground mb-2">
+              Domain: {currentChallenge.domain}
+            </p>
+            <div className="bg-muted/50 p-4 rounded-lg mb-4">
+              <p className="text-card-foreground leading-relaxed">
+                {currentChallenge.description}
+              </p>
+            </div>
           </div>
 
-          {/* Right: Progress & Score */}
-          <div className="space-y-6">
-            <Card className="p-6 shadow-hover border-2 bg-gradient-card sticky top-6">
-              <div className="flex items-center gap-2 mb-6">
-                <div className="p-2 bg-accent/10 rounded-lg">
-                  <CheckCircle2 className="w-4 h-4 text-accent" />
-                </div>
-                <h3 className="font-bold text-lg">Progress</h3>
-              </div>
-              
-              <div className="space-y-6">
-                <div className="bg-gradient-card p-4 rounded-xl border-2">
-                  <p className="text-sm text-muted-foreground mb-2">Current Score</p>
-                  <div className="text-3xl font-bold bg-gradient-hero bg-clip-text text-transparent">
-                    {totalScore.toFixed(1)} / 5
+          <div className="space-y-4 mb-6">
+            <div>
+              <h3 className="font-semibold text-card-foreground mb-2">Input Format</h3>
+              <p className="text-muted-foreground">{currentChallenge.inputFormat}</p>
+            </div>
+            
+            <div>
+              <h3 className="font-semibold text-card-foreground mb-2">Output Format</h3>
+              <p className="text-muted-foreground">{currentChallenge.outputFormat}</p>
+            </div>
+            
+            <div>
+              <h3 className="font-semibold text-card-foreground mb-2">Constraints</h3>
+              <ul className="list-disc list-inside text-muted-foreground space-y-1">
+                {currentChallenge.constraints?.map((constraint, idx) => (
+                  <li key={idx}>{constraint}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <h3 className="font-semibold text-card-foreground mb-3">Sample Test Cases</h3>
+            {currentChallenge.testCases?.map((testCase, idx) => (
+              <div key={idx} className="bg-muted/30 p-4 rounded-lg mb-3">
+                <p className="font-medium text-card-foreground mb-2">{idx + 1}:</p>
+                <div className="grid grid-cols-2 gap-4 mb-2">
+                  <div>
+                    <span className="text-sm text-muted-foreground">Input</span>
+                    <pre className="bg-background p-2 rounded mt-1 text-sm">{testCase.input}</pre>
+                  </div>
+                  <div>
+                    <span className="text-sm text-muted-foreground">Output</span>
+                    <pre className="bg-background p-2 rounded mt-1 text-sm">{testCase.output}</pre>
                   </div>
                 </div>
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-medium">Explanation:</span> {testCase.explanation}
+                </p>
+              </div>
+            ))}
+          </div>
 
-                <div className="space-y-3">
-                  {[...Array(5)].map((_, i) => {
-                    const result = results.find(r => r.questionIndex === i);
-                    return (
-                      <div key={i} className={`flex items-center gap-3 p-3 rounded-lg border-2 ${
-                        i === currentQuestionIndex ? "border-primary bg-primary/5" :
-                        result ? (result.passed ? "border-success/30 bg-success/5" : "border-destructive/30 bg-destructive/5") :
-                        "border-border bg-background"
-                      }`}>
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
-                          i === currentQuestionIndex ? "bg-primary text-primary-foreground" :
-                          result ? (result.passed ? "bg-success text-success-foreground" : "bg-destructive text-destructive-foreground") :
-                          "bg-muted text-muted-foreground"
-                        }`}>
-                          {i + 1}
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-medium text-sm">
-                            {i === currentQuestionIndex ? "Current" : result ? "Completed" : "Pending"}
-                          </p>
-                          {result && (
-                            <p className="text-xs text-muted-foreground">
-                              {result.score.toFixed(1)} mark{result.score !== 1 ? 's' : ''} 
-                              {result.answerShown && " (answer shown)"}
-                            </p>
-                          )}
-                        </div>
-                        {result && (
-                          result.passed ? (
-                            <CheckCircle2 className="w-5 h-5 text-success" />
-                          ) : (
-                            <XCircle className="w-5 h-5 text-destructive" />
-                          )
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+          <div className="mb-6">
+            <Label htmlFor="userInput">Your Input (JSON)</Label>
+            <Textarea
+              id="userInput"
+              value={userInput}
+              onChange={(e) => setUserInput(e.target.value)}
+              placeholder='{"input": "your test input"}'
+              className="font-mono h-32"
+            />
+          </div>
 
-                {answerRevealed && (
-                  <Card className="p-4 border-2 border-primary bg-primary/5">
-                    <p className="text-xs text-primary font-medium">
-                      ⚠️ Answer revealed - You'll get 50% marks if correct
-                    </p>
-                  </Card>
-                )}
+          {answerRevealed && (
+            <Card className="p-4 mb-6 border-2 border-primary bg-primary/5">
+              <div className="flex items-center gap-2 mb-3">
+                <CheckCircle2 className="w-4 h-4 text-primary" />
+                <p className="font-bold text-primary">Answer Revealed (50% marks)</p>
               </div>
             </Card>
+          )}
+
+          <div className="mb-6">
+            <Label htmlFor="code">Your Solution</Label>
+            <Textarea
+              id="code"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="Write your code here..."
+              className="font-mono h-64"
+            />
+          </div>
+
+          <div className="flex gap-4">
+            {!answerRevealed && (
+              <Button onClick={handleShowAnswer} variant="outline" className="flex-1">
+                Show Answer (50% marks)
+              </Button>
+            )}
+            <Button onClick={handleSubmit} variant="default" className="flex-1">
+              Submit & Continue
+            </Button>
           </div>
         </div>
       </div>

@@ -55,34 +55,34 @@ const PracticeMode = () => {
   const loadQuestions = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("mcq_questions")
-        .select("*")
-        .eq("domain", domain)
-        .limit(100);
+      
+      const { data, error } = await supabase.functions.invoke('generate-mcq-questions', {
+        body: { domain, count: 15 }
+      });
 
       if (error) throw error;
 
       if (!data || data.length === 0) {
         toast({
-          title: "No questions found",
-          description: `No questions available for ${domain}. Using Web Development questions.`,
+          title: "Error",
+          description: "Failed to generate questions. Please try again.",
           variant: "destructive",
         });
-
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from("mcq_questions")
-          .select("*")
-          .eq("domain", "Web Development")
-          .limit(100);
-
-        if (fallbackError) throw fallbackError;
-        const shuffled = [...(fallbackData || [])].sort(() => Math.random() - 0.5);
-        setQuestions(shuffled.slice(0, 15));
-      } else {
-        const shuffled = [...data].sort(() => Math.random() - 0.5);
-        setQuestions(shuffled.slice(0, 15));
+        return;
       }
+
+      // Transform AI-generated questions to match our interface
+      const transformedQuestions = data.map((q: any) => ({
+        id: q.id,
+        question: q.question,
+        option_a: q.options[0],
+        option_b: q.options[1],
+        option_c: q.options[2],
+        option_d: q.options[3],
+        correct_answer: q.correctAnswer,
+      }));
+
+      setQuestions(transformedQuestions);
 
       // Initialize question states
       const initialStates: Record<number, QuestionState> = {};
@@ -95,7 +95,6 @@ const PracticeMode = () => {
         };
       }
       setQuestionStates(initialStates);
-      setLoading(false);
     } catch (error: any) {
       console.error("Error loading questions:", error);
       toast({
