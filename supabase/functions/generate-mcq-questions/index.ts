@@ -79,49 +79,105 @@ Return via the provided tool only.`;
         tool_choice: { type: "function", function: { name: "generate_questions" } },
       } as any;
 
-      const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      });
-
-      if (!resp.ok) {
-        const t = await resp.text();
-        console.error("AI gateway error:", resp.status, t);
-        throw new Error("Failed to generate questions");
-      }
-
-      const data = await resp.json();
-      const choice = data.choices?.[0];
-
-      // Try tool call first
       let questionsChunk: any[] | null = null;
+      let useFallback = false;
+
       try {
-        const tc = choice?.message?.tool_calls?.[0];
-        if (tc?.function?.arguments) {
-          const args = tc.function.arguments;
-          const parsed = typeof args === 'string' ? JSON.parse(args) : args;
-          if (parsed?.questions && Array.isArray(parsed.questions)) {
-            questionsChunk = parsed.questions;
+        const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+        });
+
+        if (!resp.ok) {
+          const t = await resp.text();
+          console.error("AI gateway tool-call error:", resp.status, t);
+          useFallback = true;
+        } else {
+          const data = await resp.json();
+          const choice = data.choices?.[0];
+
+          // Try tool call first
+          try {
+            const tc = choice?.message?.tool_calls?.[0];
+            if (tc?.function?.arguments) {
+              const args = tc.function.arguments;
+              const parsed = typeof args === 'string' ? JSON.parse(args) : args;
+              if (parsed?.questions && Array.isArray(parsed.questions)) {
+                questionsChunk = parsed.questions;
+              }
+            }
+          } catch (e) {
+            console.warn("Tool call parse failed, will try content fallback:", e);
+          }
+
+          // Fallback: parse content as JSON (clean code fences)
+          if (!questionsChunk) {
+            try {
+              let content = choice?.message?.content?.trim?.() ?? "";
+              content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+              const parsed = JSON.parse(content);
+              questionsChunk = Array.isArray(parsed) ? parsed : parsed?.questions;
+            } catch (e) {
+              console.error("Content parse failed:", e);
+              useFallback = true;
+            }
           }
         }
-      } catch (e) {
-        console.warn("Tool call parse failed, will try content fallback:", e);
+      } catch (err) {
+        console.error("Primary AI call failed:", err);
+        useFallback = true;
       }
 
-      // Fallback: parse content as JSON (clean code fences)
-      if (!questionsChunk) {
+      // Second attempt without tools: ask for strict JSON only
+      if (!questionsChunk && useFallback) {
+        const fallbackPrompt = `Return EXACT JSON with this shape, no prose, no code fences:
+{
+  "questions": [
+    {
+      "id": "uuid",
+      "question": "Question text",
+      "options": ["A", "B", "C", "D"],
+      "correctAnswer": "One of the options"
+    }
+  ]
+}
+Generate ${n} unique, domain-relevant MCQs for ${domain}.
+Exactly 4 options per question. Difficulty: mix of Easy, Medium, Hard.`;
+
         try {
-          let content = choice?.message?.content?.trim?.() ?? "";
-          content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-          const parsed = JSON.parse(content);
-          questionsChunk = Array.isArray(parsed) ? parsed : parsed?.questions;
+          const resp2 = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${LOVABLE_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "google/gemini-2.5-flash",
+              messages: [
+                { role: "system", content: "You return ONLY strict JSON conforming to the schema." },
+                { role: "user", content: fallbackPrompt },
+              ],
+            }),
+          });
+
+          if (!resp2.ok) {
+            const t = await resp2.text();
+            console.error("AI gateway fallback error:", resp2.status, t);
+            throw new Error("Failed to generate questions");
+          }
+
+          const data2 = await resp2.json();
+          let content2 = data2.choices?.[0]?.message?.content ?? "";
+          content2 = String(content2).replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+          const parsed2 = JSON.parse(content2);
+          questionsChunk = Array.isArray(parsed2) ? parsed2 : parsed2?.questions;
         } catch (e) {
-          console.error("Content parse failed:", e);
-          throw new Error("AI did not return parsable questions");
+          console.error("Fallback parsing failed:", e);
+          throw new Error("Failed to generate questions");
         }
       }
 
