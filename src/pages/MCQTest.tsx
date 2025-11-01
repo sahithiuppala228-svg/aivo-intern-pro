@@ -62,42 +62,61 @@ const MCQTest = () => {
     return () => clearInterval(timer);
   }, [timeLeft]);
 
-  const loadQuestions = async () => {
-    try {
-      setLoading(true);
-      
+  const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
+
+  const fetchWithRetry = async (desiredCount = 20, maxRetries = 2) => {
+    let attempt = 0;
+    let count = desiredCount;
+
+    while (attempt <= maxRetries) {
       const { data, error } = await supabase.functions.invoke('generate-mcq-questions', {
-        body: { domain, count: 20 }
+        body: { domain, count }
       });
 
-      if (error) {
-        // Handle specific error types
-        if (error.message?.includes('RATE_LIMITED') || (error as any)?.error === 'RATE_LIMITED') {
-          toast({
-            title: "Rate Limit Reached",
-            description: "Too many requests. Please wait a moment and try again, or upgrade for higher limits.",
-            variant: "destructive",
-          });
-          return;
-        }
-        
-        if (error.message?.includes('PAYMENT_REQUIRED') || (error as any)?.error === 'PAYMENT_REQUIRED') {
-          toast({
-            title: "Credits Depleted",
-            description: "AI credits have been used up. Please add credits to your workspace to continue.",
-            variant: "destructive",
-          });
-          return;
-        }
-        
+      if (!error && data) return data;
+
+      // On specific errors, back off then retry with a smaller count
+      const errMsg = (error as any)?.message || (error as any)?.error || '';
+      const isRateLimited = String(errMsg).includes('RATE_LIMITED');
+      const isPayment = String(errMsg).includes('PAYMENT_REQUIRED');
+
+      if (isPayment) {
+        toast({
+          title: 'Credits Depleted',
+          description: 'AI credits have been used up. Please add credits to continue.',
+          variant: 'destructive',
+        });
         throw error;
       }
 
+      if (!isRateLimited || attempt === maxRetries) {
+        throw error || new Error('Failed to generate questions');
+      }
+
+      const delayMs = 1500 * (attempt + 1) + Math.floor(Math.random() * 500);
+      toast({
+        title: 'Rate Limited',
+        description: `Retrying in ${Math.ceil(delayMs / 1000)}s with fewer questions...`,
+      });
+      await sleep(delayMs);
+      count = Math.max(10, Math.ceil(count / 2));
+      attempt++;
+    }
+
+    throw new Error('Failed to generate questions after retries');
+  };
+
+  const loadQuestions = async () => {
+    try {
+      setLoading(true);
+
+      const data = await fetchWithRetry(20, 2);
+
       if (!data || data.length === 0) {
         toast({
-          title: "Error",
-          description: "Failed to generate questions. Please try again.",
-          variant: "destructive",
+          title: 'Error',
+          description: 'Failed to generate questions. Please try again.',
+          variant: 'destructive',
         });
         return;
       }
@@ -117,9 +136,9 @@ const MCQTest = () => {
     } catch (error) {
       console.error('Error loading questions:', error);
       toast({
-        title: "Error",
-        description: "Failed to generate questions. Please try again.",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to generate questions. Please try again shortly.',
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);

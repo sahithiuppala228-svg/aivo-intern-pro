@@ -17,7 +17,7 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const batchSize = Math.min(10, total); // smaller chunks are more reliable
+    const batchSize = Math.min(5, total); // smaller chunks reduce rate limit risk
     const allQuestions: any[] = [];
     const seen = new Set<string>();
 
