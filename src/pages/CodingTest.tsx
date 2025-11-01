@@ -141,13 +141,6 @@ const CodingTest = () => {
     };
   }, [toast]);
 
-  const handleShowAnswer = () => {
-    setAnswerRevealed(true);
-    toast({
-      title: "Answer Revealed",
-      description: "You'll get 50% marks if you answer correctly now.",
-    });
-  };
 
   const handleSubmit = () => {
     try {
@@ -321,108 +314,119 @@ const CodingTest = () => {
           </Card>
         )}
 
-        <div className="bg-card rounded-lg shadow-lg p-6">
-          <div className="mb-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-card-foreground">
-                {currentChallenge.title}
-              </h2>
-              <Badge variant="outline">{currentChallenge.difficulty}</Badge>
-            </div>
-            <p className="text-muted-foreground mb-2">
-              Domain: {currentChallenge.domain}
-            </p>
-            <div className="bg-muted/50 p-4 rounded-lg mb-4">
-              <p className="text-card-foreground leading-relaxed">
-                {currentChallenge.description}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Challenge Details Card */}
+          <Card className="bg-gradient-to-br from-primary/5 via-card to-secondary/5 border-2 border-primary/20 shadow-hover p-6">
+            <div className="mb-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold bg-gradient-hero bg-clip-text text-transparent">
+                  {currentChallenge.title}
+                </h2>
+                <Badge className="bg-gradient-hero text-primary-foreground shadow-soft">{currentChallenge.difficulty}</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground mb-4 flex items-center gap-2">
+                <span className="inline-block w-2 h-2 rounded-full bg-primary"></span>
+                Domain: {currentChallenge.domain}
               </p>
-            </div>
-          </div>
-
-          <div className="space-y-4 mb-6">
-            <div>
-              <h3 className="font-semibold text-card-foreground mb-2">Input Format</h3>
-              <p className="text-muted-foreground">{currentChallenge.inputFormat}</p>
-            </div>
-            
-            <div>
-              <h3 className="font-semibold text-card-foreground mb-2">Output Format</h3>
-              <p className="text-muted-foreground">{currentChallenge.outputFormat}</p>
-            </div>
-            
-            <div>
-              <h3 className="font-semibold text-card-foreground mb-2">Constraints</h3>
-              <ul className="list-disc list-inside text-muted-foreground space-y-1">
-                {currentChallenge.constraints?.map((constraint, idx) => (
-                  <li key={idx}>{constraint}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          <div className="mb-6">
-            <h3 className="font-semibold text-card-foreground mb-3">Sample Test Cases</h3>
-            {currentChallenge.testCases?.map((testCase, idx) => (
-              <div key={idx} className="bg-muted/30 p-4 rounded-lg mb-3">
-                <p className="font-medium text-card-foreground mb-2">{idx + 1}:</p>
-                <div className="grid grid-cols-2 gap-4 mb-2">
-                  <div>
-                    <span className="text-sm text-muted-foreground">Input</span>
-                    <pre className="bg-background p-2 rounded mt-1 text-sm">{testCase.input}</pre>
-                  </div>
-                  <div>
-                    <span className="text-sm text-muted-foreground">Output</span>
-                    <pre className="bg-background p-2 rounded mt-1 text-sm">{testCase.output}</pre>
-                  </div>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  <span className="font-medium">Explanation:</span> {testCase.explanation}
+              <div className="bg-gradient-subtle p-4 rounded-lg border border-primary/10 shadow-soft">
+                <p className="text-card-foreground leading-relaxed">
+                  {currentChallenge.description}
                 </p>
               </div>
-            ))}
-          </div>
+            </div>
 
-          <div className="mb-6">
-            <Label htmlFor="userInput">Your Input (JSON)</Label>
-            <Textarea
-              id="userInput"
-              value={userInput}
-              onChange={(e) => setUserInput(e.target.value)}
-              placeholder='{"input": "your test input"}'
-              className="font-mono h-32"
-            />
-          </div>
+            <div className="space-y-4 mb-6">
+              <Card className="bg-gradient-to-br from-accent/10 to-transparent border border-accent/20 p-4">
+                <h3 className="font-semibold text-accent mb-2 flex items-center gap-2">
+                  <span className="inline-block w-1 h-4 bg-accent rounded-full"></span>
+                  Input Format
+                </h3>
+                <p className="text-muted-foreground text-sm">{currentChallenge.inputFormat}</p>
+              </Card>
+              
+              <Card className="bg-gradient-to-br from-success/10 to-transparent border border-success/20 p-4">
+                <h3 className="font-semibold text-success mb-2 flex items-center gap-2">
+                  <span className="inline-block w-1 h-4 bg-success rounded-full"></span>
+                  Output Format
+                </h3>
+                <p className="text-muted-foreground text-sm">{currentChallenge.outputFormat}</p>
+              </Card>
+              
+              <Card className="bg-gradient-to-br from-secondary/20 to-transparent border border-secondary/30 p-4">
+                <h3 className="font-semibold text-secondary-foreground mb-2 flex items-center gap-2">
+                  <span className="inline-block w-1 h-4 bg-secondary rounded-full"></span>
+                  Constraints
+                </h3>
+                <ul className="list-disc list-inside text-muted-foreground space-y-1 text-sm ml-2">
+                  {currentChallenge.constraints?.map((constraint, idx) => (
+                    <li key={idx}>{constraint}</li>
+                  ))}
+                </ul>
+              </Card>
+            </div>
 
-          {answerRevealed && (
-            <Card className="p-4 mb-6 border-2 border-primary bg-primary/5">
-              <div className="flex items-center gap-2 mb-3">
-                <CheckCircle2 className="w-4 h-4 text-primary" />
-                <p className="font-bold text-primary">Answer Revealed (50% marks)</p>
-              </div>
-            </Card>
-          )}
+            <div className="mb-6">
+              <h3 className="font-semibold text-card-foreground mb-3 flex items-center gap-2">
+                <Code2 className="w-5 h-5 text-primary" />
+                Sample Test Cases
+              </h3>
+              {currentChallenge.testCases?.map((testCase, idx) => (
+                <Card key={idx} className="bg-gradient-to-br from-muted/50 to-background border border-muted mb-3 p-4 hover:shadow-soft transition-all duration-200">
+                  <p className="font-medium text-primary mb-3">Test Case {idx + 1}</p>
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div className="bg-gradient-to-br from-blue-500/5 to-transparent p-3 rounded-lg border border-blue-500/20">
+                      <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-1 block">Input</span>
+                      <pre className="bg-background/80 p-2 rounded text-xs overflow-x-auto">{testCase.input}</pre>
+                    </div>
+                    <div className="bg-gradient-to-br from-green-500/5 to-transparent p-3 rounded-lg border border-green-500/20">
+                      <span className="text-xs font-semibold text-green-600 dark:text-green-400 mb-1 block">Output</span>
+                      <pre className="bg-background/80 p-2 rounded text-xs overflow-x-auto">{testCase.output}</pre>
+                    </div>
+                  </div>
+                  <div className="bg-gradient-subtle p-2 rounded-lg">
+                    <p className="text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground">Explanation:</span> {testCase.explanation}
+                    </p>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </Card>
 
-          <div className="mb-6">
-            <Label htmlFor="code">Your Solution</Label>
-            <Textarea
-              id="code"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="Write your code here..."
-              className="font-mono h-64"
-            />
-          </div>
+          {/* Code Editor Card */}
+          <Card className="bg-gradient-to-br from-secondary/5 via-card to-accent/5 border-2 border-secondary/20 shadow-hover p-6">
+            <div className="mb-6">
+              <Label htmlFor="userInput" className="text-lg font-semibold mb-3 flex items-center gap-2">
+                <span className="inline-block w-3 h-3 rounded-full bg-accent"></span>
+                Your Input (JSON)
+              </Label>
+              <Textarea
+                id="userInput"
+                value={userInput}
+                onChange={(e) => setUserInput(e.target.value)}
+                placeholder='{"input": "your test input"}'
+                className="font-mono h-32 bg-gradient-subtle border-accent/20 focus:border-accent/40 transition-all duration-200"
+              />
+            </div>
 
-          <div className="flex gap-4">
-            {!answerRevealed && (
-              <Button onClick={handleShowAnswer} variant="outline" className="flex-1">
-                Show Answer (50% marks)
-              </Button>
-            )}
-            <Button onClick={handleSubmit} variant="default" className="flex-1">
+            <div className="mb-6">
+              <Label htmlFor="code" className="text-lg font-semibold mb-3 flex items-center gap-2">
+                <span className="inline-block w-3 h-3 rounded-full bg-primary"></span>
+                Your Solution
+              </Label>
+              <Textarea
+                id="code"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="Write your code here..."
+                className="font-mono h-96 bg-gradient-subtle border-primary/20 focus:border-primary/40 transition-all duration-200"
+              />
+            </div>
+
+            <Button onClick={handleSubmit} variant="hero" size="lg" className="w-full">
               Submit & Continue
             </Button>
-          </div>
+          </Card>
         </div>
       </div>
     </div>
