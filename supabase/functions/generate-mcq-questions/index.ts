@@ -20,21 +20,10 @@ serve(async (req) => {
 
     const prompt = `Generate ${count} multiple-choice questions for the domain: ${domain}.
 
-Return ONLY valid JSON array with this exact structure (no markdown, no code blocks):
-[
-  {
-    "id": "unique-id-1",
-    "question": "Question text here?",
-    "options": ["Option A", "Option B", "Option C", "Option D"],
-    "correctAnswer": "Option A",
-    "domain": "${domain}"
-  }
-]
-
-Make sure:
-- All ${count} questions are unique and relevant to ${domain}
-- Each question has exactly 4 options
-- Questions vary in difficulty
+Each question should:
+- Be unique and relevant to ${domain}
+- Have exactly 4 options
+- Vary in difficulty (Easy, Medium, Hard mix)
 - Cover different aspects of ${domain}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -46,9 +35,46 @@ Make sure:
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: "You are an MCQ question generator. Always return valid JSON only, no markdown formatting." },
+          { role: "system", content: "You are an MCQ question generator. Generate questions using the provided tool." },
           { role: "user", content: prompt }
         ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "generate_questions",
+              description: `Generate ${count} multiple-choice questions`,
+              parameters: {
+                type: "object",
+                properties: {
+                  questions: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        id: { type: "string" },
+                        question: { type: "string" },
+                        options: {
+                          type: "array",
+                          items: { type: "string" },
+                          minItems: 4,
+                          maxItems: 4
+                        },
+                        correctAnswer: { type: "string" },
+                        domain: { type: "string" }
+                      },
+                      required: ["id", "question", "options", "correctAnswer", "domain"],
+                      additionalProperties: false
+                    }
+                  }
+                },
+                required: ["questions"],
+                additionalProperties: false
+              }
+            }
+          }
+        ],
+        tool_choice: { type: "function", function: { name: "generate_questions" } }
       }),
     });
 
@@ -59,12 +85,14 @@ Make sure:
     }
 
     const data = await response.json();
-    let content = data.choices[0].message.content.trim();
+    const toolCall = data.choices[0].message.tool_calls?.[0];
     
-    // Remove markdown code blocks if present
-    content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    
-    const questions = JSON.parse(content);
+    if (!toolCall || !toolCall.function.arguments) {
+      throw new Error("No tool call response from AI");
+    }
+
+    const result = JSON.parse(toolCall.function.arguments);
+    const questions = result.questions;
 
     return new Response(JSON.stringify(questions), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
