@@ -16,7 +16,6 @@ const ProfileSetup = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [selectedDomains, setSelectedDomains] = useState<string[]>([]);
-  const [customDomain, setCustomDomain] = useState("");
   const [avatarPreview, setAvatarPreview] = useState("");
   
   // Form field states
@@ -427,6 +426,15 @@ const ProfileSetup = () => {
                   placeholder="E-commerce App, Portfolio Website, etc."
                   value={projects}
                   onChange={(e) => setProjects(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="customDomain">Custom Domain (Optional)</Label>
+                <Input
+                  id="customDomain"
+                  placeholder="yourdomain.com"
+                  value={customDomain}
+                  onChange={(e) => setCustomDomain(e.target.value)}
                 />
               </div>
             </CardContent>
