@@ -477,7 +477,7 @@ const AIMentorChat = ({ isOpen, onClose }: AIMentorChatProps) => {
       <div className="p-4 border-t border-border bg-card space-y-3">
         <div className="flex items-center gap-2">
           <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-            <SelectTrigger className="w-[180px] h-9">
+            <SelectTrigger className="w-full h-9">
               <Languages className="w-4 h-4 mr-2" />
               <SelectValue />
             </SelectTrigger>
@@ -489,15 +489,6 @@ const AIMentorChat = ({ isOpen, onClose }: AIMentorChatProps) => {
               ))}
             </SelectContent>
           </Select>
-          <Button
-            variant={voiceMode ? "default" : "outline"}
-            size="sm"
-            onClick={() => setVoiceMode(!voiceMode)}
-            className="text-xs"
-          >
-            <Volume2 className="w-4 h-4 mr-2" />
-            Voice Mode
-          </Button>
         </div>
         <div className="flex gap-2">
           <Input
