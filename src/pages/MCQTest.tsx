@@ -64,7 +64,7 @@ const MCQTest = () => {
 
   const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
-  const fetchWithRetry = async (desiredCount = 15, maxRetries = 1) => {
+  const fetchWithRetry = async (desiredCount = 30, maxRetries = 1) => {
     let attempt = 0;
     let count = desiredCount;
 
@@ -110,7 +110,7 @@ const MCQTest = () => {
     try {
       setLoading(true);
 
-      const data = await fetchWithRetry(15, 1);
+      const data = await fetchWithRetry(30, 1);
 
       if (!data || data.length === 0) {
         toast({

@@ -12,10 +12,10 @@ serve(async (req) => {
 
   try {
     const { failedQuestions } = await req.json();
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-    if (!OPENAI_API_KEY) {
-      throw new Error("OPENAI_API_KEY is not configured");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY is not configured");
     }
 
     const explanations = [];
@@ -36,25 +36,24 @@ Correct answer: ${question.correct_answer}
 Provide a clear, educational explanation in 2-3 sentences.`;
 
       try {
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${OPENAI_API_KEY}`,
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "gpt-4o-mini",
+            model: "google/gemini-2.5-flash-lite",
             messages: [
               { role: "system", content: "You are a helpful tutor explaining quiz answers clearly and concisely." },
               { role: "user", content: prompt }
             ],
             max_tokens: 200,
-            temperature: 0.7,
           }),
         });
 
         if (!response.ok) {
-          console.error("OpenAI API error:", response.status, await response.text());
+          console.error("Lovable AI error:", response.status, await response.text());
           return {
             question: question.question,
             correct_answer: question.correct_answer,
