@@ -17,7 +17,7 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const batchSize = Math.min(10, total); // larger batches for speed
+    const batchSize = Math.min(6, total); // smaller batches to reduce rate-limit risk
     const allQuestions: any[] = [];
     const seen = new Set<string>();
 
@@ -206,20 +206,23 @@ Exactly 4 options per question. Difficulty: mix of Easy, Medium, Hard.`;
         const questionText = String(q.question ?? '').trim();
         if (!questionText || seen.has(questionText.toLowerCase())) continue;
 
-        let options: string[] = Array.isArray(q.options) ? q.options.slice(0, 4) : [];
+        const options: string[] = Array.isArray(q.options) ? q.options.slice(0, 4) : [];
         if (options.length !== 4) continue;
 
-        let correctAnswer: string = String(q.correctAnswer ?? '').trim();
-        if (!options.includes(correctAnswer)) {
-          // If model drifted, default to first option
-          correctAnswer = options[0];
+        // Ensure correctAnswer maps to a letter A-D matching the options
+        let correctAnswerText: string = String(q.correctAnswer ?? '').trim();
+        if (!options.includes(correctAnswerText)) {
+          correctAnswerText = options[0];
         }
+        const idx = Math.max(0, options.findIndex((o) => String(o).trim() === correctAnswerText));
+        const letters = ['A', 'B', 'C', 'D'] as const;
+        const correctAnswer = letters[idx] ?? 'A';
 
         const normalized = {
           id: String(q.id ?? crypto.randomUUID()),
           question: questionText,
           options,
-          correctAnswer,
+          correctAnswer, // letter A-D
           domain: String(q.domain ?? domain),
         };
 
@@ -237,12 +240,13 @@ Exactly 4 options per question. Difficulty: mix of Easy, Medium, Hard.`;
       try {
         await generateBatch(n);
         rateLimitTries = 0;
-        if (allQuestions.length < total) await sleep(300); // minimal spacing
+        if (allQuestions.length < total) await sleep(350); // minimal spacing
       } catch (e) {
         if (e instanceof Error && e.message === "RATE_LIMITED") {
           rateLimitTries++;
-          if (rateLimitTries >= 2) throw e;
-          await sleep(800 * rateLimitTries);
+          if (rateLimitTries > 4) throw e;
+          const backoff = Math.min(8000, 1000 * Math.pow(2, rateLimitTries)) + Math.floor(Math.random() * 400);
+          await sleep(backoff);
           continue;
         }
         throw e;

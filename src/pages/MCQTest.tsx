@@ -64,7 +64,7 @@ const MCQTest = () => {
 
   const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
-  const fetchWithRetry = async (desiredCount = 30, maxRetries = 1) => {
+  const fetchWithRetry = async (desiredCount = 30, maxRetries = 3) => {
     let attempt = 0;
     let count = desiredCount;
 
@@ -77,8 +77,9 @@ const MCQTest = () => {
 
       // On specific errors, back off then retry with a smaller count
       const errMsg = (error as any)?.message || (error as any)?.error || '';
-      const isRateLimited = String(errMsg).includes('RATE_LIMITED');
-      const isPayment = String(errMsg).includes('PAYMENT_REQUIRED');
+      const status = (error as any)?.status;
+      const isRateLimited = status === 429 || String(errMsg).includes('RATE_LIMITED');
+      const isPayment = status === 402 || String(errMsg).includes('PAYMENT_REQUIRED');
 
       if (isPayment) {
         toast({
@@ -93,13 +94,13 @@ const MCQTest = () => {
         throw error || new Error('Failed to generate questions');
       }
 
-      const delayMs = 1000 * (attempt + 1);
+      const delayMs = Math.min(6000, 800 * Math.pow(2, attempt)) + Math.floor(Math.random() * 300);
       toast({
         title: 'Rate Limited',
         description: `Retrying in ${Math.ceil(delayMs / 1000)}s with fewer questions...`,
       });
       await sleep(delayMs);
-      count = Math.max(10, Math.ceil(count / 2));
+      count = Math.max(5, Math.ceil(count / 2));
       attempt++;
     }
 
@@ -110,7 +111,7 @@ const MCQTest = () => {
     try {
       setLoading(true);
 
-      const data = await fetchWithRetry(30, 1);
+      const data = await fetchWithRetry(30, 3);
 
       if (!data || data.length === 0) {
         toast({
@@ -122,15 +123,24 @@ const MCQTest = () => {
       }
 
       // Transform AI-generated questions to match our interface
-      const transformedQuestions = data.map((q: any) => ({
-        id: q.id,
-        question: q.question,
-        option_a: q.options[0],
-        option_b: q.options[1],
-        option_c: q.options[2],
-        option_d: q.options[3],
-        correct_answer: q.correctAnswer,
-      }));
+      const transformedQuestions = data.map((q: any) => {
+        const options = q.options || [];
+        const letterRaw = String(q.correctAnswer ?? '').trim().toUpperCase();
+        let correctLetter = ['A', 'B', 'C', 'D'].includes(letterRaw) ? letterRaw : undefined;
+        if (!correctLetter && Array.isArray(options)) {
+          const idx = options.findIndex((opt: string) => String(opt).trim() === String(q.correctAnswer).trim());
+          correctLetter = ['A', 'B', 'C', 'D'][idx] ?? 'A';
+        }
+        return {
+          id: q.id,
+          question: q.question,
+          option_a: options[0],
+          option_b: options[1],
+          option_c: options[2],
+          option_d: options[3],
+          correct_answer: correctLetter,
+        };
+      });
 
       setQuestions(transformedQuestions);
     } catch (error) {
@@ -353,7 +363,7 @@ const MCQTest = () => {
   }
 
   const currentQuestion = questions[currentQuestionIndex];
-  const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
+  const progress = questions.length ? ((currentQuestionIndex + 1) / questions.length) * 100 : 0;
 
   // Preview Page
   if (showPreview) {
