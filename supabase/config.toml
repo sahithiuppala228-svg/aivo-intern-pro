@@ -1,1 +1,4 @@
 project_id = "wizljmliujeuvamnkibo"
+
+[functions.generate-practice-questions]
+verify_jwt = false

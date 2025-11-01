@@ -57,8 +57,8 @@ const PracticeMode = () => {
     try {
       setLoading(true);
       
-      const { data, error } = await supabase.functions.invoke('generate-mcq-questions', {
-        body: { domain, count: 25 }
+      const { data, error } = await supabase.functions.invoke('generate-practice-questions', {
+        body: { domain }
       });
 
       if (error) throw error;
@@ -66,24 +66,15 @@ const PracticeMode = () => {
       if (!data || data.length === 0) {
         toast({
           title: "Error",
-          description: "Failed to generate questions. Please try again.",
+          description: "Failed to load practice questions. Please try again.",
           variant: "destructive",
         });
+        setLoading(false);
         return;
       }
 
-      // Transform AI-generated questions to match our interface
-      const transformedQuestions = data.map((q: any) => ({
-        id: q.id,
-        question: q.question,
-        option_a: q.options[0],
-        option_b: q.options[1],
-        option_c: q.options[2],
-        option_d: q.options[3],
-        correct_answer: q.correctAnswer,
-      }));
-
-      setQuestions(transformedQuestions);
+      setQuestions(data);
+      setLoading(false);
 
       // Initialize question states
       const initialStates: Record<number, QuestionState> = {};
