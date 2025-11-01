@@ -64,85 +64,28 @@ const MCQTest = () => {
 
   const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
-  const fetchWithRetry = async (desiredCount = 30, maxRetries = 3) => {
-    let attempt = 0;
-    let count = desiredCount;
-
-    while (attempt <= maxRetries) {
-      const { data, error } = await supabase.functions.invoke('generate-mcq-questions', {
-        body: { domain, count }
-      });
-
-      if (!error && data) return data;
-
-      // On specific errors, back off then retry with a smaller count
-      const errMsg = (error as any)?.message || (error as any)?.error || '';
-      const status = (error as any)?.status;
-      const isRateLimited = status === 429 || String(errMsg).includes('RATE_LIMITED');
-      const isPayment = status === 402 || String(errMsg).includes('PAYMENT_REQUIRED');
-
-      if (isPayment) {
-        toast({
-          title: 'Credits Depleted',
-          description: 'AI credits have been used up. Please add credits to continue.',
-          variant: 'destructive',
-        });
-        throw error;
-      }
-
-      if (!isRateLimited || attempt === maxRetries) {
-        throw error || new Error('Failed to generate questions');
-      }
-
-      const delayMs = Math.min(6000, 800 * Math.pow(2, attempt)) + Math.floor(Math.random() * 300);
-      toast({
-        title: 'Rate Limited',
-        description: `Retrying in ${Math.ceil(delayMs / 1000)}s with fewer questions...`,
-      });
-      await sleep(delayMs);
-      count = Math.max(5, Math.ceil(count / 2));
-      attempt++;
-    }
-
-    throw new Error('Failed to generate questions after retries');
-  };
-
   const loadQuestions = async () => {
     try {
       setLoading(true);
 
-      const data = await fetchWithRetry(30, 3);
+      // Fetch exactly 25 questions from the fixed dataset for this domain
+      const { data, error } = await supabase
+        .from('mcq_questions')
+        .select('*')
+        .eq('domain', domain)
+        .limit(25);
 
-      if (!data || data.length === 0) {
+      if (error || !data || data.length === 0) {
         toast({
           title: 'Error',
-          description: 'Failed to generate questions. Please try again.',
+          description: 'No questions available for this domain. Please try another domain.',
           variant: 'destructive',
         });
         return;
       }
 
-      // Transform AI-generated questions to match our interface
-      const transformedQuestions = data.map((q: any) => {
-        const options = q.options || [];
-        const letterRaw = String(q.correctAnswer ?? '').trim().toUpperCase();
-        let correctLetter = ['A', 'B', 'C', 'D'].includes(letterRaw) ? letterRaw : undefined;
-        if (!correctLetter && Array.isArray(options)) {
-          const idx = options.findIndex((opt: string) => String(opt).trim() === String(q.correctAnswer).trim());
-          correctLetter = ['A', 'B', 'C', 'D'][idx] ?? 'A';
-        }
-        return {
-          id: q.id,
-          question: q.question,
-          option_a: options[0],
-          option_b: options[1],
-          option_c: options[2],
-          option_d: options[3],
-          correct_answer: correctLetter,
-        };
-      });
-
-      setQuestions(transformedQuestions);
+      // Questions are already in the correct format from the database
+      setQuestions(data);
     } catch (error) {
       console.error('Error loading questions:', error);
       toast({
@@ -336,7 +279,7 @@ const MCQTest = () => {
                   </div>
                    <div className="flex gap-3">
                     <span className="font-semibold text-foreground min-w-[24px]">4.</span>
-                    <p>You must score <span className="font-semibold text-foreground">≥60%</span> (at least 30 correct answers) to pass this test.</p>
+                    <p>You must score <span className="font-semibold text-foreground">≥60%</span> (at least 15 correct answers) to pass this test.</p>
                   </div>
                   <div className="flex gap-3">
                     <span className="font-semibold text-foreground min-w-[24px]">5.</span>
