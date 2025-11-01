@@ -36,7 +36,7 @@ const MCQTest = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
-  const [timeLeft, setTimeLeft] = useState(5400); // 90 minutes in seconds
+  const [timeLeft, setTimeLeft] = useState(2700); // 45 minutes in seconds
   const [loading, setLoading] = useState(true);
   const [showResults, setShowResults] = useState(false);
   const [score, setScore] = useState(0);
@@ -275,7 +275,7 @@ const MCQTest = () => {
       setShowInstructions(true);
       setCurrentQuestionIndex(0);
       setSelectedAnswers({});
-      setTimeLeft(5400);
+      setTimeLeft(2700);
       setScore(0);
       setPassed(false);
       setExplanations([]);
@@ -340,7 +340,7 @@ const MCQTest = () => {
                   </div>
                   <div className="flex gap-3">
                     <span className="font-semibold text-foreground min-w-[24px]">5.</span>
-                    <p><span className="font-semibold text-foreground">Time Limit:</span> 1 hour 30 minutes</p>
+                    <p><span className="font-semibold text-foreground">Time Limit:</span> 45 minutes</p>
                   </div>
                 </div>
               </div>
