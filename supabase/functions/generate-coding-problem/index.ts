@@ -59,9 +59,28 @@ Make it relevant to ${domain} and appropriate difficulty.`;
     });
 
     if (!response.ok) {
+      const status = response.status;
       const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      throw new Error("Failed to generate problem");
+      console.error("AI gateway error:", status, errorText);
+
+      if (status === 429) {
+        return new Response(JSON.stringify({ error: "Rate limits exceeded, please try again in a moment." }), {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (status === 402) {
+        return new Response(JSON.stringify({ error: "AI credits depleted. Please add credits to continue." }), {
+          status: 402,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      return new Response(JSON.stringify({ error: "AI gateway error", details: errorText }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const data = await response.json();
