@@ -171,7 +171,7 @@ const AssessmentIntro = () => {
             variant="outline" 
             size="lg" 
             className="sm:min-w-[200px]"
-            onClick={() => navigate("/mcq-test", { state: { domain, practice: true } })}
+            onClick={() => navigate("/practice-mode", { state: { domain } })}
           >
             Practice Mode (Free)
           </Button>
