@@ -195,6 +195,10 @@ Exactly 4 options per question. Difficulty: mix of Easy, Medium, Hard.`;
           questionsChunk = Array.isArray(parsed2) ? parsed2 : parsed2?.questions;
         } catch (e) {
           console.error("Fallback parsing failed:", e);
+          // If the fallback failed due to rate limits or payment, propagate that specific error
+          if (e instanceof Error && (e.message === "RATE_LIMITED" || e.message === "PAYMENT_REQUIRED")) {
+            throw e;
+          }
           throw new Error("Failed to generate questions");
         }
       }

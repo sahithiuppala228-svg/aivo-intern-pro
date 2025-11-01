@@ -67,7 +67,7 @@ const MCQTest = () => {
       setLoading(true);
       
       const { data, error } = await supabase.functions.invoke('generate-mcq-questions', {
-        body: { domain, count: 50 }
+        body: { domain, count: 20 }
       });
 
       if (error) {
