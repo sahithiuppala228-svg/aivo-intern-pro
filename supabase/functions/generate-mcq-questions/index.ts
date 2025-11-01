@@ -17,20 +17,13 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const batchSize = Math.min(5, total); // smaller chunks reduce rate limit risk
+    const batchSize = Math.min(10, total); // larger batches for speed
     const allQuestions: any[] = [];
     const seen = new Set<string>();
 
     const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
     async function generateBatch(n: number) {
-      const prompt = `Generate ${n} multiple-choice questions for the domain: ${domain}.
-
-Requirements:
-- Each question must be unique and relevant to ${domain}
-- Exactly 4 options per question
-- Mix of Easy, Medium and Hard difficulties across the set
-- Cover different sub-topics within ${domain}
-Return via the provided tool only.`;
+      const prompt = `Generate ${n} MCQs for ${domain}. Each question: 4 options, mix Easy/Medium/Hard difficulty. Return via tool.`;
 
       const body = {
         model: "google/gemini-2.5-flash-lite",
@@ -243,18 +236,16 @@ Exactly 4 options per question. Difficulty: mix of Easy, Medium, Hard.`;
       const n = Math.min(batchSize, need);
       try {
         await generateBatch(n);
-        rateLimitTries = 0; // reset on success
-        await sleep(600); // small spacing between batches
+        rateLimitTries = 0;
+        if (allQuestions.length < total) await sleep(300); // minimal spacing
       } catch (e) {
         if (e instanceof Error && e.message === "RATE_LIMITED") {
           rateLimitTries++;
-          if (rateLimitTries >= 3) {
-            throw e; // bubble up as 429 after several attempts
-          }
-          await sleep(1200 * rateLimitTries); // backoff
+          if (rateLimitTries >= 2) throw e;
+          await sleep(800 * rateLimitTries);
           continue;
         }
-        throw e; // other errors bubble up
+        throw e;
       }
     }
 

@@ -64,7 +64,7 @@ const MCQTest = () => {
 
   const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
-  const fetchWithRetry = async (desiredCount = 20, maxRetries = 2) => {
+  const fetchWithRetry = async (desiredCount = 15, maxRetries = 1) => {
     let attempt = 0;
     let count = desiredCount;
 
@@ -93,7 +93,7 @@ const MCQTest = () => {
         throw error || new Error('Failed to generate questions');
       }
 
-      const delayMs = 1500 * (attempt + 1) + Math.floor(Math.random() * 500);
+      const delayMs = 1000 * (attempt + 1);
       toast({
         title: 'Rate Limited',
         description: `Retrying in ${Math.ceil(delayMs / 1000)}s with fewer questions...`,
@@ -110,7 +110,7 @@ const MCQTest = () => {
     try {
       setLoading(true);
 
-      const data = await fetchWithRetry(20, 2);
+      const data = await fetchWithRetry(15, 1);
 
       if (!data || data.length === 0) {
         toast({
