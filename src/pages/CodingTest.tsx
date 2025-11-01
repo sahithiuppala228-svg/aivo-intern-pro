@@ -114,22 +114,63 @@ const CodingTest = () => {
   const { toast } = useToast();
   const domain = location.state?.domain || "Web Development";
 
-  const [code, setCode] = useState("");
-  const [copyAttempts, setCopyAttempts] = useState(0);
-  const [testResults, setTestResults] = useState<Array<{ passed: boolean; message: string; input: string; expected: string; got: string; description: string }>>([]);
-  const [actualOutput, setActualOutput] = useState<string>("");
-  const [userInput, setUserInput] = useState<string>("");
-  const [expectedOutput, setExpectedOutput] = useState<string>("");
-  
-  // Randomly select a challenge from the pool
-  const [challenge] = useState<CodingChallenge>(() => {
+  // Select 5 random challenges from the pool
+  const [challenges] = useState<CodingChallenge[]>(() => {
     const pool = challengePools[domain] || challengePools["Web Development"];
-    return pool[Math.floor(Math.random() * pool.length)];
+    const shuffled = [...pool].sort(() => Math.random() - 0.5);
+    // If pool has fewer than 5, repeat to get 5
+    const selected = [];
+    while (selected.length < 5) {
+      selected.push(...shuffled.slice(0, Math.min(5 - selected.length, shuffled.length)));
+    }
+    return selected.slice(0, 5);
   });
 
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [code, setCode] = useState("");
+  const [copyAttempts, setCopyAttempts] = useState(0);
+  const [userInput, setUserInput] = useState<string>("");
+  const [timeLeft, setTimeLeft] = useState(30 * 60); // 30 minutes in seconds
+  const [answerRevealed, setAnswerRevealed] = useState(false);
+  const [results, setResults] = useState<Array<{ questionIndex: number; passed: boolean; answerShown: boolean; score: number }>>([]);
+  const [isFinished, setIsFinished] = useState(false);
+
+  const currentChallenge = challenges[currentQuestionIndex];
+
+  // Set starter code when question changes
   useEffect(() => {
-    setCode(challenge.starterCode);
-  }, [challenge]);
+    setCode(currentChallenge.starterCode);
+    setUserInput("");
+    setAnswerRevealed(false);
+  }, [currentQuestionIndex, currentChallenge]);
+
+  // Timer countdown
+  useEffect(() => {
+    if (timeLeft <= 0 || isFinished) return;
+    
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          setAnswerRevealed(true);
+          toast({
+            title: "Time's Up!",
+            description: "Answer revealed. You'll get 50% marks if correct.",
+            variant: "destructive",
+          });
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [timeLeft, isFinished, toast]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   useEffect(() => {
     const handleCopy = (e: ClipboardEvent) => {
@@ -161,35 +202,54 @@ const CodingTest = () => {
     };
   }, [toast]);
 
+  const handleShowAnswer = () => {
+    setAnswerRevealed(true);
+    toast({
+      title: "Answer Revealed",
+      description: "You'll get 50% marks if you answer correctly now.",
+    });
+  };
+
   const handleSubmit = () => {
-    const results: Array<{ passed: boolean; message: string; input: string; expected: string; got: string; description: string }> = [];
     try {
       const userFunction = new Function('return ' + code)();
       let parsedInput: any;
+      
+      // Use the first test case as reference
+      const testCase = currentChallenge.testCases[0];
       try {
-        parsedInput = userInput ? JSON.parse(userInput) : null;
+        parsedInput = userInput ? JSON.parse(userInput) : JSON.parse(testCase.input);
       } catch (e) {
         throw new Error("Invalid JSON in Input");
       }
+      
       const result = Array.isArray(parsedInput) ? userFunction(...parsedInput) : userFunction(parsedInput);
       const resultStr = typeof result === 'object' ? JSON.stringify(result) : String(result);
-      setActualOutput(resultStr);
+      const expectedStr = testCase.expected;
 
-      const passed = String(resultStr) === String(expectedOutput);
-      results.push({
+      const passed = String(resultStr) === String(expectedStr);
+      const score = passed ? (answerRevealed ? 0.5 : 1) : 0; // 50% if answer shown, 100% if solved independently
+
+      setResults(prev => [...prev, {
+        questionIndex: currentQuestionIndex,
         passed,
-        message: passed ? "Matched ✓" : "Did not match ✗",
-        input: userInput,
-        expected: expectedOutput,
-        got: resultStr,
-        description: "Your single test"
+        answerShown: answerRevealed,
+        score,
+      }]);
+
+      toast({
+        title: passed ? "Correct!" : "Incorrect",
+        description: passed 
+          ? `You earned ${score} mark${score !== 1 ? 's' : ''}!` 
+          : "Try the next question!",
+        variant: passed ? "default" : "destructive",
       });
 
-      setTestResults(results);
-      if (passed) {
-        toast({ title: "Great!", description: "Your output matches expected." });
+      // Move to next question or finish
+      if (currentQuestionIndex < challenges.length - 1) {
+        setCurrentQuestionIndex(prev => prev + 1);
       } else {
-        toast({ title: "Mismatch", description: "Your output doesn't match expected. Try again.", variant: "destructive" });
+        setIsFinished(true);
       }
     } catch (error: any) {
       toast({
@@ -199,6 +259,68 @@ const CodingTest = () => {
       });
     }
   };
+
+  const totalScore = results.reduce((sum, r) => sum + r.score, 0);
+  const percentage = isFinished ? (totalScore / 5) * 100 : 0;
+
+  if (isFinished) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background py-8">
+        <div className="container mx-auto px-6 max-w-4xl">
+          <Card className="p-8 shadow-hover border-2">
+            <div className="text-center mb-8">
+              <div className="p-4 bg-gradient-hero rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+                <CheckCircle2 className="w-10 h-10 text-primary-foreground" />
+              </div>
+              <h1 className="text-3xl font-bold mb-2">Test Completed!</h1>
+              <p className="text-muted-foreground">Here's how you performed</p>
+            </div>
+
+            <div className="bg-gradient-card p-6 rounded-xl border-2 mb-6">
+              <div className="text-center">
+                <div className="text-5xl font-bold bg-gradient-hero bg-clip-text text-transparent mb-2">
+                  {totalScore.toFixed(1)} / 5
+                </div>
+                <p className="text-muted-foreground">Total Score ({percentage.toFixed(0)}%)</p>
+              </div>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              {results.map((result, i) => (
+                <Card key={i} className={`p-4 border-2 ${result.passed ? "border-success/30 bg-success/5" : "border-destructive/30 bg-destructive/5"}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${result.passed ? "bg-success/20" : "bg-destructive/20"}`}>
+                        {result.passed ? (
+                          <CheckCircle2 className="w-4 h-4 text-success" />
+                        ) : (
+                          <XCircle className="w-4 h-4 text-destructive" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-bold">Question {i + 1}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {result.answerShown ? "Answer was shown (50% marks)" : "Solved independently"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xl font-bold">{result.score.toFixed(1)}</div>
+                      <p className="text-xs text-muted-foreground">mark{result.score !== 1 ? 's' : ''}</p>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+
+            <Button onClick={() => navigate("/assessment-intro")} variant="hero" size="lg" className="w-full">
+              Back to Assessment
+            </Button>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background py-8">
@@ -215,16 +337,24 @@ const CodingTest = () => {
         <div className="mb-8 relative">
           <div className="absolute -inset-1 bg-gradient-hero opacity-20 blur-3xl rounded-full"></div>
           <div className="relative">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="p-3 bg-gradient-hero rounded-xl shadow-glow">
-                <Code2 className="w-6 h-6 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="text-4xl font-bold bg-gradient-hero bg-clip-text text-transparent">Coding Challenge</h1>
-                <div className="flex items-center gap-2 mt-1">
-                  <Badge variant="secondary" className="text-xs">{domain}</Badge>
-                  <Badge variant="outline" className="text-xs">Timed Assessment</Badge>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-gradient-hero rounded-xl shadow-glow">
+                  <Code2 className="w-6 h-6 text-primary-foreground" />
                 </div>
+                <div>
+                  <h1 className="text-4xl font-bold bg-gradient-hero bg-clip-text text-transparent">Coding Challenge</h1>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge variant="secondary" className="text-xs">{domain}</Badge>
+                    <Badge variant="outline" className="text-xs">Question {currentQuestionIndex + 1} of 5</Badge>
+                  </div>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className={`text-3xl font-bold font-mono ${timeLeft < 300 ? "text-destructive" : "text-foreground"}`}>
+                  {formatTime(timeLeft)}
+                </div>
+                <p className="text-xs text-muted-foreground">Time Remaining</p>
               </div>
             </div>
           </div>
@@ -253,9 +383,9 @@ const CodingTest = () => {
               <div className="mb-6">
                 <h2 className="text-2xl font-bold mb-2 flex items-center gap-2">
                   <span className="w-1 h-8 bg-gradient-hero rounded-full"></span>
-                  {challenge.title}
+                  {currentChallenge.title}
                 </h2>
-                <p className="text-muted-foreground leading-relaxed">{challenge.description}</p>
+                <p className="text-muted-foreground leading-relaxed">{currentChallenge.description}</p>
               </div>
               
               <div className="mb-6">
@@ -263,29 +393,38 @@ const CodingTest = () => {
                   <div className="p-2 bg-primary/10 rounded-lg">
                     <CheckCircle2 className="w-4 h-4 text-primary" />
                   </div>
-                  Input & Expected Output
+                  Your Input
                 </h3>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Your Input (JSON)</label>
-                    <Textarea
-                      value={userInput}
-                      onChange={(e) => setUserInput(e.target.value)}
-                      placeholder='e.g., ["Buy milk","Walk dog"] or {"name":"John"}'
-                      className="font-mono min-h-[120px] bg-gradient-code border-2 focus:border-primary"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Expected Output (string or JSON)</label>
-                    <Textarea
-                      value={expectedOutput}
-                      onChange={(e) => setExpectedOutput(e.target.value)}
-                      placeholder='e.g., <ul><li>Buy milk</li></ul> or "16:9" or {"mean":3}'
-                      className="font-mono min-h-[120px] bg-gradient-code border-2 focus:border-primary"
-                    />
-                  </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Input (JSON)</label>
+                  <Textarea
+                    value={userInput}
+                    onChange={(e) => setUserInput(e.target.value)}
+                    placeholder={`e.g., ${currentChallenge.testCases[0].input}`}
+                    className="font-mono min-h-[120px] bg-gradient-code border-2 focus:border-primary"
+                  />
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Leave empty to use default test input
+                  </p>
                 </div>
               </div>
+
+              {answerRevealed && (
+                <Card className="p-4 mb-6 border-2 border-primary bg-primary/5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="p-2 bg-primary/10 rounded-lg">
+                      <CheckCircle2 className="w-4 h-4 text-primary" />
+                    </div>
+                    <p className="font-bold text-primary">Answer Revealed (50% marks)</p>
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <p className="font-mono bg-background/50 p-3 rounded border">
+                      <span className="text-muted-foreground">Expected: </span>
+                      <span className="text-success font-bold">{currentChallenge.testCases[0].expected}</span>
+                    </p>
+                  </div>
+                </Card>
+              )}
 
               <div>
                 <label className="block font-semibold mb-4 flex items-center gap-2">
@@ -306,101 +445,85 @@ const CodingTest = () => {
                 </div>
               </div>
 
-              <Button onClick={handleSubmit} variant="hero" size="lg" className="w-full mt-6 group">
-                <Play className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
-                Run & Compare
-              </Button>
+              <div className="flex gap-3 mt-6">
+                {!answerRevealed && timeLeft > 0 && (
+                  <Button onClick={handleShowAnswer} variant="outline" size="lg" className="flex-1">
+                    Show Answer (50% marks)
+                  </Button>
+                )}
+                <Button onClick={handleSubmit} variant="hero" size="lg" className="flex-1 group">
+                  <Play className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
+                  Submit & Continue
+                </Button>
+              </div>
             </Card>
           </div>
 
-          {/* Right: Output & Results */}
+          {/* Right: Progress & Score */}
           <div className="space-y-6">
             <Card className="p-6 shadow-hover border-2 bg-gradient-card sticky top-6">
               <div className="flex items-center gap-2 mb-6">
                 <div className="p-2 bg-accent/10 rounded-lg">
-                  <Play className="w-4 h-4 text-accent" />
+                  <CheckCircle2 className="w-4 h-4 text-accent" />
                 </div>
-                <h3 className="font-bold text-lg">Output</h3>
+                <h3 className="font-bold text-lg">Progress</h3>
               </div>
               
-              {testResults.length === 0 ? (
-                <div className="text-center py-16">
-                  <div className="p-4 bg-muted/30 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">
-                    <Code2 className="w-10 h-10 text-muted-foreground" />
+              <div className="space-y-6">
+                <div className="bg-gradient-card p-4 rounded-xl border-2">
+                  <p className="text-sm text-muted-foreground mb-2">Current Score</p>
+                  <div className="text-3xl font-bold bg-gradient-hero bg-clip-text text-transparent">
+                    {totalScore.toFixed(1)} / 5
                   </div>
-                  <p className="text-muted-foreground font-medium">Run your code to see output</p>
-                  <p className="text-xs text-muted-foreground mt-1">Your output will appear here</p>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className={`flex items-center justify-between p-5 rounded-xl border-2 shadow-soft ${testResults.every(r => r.passed) ? "bg-success/10 border-success/30" : "bg-destructive/10 border-destructive/30"}`}>
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${testResults.every(r => r.passed) ? "bg-success/20" : "bg-destructive/20"}`}>
-                        {testResults.every(r => r.passed) ? (
-                          <CheckCircle2 className="w-5 h-5 text-success" />
-                        ) : (
-                          <XCircle className="w-5 h-5 text-destructive" />
+
+                <div className="space-y-3">
+                  {[...Array(5)].map((_, i) => {
+                    const result = results.find(r => r.questionIndex === i);
+                    return (
+                      <div key={i} className={`flex items-center gap-3 p-3 rounded-lg border-2 ${
+                        i === currentQuestionIndex ? "border-primary bg-primary/5" :
+                        result ? (result.passed ? "border-success/30 bg-success/5" : "border-destructive/30 bg-destructive/5") :
+                        "border-border bg-background"
+                      }`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
+                          i === currentQuestionIndex ? "bg-primary text-primary-foreground" :
+                          result ? (result.passed ? "bg-success text-success-foreground" : "bg-destructive text-destructive-foreground") :
+                          "bg-muted text-muted-foreground"
+                        }`}>
+                          {i + 1}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">
+                            {i === currentQuestionIndex ? "Current" : result ? "Completed" : "Pending"}
+                          </p>
+                          {result && (
+                            <p className="text-xs text-muted-foreground">
+                              {result.score.toFixed(1)} mark{result.score !== 1 ? 's' : ''} 
+                              {result.answerShown && " (answer shown)"}
+                            </p>
+                          )}
+                        </div>
+                        {result && (
+                          result.passed ? (
+                            <CheckCircle2 className="w-5 h-5 text-success" />
+                          ) : (
+                            <XCircle className="w-5 h-5 text-destructive" />
+                          )
                         )}
                       </div>
-                      <span className="font-bold">Summary</span>
-                    </div>
-                    <div className="text-right">
-                      <div className={`text-2xl font-bold font-mono ${testResults.every(r => r.passed) ? "text-success" : "text-destructive"}`}>
-                        {testResults.filter(r => r.passed).length} / {testResults.length}
-                      </div>
-                      <p className="text-xs text-muted-foreground">Tests Passed</p>
-                    </div>
-                  </div>
-                  
-                  {testResults.map((result, i) => (
-                    <Card key={i} className={`group p-5 border-2 transition-all duration-200 hover:shadow-lg ${result.passed ? "border-success/30 bg-success/5 hover:border-success/50" : "border-destructive/30 bg-destructive/5 hover:border-destructive/50"}`}>
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-start gap-3">
-                          <div className={`p-2 rounded-lg ${result.passed ? "bg-success/20" : "bg-destructive/20"}`}>
-                            {result.passed ? (
-                              <CheckCircle2 className="w-4 h-4 text-success" />
-                            ) : (
-                              <XCircle className="w-4 h-4 text-destructive" />
-                            )}
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-sm mb-1">Test Case {i + 1}</h4>
-                            <p className="text-xs text-muted-foreground">{result.description}</p>
-                          </div>
-                        </div>
-                        <Badge variant={result.passed ? "default" : "destructive"} className="font-mono">
-                          {result.passed ? "PASS" : "FAIL"}
-                        </Badge>
-                      </div>
-                      
-                      <div className="space-y-3 text-xs font-mono">
-                        <div className="p-3 bg-background/50 rounded-lg border border-border">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="font-bold text-muted-foreground">Input:</span>
-                          </div>
-                          <code className="block text-foreground">{result.input}</code>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="p-3 bg-success/10 rounded-lg border border-success/30">
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="font-bold text-success">Expected:</span>
-                            </div>
-                            <code className="block text-success break-all">{result.expected}</code>
-                          </div>
-                          <div className={`p-3 rounded-lg border ${result.passed ? "bg-success/10 border-success/30" : "bg-destructive/10 border-destructive/30"}`}>
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className={`font-bold ${result.passed ? "text-success" : "text-destructive"}`}>Your Output:</span>
-                            </div>
-                            <code className={`block break-all ${result.passed ? "text-success" : "text-destructive"}`}>
-                              {result.got}
-                            </code>
-                          </div>
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
+                    );
+                  })}
                 </div>
-              )}
+
+                {answerRevealed && (
+                  <Card className="p-4 border-2 border-primary bg-primary/5">
+                    <p className="text-xs text-primary font-medium">
+                      ⚠️ Answer revealed - You'll get 50% marks if correct
+                    </p>
+                  </Card>
+                )}
+              </div>
             </Card>
           </div>
         </div>
