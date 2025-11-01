@@ -12,15 +12,16 @@ serve(async (req) => {
 
   try {
     const { failedQuestions } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    if (!OPENAI_API_KEY) {
+      throw new Error("OPENAI_API_KEY is not configured");
     }
 
     const explanations = [];
 
-    for (const question of failedQuestions) {
+    // Process all questions in parallel for instant results
+    const explanationPromises = failedQuestions.map(async (question: any) => {
       const prompt = `Explain why the correct answer to this question is "${question.correct_answer}":
 
 Question: ${question.question}
@@ -29,43 +30,59 @@ B) ${question.option_b}
 C) ${question.option_c}
 D) ${question.option_d}
 
-User selected: ${question.user_answer}
+User selected: ${question.user_answer || 'Not answered'}
 Correct answer: ${question.correct_answer}
 
 Provide a clear, educational explanation in 2-3 sentences.`;
 
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: [
-            { role: "system", content: "You are a helpful tutor explaining quiz answers." },
-            { role: "user", content: prompt }
-          ],
-        }),
-      });
-
-      if (!response.ok) {
-        console.error("AI gateway error:", response.status);
-        explanations.push({
-          question: question.question,
-          explanation: "Unable to generate explanation at this time.",
+      try {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${OPENAI_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: "You are a helpful tutor explaining quiz answers clearly and concisely." },
+              { role: "user", content: prompt }
+            ],
+            max_tokens: 200,
+            temperature: 0.7,
+          }),
         });
-        continue;
-      }
 
-      const result = await response.json();
-      explanations.push({
-        question: question.question,
-        correct_answer: question.correct_answer,
-        user_answer: question.user_answer,
-        explanation: result.choices[0].message.content,
-      });
-    }
+        if (!response.ok) {
+          console.error("OpenAI API error:", response.status, await response.text());
+          return {
+            question: question.question,
+            correct_answer: question.correct_answer,
+            user_answer: question.user_answer,
+            explanation: "Unable to generate explanation at this time.",
+          };
+        }
+
+        const result = await response.json();
+        return {
+          question: question.question,
+          correct_answer: question.correct_answer,
+          user_answer: question.user_answer,
+          explanation: result.choices[0].message.content,
+        };
+      } catch (error) {
+        console.error("Error generating explanation:", error);
+        return {
+          question: question.question,
+          correct_answer: question.correct_answer,
+          user_answer: question.user_answer,
+          explanation: "Unable to generate explanation at this time.",
+        };
+      }
+    });
+
+    const results = await Promise.all(explanationPromises);
+    explanations.push(...results);
 
     return new Response(JSON.stringify({ explanations }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

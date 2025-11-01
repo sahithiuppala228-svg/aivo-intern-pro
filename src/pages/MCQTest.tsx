@@ -7,7 +7,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Clock, CheckCircle, XCircle } from "lucide-react";
+import { ArrowLeft, Clock, CheckCircle, XCircle, List, Bookmark } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -42,6 +42,8 @@ const MCQTest = () => {
   const [score, setScore] = useState(0);
   const [passed, setPassed] = useState(false);
   const [explanations, setExplanations] = useState<any[]>([]);
+  const [showPreview, setShowPreview] = useState(false);
+  const [markedQuestions, setMarkedQuestions] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     loadQuestions();
@@ -110,6 +112,22 @@ const MCQTest = () => {
     });
   };
 
+  const toggleMarkQuestion = () => {
+    const newMarked = new Set(markedQuestions);
+    if (newMarked.has(currentQuestionIndex)) {
+      newMarked.delete(currentQuestionIndex);
+    } else {
+      newMarked.add(currentQuestionIndex);
+    }
+    setMarkedQuestions(newMarked);
+  };
+
+  const getQuestionStatus = (index: number) => {
+    if (selectedAnswers[index]) return 'answered';
+    if (markedQuestions.has(index)) return 'marked';
+    return 'unattempted';
+  };
+
   const handleNext = () => {
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
@@ -167,17 +185,18 @@ const MCQTest = () => {
         if (answersError) throw answersError;
       }
 
-      // Generate AI explanations for failed questions
-      if (!testPassed) {
-        const failedQuestions = questions
-          .map((question, index) => ({
-            ...question,
-            user_answer: selectedAnswers[index],
-          }))
-          .filter((q, index) => selectedAnswers[index] !== q.correct_answer);
+      // Generate AI explanations for all incorrect questions
+      const incorrectQuestions = questions
+        .map((question, index) => ({
+          ...question,
+          user_answer: selectedAnswers[index],
+          index,
+        }))
+        .filter((q, index) => selectedAnswers[index] !== q.correct_answer);
 
+      if (incorrectQuestions.length > 0) {
         const { data: explanationData } = await supabase.functions.invoke('generate-explanations', {
-          body: { failedQuestions }
+          body: { failedQuestions: incorrectQuestions }
         });
 
         if (explanationData?.explanations) {
@@ -296,6 +315,76 @@ const MCQTest = () => {
   const currentQuestion = questions[currentQuestionIndex];
   const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
 
+  // Preview Page
+  if (showPreview) {
+    return (
+      <div className="min-h-screen bg-background py-8">
+        <div className="container mx-auto px-6 max-w-6xl">
+          <div className="mb-6 flex items-center justify-between">
+            <h1 className="text-2xl font-bold">Question Overview</h1>
+            <Button onClick={() => setShowPreview(false)} variant="outline">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Test
+            </Button>
+          </div>
+
+          <Card className="p-6 mb-6">
+            <div className="flex gap-6 mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded bg-green-500"></div>
+                <span className="text-sm">Answered ({Object.keys(selectedAnswers).length})</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded bg-orange-500"></div>
+                <span className="text-sm">Marked ({markedQuestions.size})</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded bg-white border-2"></div>
+                <span className="text-sm">Not Attempted ({questions.length - Object.keys(selectedAnswers).length})</span>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-10 gap-2">
+              {questions.map((_, index) => {
+                const status = getQuestionStatus(index);
+                return (
+                  <button
+                    key={index}
+                    onClick={() => {
+                      setCurrentQuestionIndex(index);
+                      setShowPreview(false);
+                    }}
+                    className={`
+                      w-12 h-12 rounded font-semibold transition-all hover:scale-105
+                      ${status === 'answered' ? 'bg-green-500 text-white' : ''}
+                      ${status === 'marked' ? 'bg-orange-500 text-white' : ''}
+                      ${status === 'unattempted' ? 'bg-white border-2 border-border text-foreground' : ''}
+                    `}
+                  >
+                    {index + 1}
+                  </button>
+                );
+              })}
+            </div>
+          </Card>
+
+          <div className="flex justify-between">
+            <Button onClick={() => setShowPreview(false)} variant="outline" size="lg">
+              Continue Test
+            </Button>
+            <Button 
+              onClick={handleSubmitTest}
+              disabled={Object.keys(selectedAnswers).length < questions.length}
+              size="lg"
+            >
+              Submit Test
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background py-8">
       <div className="container mx-auto px-6 max-w-4xl">
@@ -306,9 +395,19 @@ const MCQTest = () => {
               <h1 className="text-2xl font-bold">{domain} MCQ Test</h1>
               <p className="text-sm text-muted-foreground">Question {currentQuestionIndex + 1} of {questions.length}</p>
             </div>
-            <div className="flex items-center gap-2 px-4 py-2 bg-muted rounded-lg">
-              <Clock className="w-5 h-5 text-primary" />
-              <span className="text-lg font-semibold">{formatTime(timeLeft)}</span>
+            <div className="flex items-center gap-3">
+              <Button 
+                onClick={() => setShowPreview(true)}
+                variant="outline"
+                size="sm"
+              >
+                <List className="w-4 h-4 mr-2" />
+                Preview
+              </Button>
+              <div className="flex items-center gap-2 px-4 py-2 bg-muted rounded-lg">
+                <Clock className="w-5 h-5 text-primary" />
+                <span className="text-lg font-semibold">{formatTime(timeLeft)}</span>
+              </div>
             </div>
           </div>
           <Progress value={progress} className="h-2" />
@@ -352,6 +451,16 @@ const MCQTest = () => {
           </Button>
 
           <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={toggleMarkQuestion}
+              size="lg"
+              className={markedQuestions.has(currentQuestionIndex) ? 'bg-orange-500 text-white hover:bg-orange-600' : ''}
+            >
+              <Bookmark className="w-4 h-4 mr-2" />
+              {markedQuestions.has(currentQuestionIndex) ? 'Unmark' : 'Mark'}
+            </Button>
+            
             {currentQuestionIndex === questions.length - 1 ? (
               <Button
                 onClick={handleSubmitTest}
@@ -410,9 +519,9 @@ const MCQTest = () => {
                   : "You need at least 60% to pass. Review and retry the exam with new questions."}
               </p>
 
-              {!passed && explanations.length > 0 && (
+              {explanations.length > 0 && (
                 <div className="text-left space-y-4 max-h-96 overflow-y-auto">
-                  <h3 className="font-semibold text-foreground">AI-Generated Explanations:</h3>
+                  <h3 className="font-semibold text-foreground">Review Incorrect Answers:</h3>
                   {explanations.map((exp, index) => (
                     <div key={index} className="p-4 bg-muted rounded-lg">
                       <p className="font-semibold text-sm mb-2">{exp.question}</p>

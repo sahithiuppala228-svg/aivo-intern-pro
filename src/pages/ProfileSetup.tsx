@@ -32,6 +32,7 @@ const ProfileSetup = () => {
   const [skills, setSkills] = useState("");
   const [interests, setInterests] = useState("");
   const [projects, setProjects] = useState("");
+  const [customDomain, setCustomDomain] = useState("");
 
   const availableDomains = [
     "Web Development",
