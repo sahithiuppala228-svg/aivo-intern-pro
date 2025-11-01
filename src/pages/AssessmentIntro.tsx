@@ -221,22 +221,24 @@ const AssessmentIntro = () => {
         )}
 
         {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+        <div className="flex flex-row gap-4 justify-center items-center">
           <Button 
-            variant="hero" 
+            variant="default" 
             size="lg" 
-            className="sm:min-w-[200px]"
+            className="min-w-[200px] bg-primary hover:bg-primary-hover text-primary-foreground"
             onClick={() => navigate("/mcq-test", { state: { domain } })}
           >
-            Start MCQ Test
+            <FileText className="w-4 h-4 mr-2" />
+            Step 1: MCQ Test
           </Button>
           <Button 
-            variant="outline" 
+            variant="secondary" 
             size="lg" 
-            className="sm:min-w-[200px]"
+            className="min-w-[200px] bg-secondary hover:bg-secondary-hover text-secondary-foreground"
             onClick={() => navigate("/practice-mode", { state: { domain } })}
           >
-            Practice Mode (Free)
+            <Code className="w-4 h-4 mr-2" />
+            Step 2: Practice Mode
           </Button>
         </div>
 
