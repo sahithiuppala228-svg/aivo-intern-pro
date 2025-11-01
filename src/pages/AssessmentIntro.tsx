@@ -237,18 +237,16 @@ const AssessmentIntro = () => {
         {/* Action Buttons */}
         <div className="flex flex-row gap-4 justify-center items-center">
           <Button 
-            variant="default" 
             size="lg" 
-            className="min-w-[200px] bg-primary hover:bg-primary-hover text-primary-foreground"
+            className="min-w-[200px] bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl transition-all"
             onClick={() => navigate("/mcq-test", { state: { domain } })}
           >
             <FileText className="w-4 h-4 mr-2" />
             Step 1: MCQ Test
           </Button>
           <Button 
-            variant="secondary" 
             size="lg" 
-            className="min-w-[200px] bg-secondary hover:bg-secondary-hover text-secondary-foreground"
+            className="min-w-[200px] bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-lg hover:shadow-xl transition-all"
             onClick={() => navigate("/practice-mode", { state: { domain } })}
           >
             <Code className="w-4 h-4 mr-2" />
