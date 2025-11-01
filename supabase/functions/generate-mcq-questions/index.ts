@@ -21,6 +21,7 @@ serve(async (req) => {
     const allQuestions: any[] = [];
     const seen = new Set<string>();
 
+    const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
     async function generateBatch(n: number) {
       const prompt = `Generate ${n} multiple-choice questions for the domain: ${domain}.
 
@@ -32,7 +33,7 @@ Requirements:
 Return via the provided tool only.`;
 
       const body = {
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-2.5-flash-lite",
         messages: [
           { role: "system", content: "You are an MCQ question generator. Use the provided tool to return results." },
           { role: "user", content: prompt },
@@ -165,7 +166,7 @@ Exactly 4 options per question. Difficulty: mix of Easy, Medium, Hard.`;
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              model: "google/gemini-2.5-flash",
+              model: "google/gemini-2.5-flash-lite",
               messages: [
                 { role: "system", content: "You return ONLY strict JSON conforming to the schema." },
                 { role: "user", content: fallbackPrompt },
@@ -236,10 +237,25 @@ Exactly 4 options per question. Difficulty: mix of Easy, Medium, Hard.`;
     }
 
     // Generate in batches until we hit requested total
+    let rateLimitTries = 0;
     while (allQuestions.length < total) {
       const need = total - allQuestions.length;
       const n = Math.min(batchSize, need);
-      await generateBatch(n);
+      try {
+        await generateBatch(n);
+        rateLimitTries = 0; // reset on success
+        await sleep(600); // small spacing between batches
+      } catch (e) {
+        if (e instanceof Error && e.message === "RATE_LIMITED") {
+          rateLimitTries++;
+          if (rateLimitTries >= 3) {
+            throw e; // bubble up as 429 after several attempts
+          }
+          await sleep(1200 * rateLimitTries); // backoff
+          continue;
+        }
+        throw e; // other errors bubble up
+      }
     }
 
     return new Response(JSON.stringify(allQuestions.slice(0, total)), {
