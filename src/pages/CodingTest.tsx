@@ -51,13 +51,30 @@ const CodingTest = () => {
       setLoading(true);
       const generatedChallenges: Challenge[] = [];
 
-      for (let i = 0; i < 8; i++) {
-        const { data, error } = await supabase.functions.invoke('generate-coding-problem', {
-          body: { domain }
-        });
+      for (let i = 0; i < 5; i++) {
+        try {
+          const { data, error } = await supabase.functions.invoke('generate-coding-problem', {
+            body: { domain }
+          });
 
-        if (error) throw error;
-        generatedChallenges.push(data);
+          if (error) {
+            console.error(`Error generating challenge ${i + 1}:`, error);
+            continue; // Skip this challenge and try the next one
+          }
+
+          if (data && data.title) {
+            generatedChallenges.push(data);
+          } else {
+            console.error(`Invalid challenge data received for challenge ${i + 1}:`, data);
+          }
+        } catch (challengeError) {
+          console.error(`Exception generating challenge ${i + 1}:`, challengeError);
+          // Continue to next iteration
+        }
+      }
+
+      if (generatedChallenges.length === 0) {
+        throw new Error("Failed to generate any challenges");
       }
 
       setChallenges(generatedChallenges);
@@ -68,6 +85,7 @@ const CodingTest = () => {
         description: "Failed to generate coding challenges. Please try again.",
         variant: "destructive",
       });
+      navigate("/assessment-intro"); // Return to assessment page on complete failure
     } finally {
       setLoading(false);
     }
@@ -199,6 +217,32 @@ const CodingTest = () => {
         <Card className="p-8 text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-muted-foreground">Generating coding challenges...</p>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!loading && challenges.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background flex items-center justify-center">
+        <Card className="p-8 text-center max-w-md">
+          <XCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
+          <h2 className="text-2xl font-bold mb-2">No Challenges Available</h2>
+          <p className="text-muted-foreground mb-4">Unable to generate coding challenges. Please try again.</p>
+          <Button onClick={() => navigate("/assessment-intro")} variant="hero">
+            Back to Assessment
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!currentChallenge) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background flex items-center justify-center">
+        <Card className="p-8 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading challenge...</p>
         </Card>
       </div>
     );

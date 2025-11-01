@@ -67,10 +67,28 @@ Make it relevant to ${domain} and appropriate difficulty.`;
     const data = await response.json();
     let content = data.choices[0].message.content.trim();
     
+    console.log("Raw AI response:", content);
+    
     // Remove markdown code blocks if present
     content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     
-    const problem = JSON.parse(content);
+    // Try to extract JSON if it's embedded in text
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      content = jsonMatch[0];
+    }
+    
+    console.log("Cleaned content:", content);
+    
+    let problem;
+    try {
+      problem = JSON.parse(content);
+    } catch (parseError) {
+      console.error("JSON parse error:", parseError);
+      console.error("Content that failed to parse:", content);
+      const errorMsg = parseError instanceof Error ? parseError.message : String(parseError);
+      throw new Error(`Failed to parse AI response as JSON: ${errorMsg}`);
+    }
 
     return new Response(JSON.stringify(problem), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
