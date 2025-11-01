@@ -36,7 +36,7 @@ const MCQTest = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
-  const [timeLeft, setTimeLeft] = useState(600); // 10 minutes in seconds
+  const [timeLeft, setTimeLeft] = useState(5400); // 90 minutes in seconds
   const [loading, setLoading] = useState(true);
   const [showResults, setShowResults] = useState(false);
   const [score, setScore] = useState(0);
@@ -65,7 +65,7 @@ const MCQTest = () => {
       setLoading(true);
       
       const { data, error } = await supabase.functions.invoke('generate-mcq-questions', {
-        body: { domain, count: 10 }
+        body: { domain, count: 50 }
       });
 
       if (error) throw error;
@@ -131,7 +131,7 @@ const MCQTest = () => {
       }
     });
 
-    const testPassed = correctCount >= 8;
+    const testPassed = (correctCount / questions.length) >= 0.6; // 60% passing score
     setScore(correctCount);
     setPassed(testPassed);
 
@@ -206,7 +206,7 @@ const MCQTest = () => {
       setShowInstructions(true);
       setCurrentQuestionIndex(0);
       setSelectedAnswers({});
-      setTimeLeft(600);
+      setTimeLeft(5400);
       setScore(0);
       setPassed(false);
       setExplanations([]);
@@ -265,13 +265,13 @@ const MCQTest = () => {
                       <p className="mt-1">There is no negative marking.</p>
                     </div>
                   </div>
-                  <div className="flex gap-3">
+                   <div className="flex gap-3">
                     <span className="font-semibold text-foreground min-w-[24px]">4.</span>
-                    <p>You must score <span className="font-semibold text-foreground">≥80%</span> (at least 8 correct answers) to pass this test.</p>
+                    <p>You must score <span className="font-semibold text-foreground">≥60%</span> (at least 30 correct answers) to pass this test.</p>
                   </div>
                   <div className="flex gap-3">
                     <span className="font-semibold text-foreground min-w-[24px]">5.</span>
-                    <p><span className="font-semibold text-foreground">Time Limit:</span> 10 minutes</p>
+                    <p><span className="font-semibold text-foreground">Time Limit:</span> 1 hour 30 minutes</p>
                   </div>
                 </div>
               </div>
@@ -407,7 +407,7 @@ const MCQTest = () => {
               <p>
                 {passed
                   ? "You've passed the MCQ test! You can now proceed to the coding test."
-                  : "You need at least 8 correct answers to pass. Review the explanations below."}
+                  : "You need at least 60% to pass. Review and retry the exam with new questions."}
               </p>
 
               {!passed && explanations.length > 0 && (

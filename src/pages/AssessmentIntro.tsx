@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,20 +13,22 @@ const AssessmentIntro = () => {
   const { toast } = useToast();
   const domain = location.state?.domain || "Web Development";
   
+  const [showWhyTest, setShowWhyTest] = useState(false);
+
   const assessmentFlow = [
     {
       icon: <FileText className="w-6 h-6 text-primary" />,
       title: "MCQ Test",
-      description: "10 multiple choice questions",
-      duration: "12 minutes",
-      passingScore: "80%"
+      description: "50 multiple choice questions (Easy, Medium, Hard)",
+      duration: "1 hour 30 minutes",
+      passingScore: "60%"
     },
     {
       icon: <Code className="w-6 h-6 text-secondary" />,
       title: "Practical Task",
-      description: "1 real-world coding/problem task",
-      duration: "45 minutes",
-      passingScore: "80%"
+      description: "8 real-world coding problems",
+      duration: "30 minutes per problem",
+      passingScore: "60%"
     }
   ];
 
@@ -122,7 +125,7 @@ const AssessmentIntro = () => {
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li className="flex gap-2">
                 <span className="text-primary font-bold">•</span>
-                <span>You must score <strong className="text-foreground">≥80%</strong> to pass each section</span>
+                <span>You must score <strong className="text-foreground">≥60%</strong> to pass each section</span>
               </li>
               <li className="flex gap-2">
                 <span className="text-primary font-bold">•</span>
@@ -140,8 +143,8 @@ const AssessmentIntro = () => {
           </CardContent>
         </Card>
 
-        {/* FAQ Link */}
-        <Card className="shadow-soft hover:shadow-hover transition-all cursor-pointer">
+        {/* Why Test Section */}
+        <Card className="shadow-soft hover:shadow-hover transition-all cursor-pointer" onClick={() => setShowWhyTest(!showWhyTest)}>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -151,11 +154,71 @@ const AssessmentIntro = () => {
                 </p>
               </div>
               <Button variant="ghost">
-                Learn More →
+                {showWhyTest ? "Hide" : "Learn More"} →
               </Button>
             </div>
           </CardContent>
         </Card>
+
+        {showWhyTest && (
+          <Card className="shadow-soft border-l-4 border-l-primary">
+            <CardHeader>
+              <CardTitle>Why We Test: Building Your Technical Foundation</CardTitle>
+              <CardDescription>Understanding our comprehensive assessment approach</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm">
+              <div>
+                <h4 className="font-semibold mb-2">1. Objective Skill Verification</h4>
+                <p className="text-muted-foreground">Our AI-powered assessments provide unbiased evaluation of your technical knowledge and practical abilities, ensuring fair opportunities for all candidates regardless of background.</p>
+              </div>
+              
+              <div>
+                <h4 className="font-semibold mb-2">2. Identifying Knowledge Gaps</h4>
+                <p className="text-muted-foreground">The tests help pinpoint specific areas where you need improvement, allowing our AI mentor to create personalized learning paths tailored to your exact needs.</p>
+              </div>
+              
+              <div>
+                <h4 className="font-semibold mb-2">3. Industry-Relevant Problem Solving</h4>
+                <p className="text-muted-foreground">Practical coding challenges mirror real-world scenarios you'll encounter in internships, preparing you for actual work environments and technical interviews.</p>
+              </div>
+              
+              <div>
+                <h4 className="font-semibold mb-2">4. Building Confidence Through Preparation</h4>
+                <p className="text-muted-foreground">By testing under time constraints and realistic conditions, you develop the confidence and composure needed for technical interviews and workplace challenges.</p>
+              </div>
+              
+              <div>
+                <h4 className="font-semibold mb-2">5. Accurate Internship Matching</h4>
+                <p className="text-muted-foreground">Verified skills enable us to recommend internships that truly match your capabilities, increasing your chances of success and job satisfaction.</p>
+              </div>
+              
+              <div>
+                <h4 className="font-semibold mb-2">6. Demonstrating Growth Mindset</h4>
+                <p className="text-muted-foreground">Completing assessments shows employers your commitment to continuous learning and willingness to be evaluated objectively on technical merit.</p>
+              </div>
+              
+              <div>
+                <h4 className="font-semibold mb-2">7. Structured Learning Path</h4>
+                <p className="text-muted-foreground">Test results inform our AI mentor's lesson plans, ensuring you focus on high-impact topics rather than wasting time on concepts you've already mastered.</p>
+              </div>
+              
+              <div>
+                <h4 className="font-semibold mb-2">8. Performance Benchmarking</h4>
+                <p className="text-muted-foreground">Compare your performance against industry standards and peer groups, understanding where you stand in the competitive internship landscape.</p>
+              </div>
+              
+              <div>
+                <h4 className="font-semibold mb-2">9. Time Management Skills</h4>
+                <p className="text-muted-foreground">Timed assessments teach crucial time management—deciding when to move on, how to prioritize problems, and working efficiently under pressure.</p>
+              </div>
+              
+              <div>
+                <h4 className="font-semibold mb-2">10. Portfolio Enhancement</h4>
+                <p className="text-muted-foreground">Successfully passing assessments becomes a verified credential on your profile, distinguishing you from candidates without proven technical abilities.</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center">

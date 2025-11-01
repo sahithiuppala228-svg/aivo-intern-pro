@@ -51,7 +51,7 @@ const CodingTest = () => {
       setLoading(true);
       const generatedChallenges: Challenge[] = [];
 
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < 8; i++) {
         const { data, error } = await supabase.functions.invoke('generate-coding-problem', {
           body: { domain }
         });

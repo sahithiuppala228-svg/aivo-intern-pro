@@ -27,6 +27,11 @@ const ProfileSetup = () => {
   const [year, setYear] = useState("");
   const [internshipType, setInternshipType] = useState("");
   const [availability, setAvailability] = useState("");
+  const [linkedin, setLinkedin] = useState("");
+  const [github, setGithub] = useState("");
+  const [skills, setSkills] = useState("");
+  const [interests, setInterests] = useState("");
+  const [projects, setProjects] = useState("");
 
   const availableDomains = [
     "Web Development",
@@ -49,12 +54,6 @@ const ProfileSetup = () => {
     }
   };
 
-  const handleAddCustomDomain = () => {
-    if (customDomain && !selectedDomains.includes(customDomain)) {
-      setSelectedDomains([...selectedDomains, customDomain]);
-      setCustomDomain("");
-    }
-  };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -132,6 +131,22 @@ const ProfileSetup = () => {
         variant: "destructive",
         title: "Availability required",
         description: "Please select your availability.",
+      });
+      return;
+    }
+    if (!linkedin.trim()) {
+      toast({
+        variant: "destructive",
+        title: "LinkedIn required",
+        description: "Please enter your LinkedIn profile URL.",
+      });
+      return;
+    }
+    if (!github.trim()) {
+      toast({
+        variant: "destructive",
+        title: "GitHub required",
+        description: "Please enter your GitHub profile URL.",
       });
       return;
     }
@@ -309,18 +324,6 @@ const ProfileSetup = () => {
                 ))}
               </div>
 
-              {/* Custom Domain */}
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Add custom domain..."
-                  value={customDomain}
-                  onChange={(e) => setCustomDomain(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddCustomDomain())}
-                />
-                <Button type="button" variant="outline" onClick={handleAddCustomDomain}>
-                  <Plus className="w-4 h-4" />
-                </Button>
-              </div>
             </CardContent>
           </Card>
 
@@ -363,24 +366,66 @@ const ProfileSetup = () => {
 
           <Card className="shadow-soft">
             <CardHeader>
-              <CardTitle>Professional Links (Optional)</CardTitle>
+              <CardTitle>Professional Links *</CardTitle>
               <CardDescription>Connect your profiles for better matches</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="linkedin">LinkedIn URL</Label>
+                <Label htmlFor="linkedin">LinkedIn URL *</Label>
                 <Input
                   id="linkedin"
                   type="url"
                   placeholder="https://linkedin.com/in/yourprofile"
+                  value={linkedin}
+                  onChange={(e) => setLinkedin(e.target.value)}
+                  required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="github">GitHub URL</Label>
+                <Label htmlFor="github">GitHub URL *</Label>
                 <Input
                   id="github"
                   type="url"
                   placeholder="https://github.com/yourusername"
+                  value={github}
+                  onChange={(e) => setGithub(e.target.value)}
+                  required
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-soft">
+            <CardHeader>
+              <CardTitle>Additional Information</CardTitle>
+              <CardDescription>Tell us more about your expertise</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="skills">Skills (comma-separated)</Label>
+                <Input
+                  id="skills"
+                  placeholder="JavaScript, React, Python, etc."
+                  value={skills}
+                  onChange={(e) => setSkills(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="interests">Interests</Label>
+                <Input
+                  id="interests"
+                  placeholder="AI, Web Development, Mobile Apps, etc."
+                  value={interests}
+                  onChange={(e) => setInterests(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="projects">Projects (comma-separated)</Label>
+                <Input
+                  id="projects"
+                  placeholder="E-commerce App, Portfolio Website, etc."
+                  value={projects}
+                  onChange={(e) => setProjects(e.target.value)}
                 />
               </div>
             </CardContent>

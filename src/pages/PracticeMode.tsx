@@ -47,6 +47,7 @@ const PracticeMode = () => {
   const [showResults, setShowResults] = useState(false);
   const [score, setScore] = useState(0);
   const [viewedCount, setViewedCount] = useState(0);
+  const [explanations, setExplanations] = useState<Record<number, string>>({});
 
   useEffect(() => {
     loadQuestions();
@@ -57,7 +58,7 @@ const PracticeMode = () => {
       setLoading(true);
       
       const { data, error } = await supabase.functions.invoke('generate-mcq-questions', {
-        body: { domain, count: 15 }
+        body: { domain, count: 25 }
       });
 
       if (error) throw error;
@@ -86,7 +87,7 @@ const PracticeMode = () => {
 
       // Initialize question states
       const initialStates: Record<number, QuestionState> = {};
-      for (let i = 0; i < 15; i++) {
+      for (let i = 0; i < 25; i++) {
         initialStates[i] = {
           answer: null,
           isViewed: false,
@@ -156,7 +157,7 @@ const PracticeMode = () => {
     });
   };
 
-  const handleShowAnswer = () => {
+  const handleShowAnswer = async () => {
     const currentState = questionStates[currentQuestionIndex];
 
     if (currentState.isSubmitted || currentState.isViewed) {
@@ -171,6 +172,29 @@ const PracticeMode = () => {
         answer: questions[currentQuestionIndex].correct_answer,
       },
     }));
+
+    // Generate explanation using OpenAI
+    const currentQuestion = questions[currentQuestionIndex];
+    const userAnswer = currentState.answer || "No answer selected";
+
+    try {
+      const { data } = await supabase.functions.invoke('generate-explanations', {
+        body: {
+          question: currentQuestion.question,
+          correctAnswer: currentQuestion.correct_answer,
+          userAnswer
+        }
+      });
+
+      if (data?.explanation) {
+        setExplanations({
+          ...explanations,
+          [currentQuestionIndex]: data.explanation
+        });
+      }
+    } catch (error) {
+      console.error('Error generating explanation:', error);
+    }
 
     toast({
       title: "Answer Revealed",
@@ -370,11 +394,25 @@ const PracticeMode = () => {
             </Button>
           </div>
 
-          {/* Viewed Note */}
+          {/* Viewed Note and Explanation */}
           {currentState?.isViewed && (
-            <p className="text-sm text-amber-600 dark:text-amber-400 mt-4 text-center">
-              ⚠️ Viewed questions will not add marks.
-            </p>
+            <div className="mt-4 space-y-3">
+              <p className="text-sm text-amber-600 dark:text-amber-400 text-center">
+                ⚠️ Viewed questions will not add marks.
+              </p>
+              <div className="p-4 bg-muted rounded-lg space-y-3">
+                <div>
+                  <p className="text-sm font-semibold mb-2">Correct Answer:</p>
+                  <p className="text-sm text-green-600 font-medium">{questions[currentQuestionIndex].correct_answer}</p>
+                </div>
+                {explanations[currentQuestionIndex] && (
+                  <div>
+                    <p className="text-sm font-semibold mb-2">Explanation:</p>
+                    <p className="text-sm text-muted-foreground">{explanations[currentQuestionIndex]}</p>
+                  </div>
+                )}
+              </div>
+            </div>
           )}
         </Card>
 
@@ -424,7 +462,7 @@ const PracticeMode = () => {
                 <div className="text-sm text-muted-foreground">Viewed Questions</div>
               </Card>
               <Card className="p-4 text-center">
-                <div className="text-3xl font-bold">{score}/15</div>
+                <div className="text-3xl font-bold">{score}/25</div>
                 <div className="text-sm text-muted-foreground">Final Score</div>
               </Card>
             </div>
@@ -455,6 +493,11 @@ const PracticeMode = () => {
                         <p className="text-sm font-medium text-green-600">
                           Correct answer: {q.correct_answer}
                         </p>
+                        {explanations[index] && (
+                          <p className="text-sm text-muted-foreground mt-2">
+                            <span className="font-semibold">Explanation:</span> {explanations[index]}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </Card>
