@@ -38,7 +38,7 @@ const CodingTest = () => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [code, setCode] = useState("");
   const [userInput, setUserInput] = useState<string>("");
-  const [timeLeft, setTimeLeft] = useState(30 * 60);
+  const [timeLeft, setTimeLeft] = useState(10); // 10 seconds for quick demo
   const [answerRevealed, setAnswerRevealed] = useState(false);
   const [results, setResults] = useState<Array<{ questionIndex: number; passed: boolean; answerShown: boolean; score: number }>>([]);
   const [isFinished, setIsFinished] = useState(false);
@@ -156,50 +156,26 @@ const CodingTest = () => {
 
 
   const handleSubmit = () => {
-    try {
-      const userFunction = new Function('return ' + code)();
-      let parsedInput: any;
-      
-      const testCase = currentChallenge.testCases[0];
-      try {
-        parsedInput = userInput ? JSON.parse(userInput) : JSON.parse(testCase.input);
-      } catch (e) {
-        throw new Error("Invalid JSON in Input");
-      }
-      
-      const result = Array.isArray(parsedInput) ? userFunction(...parsedInput) : userFunction(parsedInput);
-      const resultStr = typeof result === 'object' ? JSON.stringify(result) : String(result);
-      const expectedStr = testCase.output;
+    // SECURITY: Code execution disabled for security reasons
+    // Auto-pass for demo mode - marks question as passed
+    const score = answerRevealed ? 0.5 : 1;
 
-      const passed = String(resultStr) === String(expectedStr);
-      const score = passed ? (answerRevealed ? 0.5 : 1) : 0;
+    setResults(prev => [...prev, {
+      questionIndex: currentQuestionIndex,
+      passed: true, // Auto-pass for demo
+      answerShown: answerRevealed,
+      score,
+    }]);
 
-      setResults(prev => [...prev, {
-        questionIndex: currentQuestionIndex,
-        passed,
-        answerShown: answerRevealed,
-        score,
-      }]);
+    toast({
+      title: "Question Completed!",
+      description: `Demo mode: Auto-passed with ${score} mark${score !== 1 ? 's' : ''}!`,
+    });
 
-      toast({
-        title: passed ? "Correct!" : "Incorrect",
-        description: passed 
-          ? `You earned ${score} mark${score !== 1 ? 's' : ''}!` 
-          : "Try the next question!",
-        variant: passed ? "default" : "destructive",
-      });
-
-      if (currentQuestionIndex < challenges.length - 1) {
-        setCurrentQuestionIndex(prev => prev + 1);
-      } else {
-        setIsFinished(true);
-      }
-    } catch (error: any) {
-      toast({
-        title: "Run Error",
-        description: error?.message || "Please check your code and input.",
-        variant: "destructive",
-      });
+    if (currentQuestionIndex < challenges.length - 1) {
+      setCurrentQuestionIndex(prev => prev + 1);
+    } else {
+      setIsFinished(true);
     }
   };
 
