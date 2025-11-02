@@ -16,8 +16,8 @@ serve(async (req) => {
     const { domain, count } = await req.json();
     const total = typeof count === 'number' && count > 0 ? count : 25;
 
-    const AI_GATEWAY_KEY = Deno.env.get("AI_GATEWAY_KEY");
-    if (!AI_GATEWAY_KEY) throw new Error("AI_GATEWAY_KEY is not configured");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -79,10 +79,10 @@ Return ONLY valid JSON in this exact format:
   ]
 }`;
 
-      const response = await fetch('https://api.lovable.app/v1/ai-gateway/chat/completions', {
+      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${AI_GATEWAY_KEY}`,
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
