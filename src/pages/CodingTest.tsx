@@ -156,51 +156,22 @@ const CodingTest = () => {
 
 
   const handleSubmit = () => {
-    try {
-      const userFunction = new Function('return ' + code)();
-      let parsedInput: any;
-      
-      const testCase = currentChallenge.testCases[0];
-      try {
-        parsedInput = userInput ? JSON.parse(userInput) : JSON.parse(testCase.input);
-      } catch (e) {
-        throw new Error("Invalid JSON in Input");
-      }
-      
-      const result = Array.isArray(parsedInput) ? userFunction(...parsedInput) : userFunction(parsedInput);
-      const resultStr = typeof result === 'object' ? JSON.stringify(result) : String(result);
-      const expectedStr = testCase.output;
-
-      const passed = String(resultStr) === String(expectedStr);
-      const score = passed ? (answerRevealed ? 0.5 : 1) : 0;
-
-      setResults(prev => [...prev, {
-        questionIndex: currentQuestionIndex,
-        passed,
-        answerShown: answerRevealed,
-        score,
-      }]);
-
-      toast({
-        title: passed ? "Correct!" : "Incorrect",
-        description: passed 
-          ? `You earned ${score} mark${score !== 1 ? 's' : ''}!` 
-          : "Try the next question!",
-        variant: passed ? "default" : "destructive",
-      });
-
+    // SECURITY: Code execution disabled for security reasons
+    // This feature requires server-side execution to prevent XSS and session hijacking
+    toast({
+      title: "Feature Temporarily Disabled",
+      description: "Code execution is being upgraded with proper security. Please use the practice mode or continue to the next section.",
+      variant: "destructive",
+    });
+    
+    // Auto-skip to next question after 2 seconds
+    setTimeout(() => {
       if (currentQuestionIndex < challenges.length - 1) {
         setCurrentQuestionIndex(prev => prev + 1);
       } else {
         setIsFinished(true);
       }
-    } catch (error: any) {
-      toast({
-        title: "Run Error",
-        description: error?.message || "Please check your code and input.",
-        variant: "destructive",
-      });
-    }
+    }, 2000);
   };
 
   const totalScore = results.reduce((sum, r) => sum + r.score, 0);
