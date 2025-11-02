@@ -42,6 +42,7 @@ const CodingTest = () => {
   const [answerRevealed, setAnswerRevealed] = useState(false);
   const [results, setResults] = useState<Array<{ questionIndex: number; passed: boolean; answerShown: boolean; score: number }>>([]);
   const [isFinished, setIsFinished] = useState(false);
+  const [mcqTestPassed, setMcqTestPassed] = useState(false);
 
   const currentChallenge = challenges[currentQuestionIndex];
 
@@ -92,7 +93,29 @@ const CodingTest = () => {
 
   useEffect(() => {
     loadChallenges();
+    checkMcqTestStatus();
   }, [domain]);
+
+  const checkMcqTestStatus = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data } = await supabase
+        .from('user_test_attempts')
+        .select('passed')
+        .eq('user_id', user.id)
+        .eq('domain', domain)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (data && data.length > 0 && data[0].passed) {
+        setMcqTestPassed(true);
+      }
+    } catch (error) {
+      console.error('Error checking MCQ test status:', error);
+    }
+  };
 
   useEffect(() => {
     if (!currentChallenge) return;
@@ -268,9 +291,30 @@ const CodingTest = () => {
               ))}
             </div>
 
-            <Button onClick={() => navigate("/assessment-intro")} variant="hero" size="lg" className="w-full">
-              Back to Assessment
-            </Button>
+            {percentage >= 60 && mcqTestPassed ? (
+              <div className="space-y-4">
+                <div className="p-4 bg-success/10 border-2 border-success/30 rounded-lg text-center mb-4">
+                  <CheckCircle2 className="w-8 h-8 text-success mx-auto mb-2" />
+                  <p className="font-semibold text-success">Congratulations! You passed both tests!</p>
+                  <p className="text-sm text-muted-foreground mt-1">You're now ready for the AI Mock Interview</p>
+                </div>
+                <Button 
+                  onClick={() => toast({ title: "Coming Soon!", description: "AI Mock Interview feature will be available soon." })} 
+                  variant="hero" 
+                  size="lg" 
+                  className="w-full"
+                >
+                  Continue to AI Mock Interview
+                </Button>
+                <Button onClick={() => navigate("/assessment-intro")} variant="outline" size="lg" className="w-full">
+                  Back to Assessment
+                </Button>
+              </div>
+            ) : (
+              <Button onClick={() => navigate("/assessment-intro")} variant="hero" size="lg" className="w-full">
+                Back to Assessment
+              </Button>
+            )}
           </Card>
         </div>
       </div>

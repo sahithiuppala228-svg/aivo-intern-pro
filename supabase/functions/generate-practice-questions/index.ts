@@ -16,8 +16,8 @@ serve(async (req) => {
     const { domain, count } = await req.json();
     const total = typeof count === 'number' && count > 0 ? count : 25;
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -47,8 +47,8 @@ serve(async (req) => {
       });
     }
 
-    // Generate new questions using Lovable AI
-    console.log(`Generating ${total} new questions for ${domain} using Lovable AI`);
+    // Generate new questions using OpenAI
+    console.log(`Generating ${total} new questions for ${domain} using OpenAI`);
     
     const batchSize = 10;
     const allQuestions: any[] = [];
@@ -79,14 +79,14 @@ Return ONLY valid JSON in this exact format:
   ]
 }`;
 
-      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'openai/gpt-5-mini',
+          model: 'gpt-4o-mini',
           messages: [
             { role: 'system', content: 'You generate educational MCQ questions. Return ONLY valid JSON.' },
             { role: 'user', content: prompt }
@@ -98,7 +98,7 @@ Return ONLY valid JSON in this exact format:
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("AI gateway error:", response.status, errorText);
+        console.error("OpenAI API error:", response.status, errorText);
         
         if (response.status === 429) {
           throw new Error("RATE_LIMITED");
