@@ -323,7 +323,7 @@ const CodingTest = () => {
                   <p className="text-sm text-muted-foreground mt-1">You're now ready for the AI Mock Interview</p>
                 </div>
                 <Button 
-                  onClick={() => toast({ title: "Coming Soon!", description: "AI Mock Interview feature will be available soon." })} 
+                  onClick={() => window.location.href = 'https://intern-ai-coach.lovable.app'} 
                   variant="hero" 
                   size="lg" 
                   className="w-full"
