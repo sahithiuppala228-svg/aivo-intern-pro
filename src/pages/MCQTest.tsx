@@ -51,7 +51,7 @@ const MCQTest = () => {
 
   // Auto-pass demo mode - pass test after 10 seconds
   useEffect(() => {
-    if (showInstructions) return;
+    if (showInstructions || loading || questions.length === 0) return;
     
     const demoTimer = setTimeout(() => {
       // Auto-fill correct answers for demo
@@ -59,6 +59,9 @@ const MCQTest = () => {
       questions.forEach((q, idx) => {
         if (idx < 20) { // Pass with 20/25 = 80%
           autoAnswers[idx] = q.correct_answer;
+        } else {
+          // Wrong answers for remaining 5
+          autoAnswers[idx] = 'A';
         }
       });
       setSelectedAnswers(autoAnswers);
@@ -70,7 +73,7 @@ const MCQTest = () => {
     }, 10000); // 10 seconds
 
     return () => clearTimeout(demoTimer);
-  }, [showInstructions, questions]);
+  }, [showInstructions, loading, questions.length]);
 
   useEffect(() => {
     if (timeLeft === 0) {
