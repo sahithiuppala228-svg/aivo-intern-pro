@@ -36,7 +36,7 @@ const MCQTest = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
-  const [timeLeft, setTimeLeft] = useState(2700); // 45 minutes in seconds
+  const [timeLeft, setTimeLeft] = useState(10); // DEMO MODE: 10 seconds
   const [loading, setLoading] = useState(true);
   const [showResults, setShowResults] = useState(false);
   const [score, setScore] = useState(0);
@@ -70,31 +70,28 @@ const MCQTest = () => {
     try {
       setLoading(true);
 
-      // Fetch exactly 25 questions from the fixed dataset for this domain
-      const { data, error } = await supabase
-        .from('mcq_questions')
-        .select('*')
-        .eq('domain', domain)
-        .limit(25);
+      // DEMO MODE: Generate mock questions
+      const mockQuestions: Question[] = Array.from({ length: 25 }, (_, i) => ({
+        id: `demo-q-${i}`,
+        question: `Demo Question ${i + 1} for ${domain}`,
+        option_a: "Option A",
+        option_b: "Option B", 
+        option_c: "Option C",
+        option_d: "Option D",
+        correct_answer: "A"
+      }));
 
-      if (error || !data || data.length === 0) {
-        toast({
-          title: 'Error',
-          description: 'No questions available for this domain. Please try another domain.',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      // Questions are already in the correct format from the database
-      setQuestions(data);
+      setQuestions(mockQuestions);
+      
+      // Auto-select all correct answers for demo
+      const autoAnswers: Record<number, string> = {};
+      mockQuestions.forEach((_, index) => {
+        autoAnswers[index] = "A";
+      });
+      setSelectedAnswers(autoAnswers);
+      
     } catch (error) {
       console.error('Error loading questions:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to generate questions. Please try again shortly.',
-        variant: 'destructive',
-      });
     } finally {
       setLoading(false);
     }
@@ -136,71 +133,16 @@ const MCQTest = () => {
   };
 
   const handleSubmitTest = async () => {
-    let correctCount = 0;
-
-    questions.forEach((question, index) => {
-      if (selectedAnswers[index] === question.correct_answer) {
-        correctCount++;
-      }
-    });
-
-    const testPassed = (correctCount / questions.length) >= 0.6; // 60% passing score
+    // DEMO MODE: Auto-pass with perfect score
+    const correctCount = questions.length;
+    const testPassed = true;
     setScore(correctCount);
     setPassed(testPassed);
 
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (user) {
-        const { data: attemptData, error: attemptError } = await supabase
-          .from("user_test_attempts")
-          .insert({
-            user_id: user.id,
-            domain,
-            score: correctCount,
-            total_questions: questions.length,
-            passed: testPassed,
-          })
-          .select()
-          .single();
-
-        if (attemptError) throw attemptError;
-
-        const answersToInsert = questions.map((question, index) => ({
-          attempt_id: attemptData.id,
-          question_id: question.id,
-          user_answer: selectedAnswers[index] || "",
-          is_correct: selectedAnswers[index] === question.correct_answer,
-        }));
-
-        const { error: answersError } = await supabase
-          .from("user_answers")
-          .insert(answersToInsert);
-
-        if (answersError) throw answersError;
-      }
-
-      // Generate AI explanations for all incorrect questions
-      const incorrectQuestions = questions
-        .map((question, index) => ({
-          ...question,
-          user_answer: selectedAnswers[index],
-          index,
-        }))
-        .filter((q, index) => selectedAnswers[index] !== q.correct_answer);
-
-      if (incorrectQuestions.length > 0) {
-        const { data: explanationData } = await supabase.functions.invoke('generate-explanations', {
-          body: { failedQuestions: incorrectQuestions }
-        });
-
-        if (explanationData?.explanations) {
-          setExplanations(explanationData.explanations);
-        }
-      }
-    } catch (error: any) {
-      console.error("Error saving test results:", error);
-    }
+    toast({
+      title: "Demo Mode",
+      description: "Auto-passed MCQ test! Moving to coding test...",
+    });
 
     setShowResults(true);
   };
@@ -285,7 +227,7 @@ const MCQTest = () => {
                   </div>
                   <div className="flex gap-3">
                     <span className="font-semibold text-foreground min-w-[24px]">5.</span>
-                    <p><span className="font-semibold text-foreground">Time Limit:</span> 45 minutes</p>
+                    <p><span className="font-semibold text-foreground">Time Limit:</span> 10 seconds (DEMO MODE)</p>
                   </div>
                 </div>
               </div>

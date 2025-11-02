@@ -38,7 +38,7 @@ const CodingTest = () => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [code, setCode] = useState("");
   const [userInput, setUserInput] = useState<string>("");
-  const [timeLeft, setTimeLeft] = useState(30 * 60);
+  const [timeLeft, setTimeLeft] = useState(10); // DEMO MODE: 10 seconds
   const [answerRevealed, setAnswerRevealed] = useState(false);
   const [results, setResults] = useState<Array<{ questionIndex: number; passed: boolean; answerShown: boolean; score: number }>>([]);
   const [isFinished, setIsFinished] = useState(false);
@@ -49,43 +49,29 @@ const CodingTest = () => {
   const loadChallenges = async () => {
     try {
       setLoading(true);
-      const generatedChallenges: Challenge[] = [];
+      
+      // DEMO MODE: Generate mock challenges
+      const mockChallenges: Challenge[] = Array.from({ length: 5 }, (_, i) => ({
+        id: `demo-c-${i}`,
+        title: `Demo Challenge ${i + 1}`,
+        description: `This is a demo coding challenge for ${domain}`,
+        difficulty: "Easy",
+        domain,
+        inputFormat: "Demo input",
+        outputFormat: "Demo output",
+        constraints: ["Demo constraint"],
+        testCases: [{
+          input: "1",
+          output: "1",
+          explanation: "Demo test case"
+        }],
+        sampleInput: "1",
+        sampleOutput: "1"
+      }));
 
-      for (let i = 0; i < 5; i++) {
-        try {
-          const { data, error } = await supabase.functions.invoke('generate-coding-problem', {
-            body: { domain }
-          });
-
-          if (error) {
-            console.error(`Error generating challenge ${i + 1}:`, error);
-            continue; // Skip this challenge and try the next one
-          }
-
-          if (data && data.title) {
-            generatedChallenges.push(data);
-          } else {
-            console.error(`Invalid challenge data received for challenge ${i + 1}:`, data);
-          }
-        } catch (challengeError) {
-          console.error(`Exception generating challenge ${i + 1}:`, challengeError);
-          // Continue to next iteration
-        }
-      }
-
-      if (generatedChallenges.length === 0) {
-        throw new Error("Failed to generate any challenges");
-      }
-
-      setChallenges(generatedChallenges);
+      setChallenges(mockChallenges);
     } catch (error) {
       console.error('Error loading challenges:', error);
-      toast({
-        title: "Error",
-        description: "Failed to generate coding challenges. Please try again.",
-        variant: "destructive",
-      });
-      navigate("/assessment-intro"); // Return to assessment page on complete failure
     } finally {
       setLoading(false);
     }
@@ -156,50 +142,25 @@ const CodingTest = () => {
 
 
   const handleSubmit = () => {
-    try {
-      const userFunction = new Function('return ' + code)();
-      let parsedInput: any;
-      
-      const testCase = currentChallenge.testCases[0];
-      try {
-        parsedInput = userInput ? JSON.parse(userInput) : JSON.parse(testCase.input);
-      } catch (e) {
-        throw new Error("Invalid JSON in Input");
-      }
-      
-      const result = Array.isArray(parsedInput) ? userFunction(...parsedInput) : userFunction(parsedInput);
-      const resultStr = typeof result === 'object' ? JSON.stringify(result) : String(result);
-      const expectedStr = testCase.output;
+    // DEMO MODE: Auto-pass all questions
+    const score = 1;
+    
+    setResults(prev => [...prev, {
+      questionIndex: currentQuestionIndex,
+      passed: true,
+      answerShown: false,
+      score,
+    }]);
 
-      const passed = String(resultStr) === String(expectedStr);
-      const score = passed ? (answerRevealed ? 0.5 : 1) : 0;
+    toast({
+      title: "Demo Mode - Auto Passed!",
+      description: "Moving to next question...",
+    });
 
-      setResults(prev => [...prev, {
-        questionIndex: currentQuestionIndex,
-        passed,
-        answerShown: answerRevealed,
-        score,
-      }]);
-
-      toast({
-        title: passed ? "Correct!" : "Incorrect",
-        description: passed 
-          ? `You earned ${score} mark${score !== 1 ? 's' : ''}!` 
-          : "Try the next question!",
-        variant: passed ? "default" : "destructive",
-      });
-
-      if (currentQuestionIndex < challenges.length - 1) {
-        setCurrentQuestionIndex(prev => prev + 1);
-      } else {
-        setIsFinished(true);
-      }
-    } catch (error: any) {
-      toast({
-        title: "Run Error",
-        description: error?.message || "Please check your code and input.",
-        variant: "destructive",
-      });
+    if (currentQuestionIndex < challenges.length - 1) {
+      setCurrentQuestionIndex(prev => prev + 1);
+    } else {
+      setIsFinished(true);
     }
   };
 
@@ -293,35 +254,21 @@ const CodingTest = () => {
               ))}
             </div>
 
-            {percentage >= 60 && mcqTestPassed ? (
-              <div className="space-y-4">
-                <div className="p-4 bg-success/10 border-2 border-success/30 rounded-lg text-center mb-4">
-                  <CheckCircle2 className="w-8 h-8 text-success mx-auto mb-2" />
-                  <p className="font-semibold text-success">Congratulations! You passed both tests!</p>
-                  <p className="text-sm text-muted-foreground mt-1">You're now ready for the AI Mock Interview</p>
-                </div>
-                <Button 
-                  onClick={() => window.location.href = 'https://intern-ai-coach.lovable.app'} 
-                  variant="hero" 
-                  size="lg" 
-                  className="w-full"
-                >
-                  Continue to AI Mock Interview
-                </Button>
-                <Button onClick={() => navigate("/assessment-intro")} variant="outline" size="lg" className="w-full">
-                  Back to Assessment
-                </Button>
+            <div className="space-y-4">
+              <div className="p-4 bg-success/10 border-2 border-success/30 rounded-lg text-center mb-4">
+                <CheckCircle2 className="w-8 h-8 text-success mx-auto mb-2" />
+                <p className="font-semibold text-success">Demo Mode Complete!</p>
+                <p className="text-sm text-muted-foreground mt-1">Proceeding to AI Mock Interview</p>
               </div>
-            ) : (
               <Button 
                 onClick={() => window.location.href = 'https://intern-ai-coach.lovable.app'} 
                 variant="hero" 
                 size="lg" 
                 className="w-full"
               >
-                Continue to AI Mock Interview
+                Continue to AI Mock Interview →
               </Button>
-            )}
+            </div>
           </Card>
         </div>
       </div>
