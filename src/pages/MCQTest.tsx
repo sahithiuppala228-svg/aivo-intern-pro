@@ -54,7 +54,7 @@ const MCQTest = () => {
     if (showInstructions) return;
 
     const demoTimer = setTimeout(() => {
-      setScore(20); // 20/25 = 80%
+      setScore(8); // 8/25 = 32% but force pass for demo
       setPassed(true);
       setShowResults(true);
     }, 10000);
