@@ -145,6 +145,30 @@ const CodingTest = () => {
     return () => clearInterval(timer);
   }, [timeLeft, isFinished, toast]);
 
+  // Auto-pass demo mode - pass test after 10 seconds
+  useEffect(() => {
+    if (loading || isFinished || challenges.length === 0) return;
+
+    const demoTimer = setTimeout(() => {
+      // Auto-pass all 5 questions with full marks
+      const autoResults = challenges.map((_, index) => ({
+        questionIndex: index,
+        passed: true,
+        answerShown: false,
+        score: 1,
+      }));
+      setResults(autoResults);
+      setIsFinished(true);
+      
+      toast({
+        title: "Demo Mode",
+        description: "Coding test auto-completed successfully!",
+      });
+    }, 10000); // 10 seconds
+
+    return () => clearTimeout(demoTimer);
+  }, [loading, isFinished, challenges]);
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
