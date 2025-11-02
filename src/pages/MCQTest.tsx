@@ -49,31 +49,18 @@ const MCQTest = () => {
     loadQuestions();
   }, [domain]);
 
-  // Auto-pass demo mode - pass test after 10 seconds
+  // Auto-pass demo mode - force pass after 10 seconds regardless of data
   useEffect(() => {
-    if (showInstructions || loading || questions.length === 0) return;
-    
+    if (showInstructions) return;
+
     const demoTimer = setTimeout(() => {
-      // Auto-fill correct answers for demo
-      const autoAnswers: Record<number, string> = {};
-      questions.forEach((q, idx) => {
-        if (idx < 20) { // Pass with 20/25 = 80%
-          autoAnswers[idx] = q.correct_answer;
-        } else {
-          // Wrong answers for remaining 5
-          autoAnswers[idx] = 'A';
-        }
-      });
-      setSelectedAnswers(autoAnswers);
-      
-      // Submit after filling answers
-      setTimeout(() => {
-        handleSubmitTest();
-      }, 500);
-    }, 10000); // 10 seconds
+      setScore(20); // 20/25 = 80%
+      setPassed(true);
+      setShowResults(true);
+    }, 10000);
 
     return () => clearTimeout(demoTimer);
-  }, [showInstructions, loading, questions.length]);
+  }, [showInstructions]);
 
   useEffect(() => {
     if (timeLeft === 0) {
