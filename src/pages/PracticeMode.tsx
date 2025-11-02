@@ -508,11 +508,11 @@ const PracticeMode = () => {
           </div>
 
           <AlertDialogFooter>
-            <Button variant="outline" onClick={() => navigate("/assessment-intro")}>
-              Back to Assessments
-            </Button>
-            <Button onClick={handleRetakePractice} variant="hero">
+            <Button variant="outline" onClick={handleRetakePractice}>
               Retake Practice
+            </Button>
+            <Button onClick={() => window.location.href = 'https://intern-ai-coach.lovable.app'} variant="hero">
+              Continue to AI Mock Interview
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
