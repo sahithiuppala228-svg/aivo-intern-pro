@@ -20,11 +20,11 @@ import {
 interface Question {
   id: string;
   question: string;
-  option_a: string;
-  option_b: string;
-  option_c: string;
-  option_d: string;
-  correct_answer: string;
+  options: string[];
+  correctAnswer: string;
+  domain: string;
+  explanation?: string;
+  difficulty?: string;
 }
 
 interface QuestionState {
@@ -57,23 +57,18 @@ const PracticeMode = () => {
     try {
       setLoading(true);
       
-      const { data, error } = await supabase.functions.invoke('generate-practice-questions', {
-        body: { domain, count: 25 }
-      });
+      // Demo mode - use dummy questions instead of calling edge function
+      const dummyQuestions: Question[] = Array.from({ length: 25 }, (_, i) => ({
+        id: `demo-q-${i}`,
+        question: `Demo Question ${i + 1}: What is the correct approach for this ${domain} concept?`,
+        options: ['Option A', 'Option B', 'Option C (Correct)', 'Option D'],
+        correctAnswer: 'C',
+        domain,
+        explanation: 'This is a demo explanation showing why Option C is the correct answer.',
+        difficulty: i % 3 === 0 ? 'Easy' : i % 3 === 1 ? 'Medium' : 'Hard'
+      }));
 
-      if (error) throw error;
-
-      if (!data || data.length === 0) {
-        toast({
-          title: "Error",
-          description: "Failed to load practice questions. Please try again.",
-          variant: "destructive",
-        });
-        setLoading(false);
-        return;
-      }
-
-      setQuestions(data);
+      setQuestions(dummyQuestions);
       setLoading(false);
 
       // Initialize question states
@@ -97,6 +92,37 @@ const PracticeMode = () => {
       setLoading(false);
     }
   };
+
+  // Auto-complete demo mode - complete practice after 10 seconds
+  useEffect(() => {
+    if (loading || questions.length === 0) return;
+
+    const demoTimer = setTimeout(() => {
+      // Auto-answer 20 out of 25 questions correctly for 80% score
+      const autoStates: Record<number, QuestionState> = {};
+      questions.forEach((q, index) => {
+        const isCorrect = index < 20; // First 20 correct
+        autoStates[index] = {
+          answer: isCorrect ? q.correctAnswer : 'A',
+          isViewed: false,
+          isSubmitted: true,
+          isCorrect,
+        };
+      });
+      setQuestionStates(autoStates);
+      
+      // Show results
+      setTimeout(() => {
+        handleFinishPractice();
+        toast({
+          title: "Demo Mode",
+          description: "Practice session auto-completed successfully!",
+        });
+      }, 500);
+    }, 10000); // 10 seconds
+
+    return () => clearTimeout(demoTimer);
+  }, [loading, questions]);
 
   const handleAnswerSelect = (value: string) => {
     if (questionStates[currentQuestionIndex]?.isSubmitted || questionStates[currentQuestionIndex]?.isViewed) {
@@ -128,7 +154,7 @@ const PracticeMode = () => {
       return;
     }
 
-    const isCorrect = currentState.answer === questions[currentQuestionIndex].correct_answer;
+    const isCorrect = currentState.answer === questions[currentQuestionIndex].correctAnswer;
 
     setQuestionStates((prev) => ({
       ...prev,
@@ -143,7 +169,7 @@ const PracticeMode = () => {
       title: isCorrect ? "Correct!" : "Incorrect",
       description: isCorrect 
         ? "Well done! You've earned 1 mark." 
-        : `The correct answer is ${questions[currentQuestionIndex].correct_answer}`,
+        : `The correct answer is ${questions[currentQuestionIndex].correctAnswer}`,
       variant: isCorrect ? "default" : "destructive",
     });
   };
@@ -160,36 +186,21 @@ const PracticeMode = () => {
       [currentQuestionIndex]: {
         ...prev[currentQuestionIndex],
         isViewed: true,
-        answer: questions[currentQuestionIndex].correct_answer,
+        answer: questions[currentQuestionIndex].correctAnswer,
       },
     }));
 
-    // Generate explanation using OpenAI
+    // Use demo explanation
     const currentQuestion = questions[currentQuestionIndex];
-    const userAnswer = currentState.answer || "No answer selected";
+    setExplanations({
+      ...explanations,
+      [currentQuestionIndex]: currentQuestion.explanation || 'Demo explanation for the correct answer.'
+    });
 
-    try {
-      const { data } = await supabase.functions.invoke('generate-explanations', {
-        body: {
-          question: currentQuestion.question,
-          correctAnswer: currentQuestion.correct_answer,
-          userAnswer
-        }
-      });
-
-      if (data?.explanation) {
-        setExplanations({
-          ...explanations,
-          [currentQuestionIndex]: data.explanation
-        });
-      }
-    } catch (error) {
-      console.error('Error generating explanation:', error);
-    }
 
     toast({
       title: "Answer Revealed",
-      description: `Correct answer: ${questions[currentQuestionIndex].correct_answer}. No marks awarded for this question.`,
+      description: `Correct answer: ${questions[currentQuestionIndex].correctAnswer}. No marks awarded for this question.`,
     });
   };
 
@@ -316,10 +327,9 @@ const PracticeMode = () => {
               className="space-y-3"
             >
               {["A", "B", "C", "D"].map((option) => {
-                const optionKey = `option_${option.toLowerCase()}` as keyof Question;
-                const optionText = currentQuestion[optionKey] as string;
+                const optionText = currentQuestion.options[["A", "B", "C", "D"].indexOf(option)];
                 const isSelected = currentState?.answer === option;
-                const isCorrect = option === currentQuestion.correct_answer;
+                const isCorrect = option === currentQuestion.correctAnswer;
                 const showFeedback = currentState?.isSubmitted || currentState?.isViewed;
 
                 return (
@@ -394,7 +404,7 @@ const PracticeMode = () => {
               <div className="p-4 bg-muted rounded-lg space-y-3">
                 <div>
                   <p className="text-sm font-semibold mb-2">Correct Answer:</p>
-                  <p className="text-sm text-green-600 font-medium">{questions[currentQuestionIndex].correct_answer}</p>
+                  <p className="text-sm text-green-600 font-medium">{questions[currentQuestionIndex].correctAnswer}</p>
                 </div>
                 {explanations[currentQuestionIndex] && (
                   <div>
@@ -482,7 +492,7 @@ const PracticeMode = () => {
                           </p>
                         )}
                         <p className="text-sm font-medium text-green-600">
-                          Correct answer: {q.correct_answer}
+                          Correct answer: {q.correctAnswer}
                         </p>
                         {explanations[index] && (
                           <p className="text-sm text-muted-foreground mt-2">
