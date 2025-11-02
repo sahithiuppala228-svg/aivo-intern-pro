@@ -23,7 +23,7 @@ interface Question {
   option_b: string;
   option_c: string;
   option_d: string;
-  correct_answer?: string; // Optional since view excludes this
+  correct_answer: string;
 }
 
 const MCQTest = () => {
@@ -70,9 +70,9 @@ const MCQTest = () => {
     try {
       setLoading(true);
 
-      // Fetch questions from the view (without correct answers)
+      // Fetch exactly 25 questions from the fixed dataset for this domain
       const { data, error } = await supabase
-        .from('mcq_questions_public')
+        .from('mcq_questions')
         .select('*')
         .eq('domain', domain)
         .limit(25);
@@ -86,13 +86,13 @@ const MCQTest = () => {
         return;
       }
 
-      // Questions from view don't have correct_answer
-      setQuestions(data as Question[]);
+      // Questions are already in the correct format from the database
+      setQuestions(data);
     } catch (error) {
       console.error('Error loading questions:', error);
       toast({
         title: 'Error',
-        description: 'Failed to load questions. Please try again shortly.',
+        description: 'Failed to generate questions. Please try again shortly.',
         variant: 'destructive',
       });
     } finally {
@@ -136,23 +136,13 @@ const MCQTest = () => {
   };
 
   const handleSubmitTest = async () => {
-    // Validate answers server-side using the RPC function
-    const validationPromises = questions.map(async (question, index) => {
-      const { data, error } = await supabase.rpc('validate_mcq_answer', {
-        question_id: question.id,
-        user_answer: selectedAnswers[index] || ''
-      });
-      
-      if (error) {
-        console.error('Validation error:', error);
-        return { isCorrect: false, index };
-      }
-      
-      return { isCorrect: data, index };
-    });
+    let correctCount = 0;
 
-    const validationResults = await Promise.all(validationPromises);
-    const correctCount = validationResults.filter(r => r.isCorrect).length;
+    questions.forEach((question, index) => {
+      if (selectedAnswers[index] === question.correct_answer) {
+        correctCount++;
+      }
+    });
 
     const testPassed = (correctCount / questions.length) >= 0.6; // 60% passing score
     setScore(correctCount);
@@ -197,7 +187,7 @@ const MCQTest = () => {
           user_answer: selectedAnswers[index],
           index,
         }))
-        .filter((q, index) => !validationResults[index]?.isCorrect);
+        .filter((q, index) => selectedAnswers[index] !== q.correct_answer);
 
       if (incorrectQuestions.length > 0) {
         const { data: explanationData } = await supabase.functions.invoke('generate-explanations', {
