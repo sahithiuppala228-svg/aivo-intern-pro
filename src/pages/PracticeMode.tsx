@@ -93,36 +93,7 @@ const PracticeMode = () => {
     }
   };
 
-  // Auto-complete demo mode - complete practice after 10 seconds
-  useEffect(() => {
-    if (loading || questions.length === 0) return;
-
-    const demoTimer = setTimeout(() => {
-      // Auto-answer 20 out of 25 questions correctly for 80% score
-      const autoStates: Record<number, QuestionState> = {};
-      questions.forEach((q, index) => {
-        const isCorrect = index < 20; // First 20 correct
-        autoStates[index] = {
-          answer: isCorrect ? q.correctAnswer : 'A',
-          isViewed: false,
-          isSubmitted: true,
-          isCorrect,
-        };
-      });
-      setQuestionStates(autoStates);
-      
-      // Show results
-      setTimeout(() => {
-        handleFinishPractice();
-        toast({
-          title: "Demo Mode",
-          description: "Practice session auto-completed successfully!",
-        });
-      }, 500);
-    }, 10000); // 10 seconds
-
-    return () => clearTimeout(demoTimer);
-  }, [loading, questions]);
+  // Demo mode removed for security - practice must be completed legitimately
 
   const handleAnswerSelect = (value: string) => {
     if (questionStates[currentQuestionIndex]?.isSubmitted || questionStates[currentQuestionIndex]?.isViewed) {
