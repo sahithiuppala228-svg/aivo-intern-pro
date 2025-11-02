@@ -37,7 +37,6 @@ const CodingTest = () => {
   const [loading, setLoading] = useState(true);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [code, setCode] = useState("");
-  const [copyAttempts, setCopyAttempts] = useState(0);
   const [userInput, setUserInput] = useState<string>("");
   const [timeLeft, setTimeLeft] = useState(30 * 60);
   const [answerRevealed, setAnswerRevealed] = useState(false);
@@ -129,35 +128,6 @@ const CodingTest = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  useEffect(() => {
-    const handleCopy = (e: ClipboardEvent) => {
-      e.preventDefault();
-      setCopyAttempts(prev => prev + 1);
-      toast({
-        title: "Copy-Paste Disabled",
-        description: "Please type your code manually.",
-        variant: "destructive",
-      });
-    };
-
-    const handlePaste = (e: ClipboardEvent) => {
-      e.preventDefault();
-      setCopyAttempts(prev => prev + 1);
-      toast({
-        title: "Copy-Paste Disabled",
-        description: "Please type your code manually.",
-        variant: "destructive",
-      });
-    };
-
-    document.addEventListener("copy", handleCopy);
-    document.addEventListener("paste", handlePaste);
-
-    return () => {
-      document.removeEventListener("copy", handleCopy);
-      document.removeEventListener("paste", handlePaste);
-    };
-  }, [toast]);
 
 
   const handleSubmit = () => {
@@ -342,21 +312,6 @@ const CodingTest = () => {
           </div>
         </div>
 
-        {copyAttempts > 0 && (
-          <Card className="p-4 mb-6 border-2 border-destructive bg-destructive/5 shadow-lg animate-pulse">
-            <div className="flex items-center gap-3 text-destructive">
-              <div className="p-2 bg-destructive/10 rounded-lg">
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="font-bold">Anti-Cheat Detection</p>
-                <p className="text-sm text-destructive/80">
-                  Copy-Paste Attempts: {copyAttempts}
-                </p>
-              </div>
-            </div>
-          </Card>
-        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Challenge Details Card */}
