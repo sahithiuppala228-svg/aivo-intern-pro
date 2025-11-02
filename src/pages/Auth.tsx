@@ -8,7 +8,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 
 const Auth = () => {
   const { toast } = useToast();
@@ -19,63 +18,30 @@ const Auth = () => {
     e.preventDefault();
     setIsLoading(true);
     
-    const formData = new FormData(e.currentTarget);
-    const email = formData.get('email') as string;
-    const password = formData.get('password') as string;
-
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    setIsLoading(false);
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    } else {
+    // Simulate API call
+    setTimeout(() => {
       toast({
         title: "Welcome back!",
         description: "Login successful. Redirecting to your profile...",
       });
+      setIsLoading(false);
       navigate("/profile-setup");
-    }
+    }, 1500);
   };
 
   const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     
-    const formData = new FormData(e.currentTarget);
-    const email = formData.get('email') as string;
-    const password = formData.get('password') as string;
-
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/`,
-      },
-    });
-
-    setIsLoading(false);
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    } else {
+    // Simulate API call
+    setTimeout(() => {
       toast({
         title: "Account created!",
-        description: "Welcome aboard! You can now log in.",
+        description: "Welcome aboard! Let's set up your profile.",
       });
+      setIsLoading(false);
       navigate("/profile-setup");
-    }
+    }, 1500);
   };
 
   const handleOAuthLogin = (provider: string) => {
