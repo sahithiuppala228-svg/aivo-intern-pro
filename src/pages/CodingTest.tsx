@@ -38,7 +38,7 @@ const CodingTest = () => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [code, setCode] = useState("");
   const [userInput, setUserInput] = useState<string>("");
-  const [timeLeft, setTimeLeft] = useState(30 * 60);
+  const [timeLeft, setTimeLeft] = useState(10); // 10 seconds for quick demo
   const [answerRevealed, setAnswerRevealed] = useState(false);
   const [results, setResults] = useState<Array<{ questionIndex: number; passed: boolean; answerShown: boolean; score: number }>>([]);
   const [isFinished, setIsFinished] = useState(false);
@@ -157,21 +157,26 @@ const CodingTest = () => {
 
   const handleSubmit = () => {
     // SECURITY: Code execution disabled for security reasons
-    // This feature requires server-side execution to prevent XSS and session hijacking
+    // Auto-pass for demo mode - marks question as passed
+    const score = answerRevealed ? 0.5 : 1;
+
+    setResults(prev => [...prev, {
+      questionIndex: currentQuestionIndex,
+      passed: true, // Auto-pass for demo
+      answerShown: answerRevealed,
+      score,
+    }]);
+
     toast({
-      title: "Feature Temporarily Disabled",
-      description: "Code execution is being upgraded with proper security. Please use the practice mode or continue to the next section.",
-      variant: "destructive",
+      title: "Question Completed!",
+      description: `Demo mode: Auto-passed with ${score} mark${score !== 1 ? 's' : ''}!`,
     });
-    
-    // Auto-skip to next question after 2 seconds
-    setTimeout(() => {
-      if (currentQuestionIndex < challenges.length - 1) {
-        setCurrentQuestionIndex(prev => prev + 1);
-      } else {
-        setIsFinished(true);
-      }
-    }, 2000);
+
+    if (currentQuestionIndex < challenges.length - 1) {
+      setCurrentQuestionIndex(prev => prev + 1);
+    } else {
+      setIsFinished(true);
+    }
   };
 
   const totalScore = results.reduce((sum, r) => sum + r.score, 0);
