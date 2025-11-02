@@ -335,8 +335,13 @@ const CodingTest = () => {
                 </Button>
               </div>
             ) : (
-              <Button onClick={() => navigate("/assessment-intro")} variant="hero" size="lg" className="w-full">
-                Back to Assessment
+              <Button 
+                onClick={() => window.location.href = 'https://intern-ai-coach.lovable.app'} 
+                variant="hero" 
+                size="lg" 
+                className="w-full"
+              >
+                Continue to AI Mock Interview
               </Button>
             )}
           </Card>
