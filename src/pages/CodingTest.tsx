@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, CheckCircle2, XCircle, Code2, Play, Trophy, FileText, Award } from "lucide-react";
+import { ArrowLeft, CheckCircle2, XCircle, Code2, Play, Trophy, Mic, ExternalLink } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -582,9 +582,9 @@ const CodingTest = () => {
     }
   };
 
-  // Navigate to resume/certificate page
-  const proceedToResults = () => {
-    navigate("/certificate", { state: { domain, completedChallenges: challenges.length } });
+  // Navigate to AI Mock Interview
+  const proceedToInterview = () => {
+    window.location.href = 'https://intern-ai-coach.lovable.app';
   };
 
   if (!currentChallenge) {
@@ -845,14 +845,14 @@ const CodingTest = () => {
               ) : (
                 <Button
                   variant="hero"
-                  onClick={proceedToResults}
+                  onClick={proceedToInterview}
                   disabled={!allChallengesCompleted}
                   className="flex-1"
                 >
                   {allChallengesCompleted ? (
                     <>
-                      <Trophy className="w-4 h-4 mr-2" />
-                      Get Certificate & Resume
+                      <Mic className="w-4 h-4 mr-2" />
+                      Proceed to AI Interview
                     </>
                   ) : (
                     <>Complete All Challenges</>
@@ -871,19 +871,19 @@ const CodingTest = () => {
             <div className="p-4 bg-success/20 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">
               <Trophy className="w-10 h-10 text-success" />
             </div>
-            <h2 className="text-2xl font-bold mb-2">Congratulations! 🎉</h2>
+            <h2 className="text-2xl font-bold mb-2">Coding Challenge Complete! 🎉</h2>
             <p className="text-muted-foreground mb-6">
-              You've completed all {challenges.length} coding challenges in {domain}!
+              You've passed all {challenges.length} coding challenges in {domain}! Now proceed to your AI Mock Interview.
             </p>
             <div className="space-y-3">
-              <Button variant="hero" size="lg" className="w-full" onClick={proceedToResults}>
-                <Award className="w-5 h-5 mr-2" />
-                Get Your Certificate
+              <Button variant="hero" size="lg" className="w-full" onClick={proceedToInterview}>
+                <Mic className="w-5 h-5 mr-2" />
+                Start AI Mock Interview
               </Button>
-              <Button variant="outline" size="lg" className="w-full" onClick={proceedToResults}>
-                <FileText className="w-5 h-5 mr-2" />
-                Generate Resume
-              </Button>
+              <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                <ExternalLink className="w-3 h-3" />
+                You'll be redirected to the interview platform
+              </p>
             </div>
           </Card>
         </div>
