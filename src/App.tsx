@@ -10,6 +10,7 @@ import AssessmentIntro from "./pages/AssessmentIntro";
 import MCQTest from "./pages/MCQTest";
 import CodingTest from "./pages/CodingTest";
 import PracticeMode from "./pages/PracticeMode";
+import Certificate from "./pages/Certificate";
 import NotFound from "./pages/NotFound";
 import GlobalAIMentor from "./components/GlobalAIMentor";
 
@@ -29,6 +30,7 @@ const App = () => (
           <Route path="/mcq-test" element={<MCQTest />} />
           <Route path="/coding-test" element={<CodingTest />} />
           <Route path="/practice-mode" element={<PracticeMode />} />
+          <Route path="/certificate" element={<Certificate />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
