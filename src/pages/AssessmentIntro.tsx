@@ -21,14 +21,14 @@ const AssessmentIntro = () => {
       title: "MCQ Test",
       description: "50 multiple choice questions (Easy, Medium, Hard)",
       duration: "1 hour 30 minutes",
-      passingScore: "60%"
+      passingScore: "80%"
     },
     {
       icon: <Code className="w-6 h-6 text-secondary" />,
-      title: "Practical Task",
-      description: "8 real-world coding problems",
-      duration: "30 minutes per problem",
-      passingScore: "60%"
+      title: "Coding Challenge",
+      description: "10 coding problems with visible & hidden test cases",
+      duration: "No time limit",
+      passingScore: "80%"
     }
   ];
 
@@ -139,7 +139,7 @@ const AssessmentIntro = () => {
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li className="flex gap-2">
                 <span className="text-primary font-bold">•</span>
-                <span>You must score <strong className="text-foreground">≥60%</strong> to pass each section</span>
+                <span>You must score <strong className="text-foreground">≥80%</strong> to pass each section and proceed to next level</span>
               </li>
               <li className="flex gap-2">
                 <span className="text-primary font-bold">•</span>

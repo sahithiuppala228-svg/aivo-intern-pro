@@ -31,7 +31,8 @@ const ProfileSetup = () => {
   const [skills, setSkills] = useState("");
   const [interests, setInterests] = useState("");
   const [projects, setProjects] = useState("");
-  const [customDomain, setCustomDomain] = useState("");
+  const [customDomainInput, setCustomDomainInput] = useState("");
+  const [customDomains, setCustomDomains] = useState<string[]>([]);
 
   const availableDomains = [
     "Web Development",
@@ -52,6 +53,41 @@ const ProfileSetup = () => {
     } else {
       setSelectedDomains([...selectedDomains, domain]);
     }
+  };
+
+  const handleAddCustomDomain = () => {
+    if (!customDomainInput.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Enter domain name",
+        description: "Please enter a custom domain name.",
+      });
+      return;
+    }
+    
+    const newDomain = customDomainInput.trim();
+    if (customDomains.includes(newDomain) || availableDomains.includes(newDomain)) {
+      toast({
+        variant: "destructive",
+        title: "Domain already exists",
+        description: "This domain is already in the list.",
+      });
+      return;
+    }
+    
+    setCustomDomains([...customDomains, newDomain]);
+    setSelectedDomains([...selectedDomains, newDomain]);
+    setCustomDomainInput("");
+    
+    toast({
+      title: "Domain added",
+      description: `"${newDomain}" has been added to your domains.`,
+    });
+  };
+
+  const handleRemoveCustomDomain = (domain: string) => {
+    setCustomDomains(customDomains.filter(d => d !== domain));
+    setSelectedDomains(selectedDomains.filter(d => d !== domain));
   };
 
 
@@ -156,7 +192,7 @@ const ProfileSetup = () => {
       description: "Let's begin your assessment journey.",
     });
     // Pass the first selected domain to the assessment
-    navigate("/assessment-intro", { state: { domain: selectedDomains[0] } });
+    navigate("/assessment-intro", { state: { domain: selectedDomains[0], allDomains: selectedDomains } });
   };
 
   return (
@@ -322,6 +358,55 @@ const ProfileSetup = () => {
                     )}
                   </Badge>
                 ))}
+                {/* Custom domains */}
+                {customDomains.map((domain) => (
+                  <Badge
+                    key={domain}
+                    variant={selectedDomains.includes(domain) ? "default" : "outline"}
+                    className="cursor-pointer px-4 py-2 text-sm bg-secondary"
+                    onClick={() => handleDomainToggle(domain)}
+                  >
+                    {domain}
+                    <X 
+                      className="w-3 h-3 ml-2 hover:text-destructive" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveCustomDomain(domain);
+                      }}
+                    />
+                  </Badge>
+                ))}
+              </div>
+
+              {/* Add Custom Domain */}
+              <div className="pt-4 border-t">
+                <Label className="text-sm font-medium mb-2 block">Add Custom Domain</Label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="e.g., Artificial Intelligence, IoT, etc."
+                    value={customDomainInput}
+                    onChange={(e) => setCustomDomainInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddCustomDomain();
+                      }
+                    }}
+                    className="flex-1"
+                  />
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={handleAddCustomDomain}
+                    className="px-4"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Can't find your domain? Add a custom one above.
+                </p>
               </div>
 
             </CardContent>
@@ -426,15 +511,6 @@ const ProfileSetup = () => {
                   placeholder="E-commerce App, Portfolio Website, etc."
                   value={projects}
                   onChange={(e) => setProjects(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="customDomain">Custom Domain (Optional)</Label>
-                <Input
-                  id="customDomain"
-                  placeholder="yourdomain.com"
-                  value={customDomain}
-                  onChange={(e) => setCustomDomain(e.target.value)}
                 />
               </div>
             </CardContent>
