@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -7,7 +7,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Clock, CheckCircle, XCircle, List, Bookmark } from "lucide-react";
+import { ArrowLeft, Clock, CheckCircle, XCircle, List, Bookmark, AlertTriangle } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -15,6 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 
 interface Question {
   id: string;
@@ -24,7 +25,12 @@ interface Question {
   option_c: string;
   option_d: string;
   correct_answer: string;
+  difficulty: "Easy" | "Medium" | "Hard";
 }
+
+const TOTAL_QUESTIONS = 50;
+const EXAM_DURATION_SECONDS = 90 * 60; // 1 hour 30 minutes = 5400 seconds
+const PASSING_PERCENTAGE = 80;
 
 const MCQTest = () => {
   const navigate = useNavigate();
@@ -36,22 +42,76 @@ const MCQTest = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
-  const [timeLeft, setTimeLeft] = useState(10); // DEMO MODE: 10 seconds
-  const [loading, setLoading] = useState(true);
+  const [timeLeft, setTimeLeft] = useState(EXAM_DURATION_SECONDS);
+  const [loading, setLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [score, setScore] = useState(0);
   const [passed, setPassed] = useState(false);
-  const [explanations, setExplanations] = useState<any[]>([]);
+  const [wrongAnswers, setWrongAnswers] = useState<{question: string; yourAnswer: string; correctAnswer: string; explanation?: string}[]>([]);
   const [showPreview, setShowPreview] = useState(false);
   const [markedQuestions, setMarkedQuestions] = useState<Set<number>>(new Set());
+  const [testStarted, setTestStarted] = useState(false);
+  const [generatingQuestions, setGeneratingQuestions] = useState(false);
 
+  // Generate questions using AI when test starts
+  const generateQuestions = useCallback(async () => {
+    setGeneratingQuestions(true);
+    setLoading(true);
+    
+    try {
+      // Call the edge function to generate questions
+      const { data, error } = await supabase.functions.invoke('generate-mcq-questions', {
+        body: { domain, count: TOTAL_QUESTIONS }
+      });
+
+      if (error) {
+        console.error('Error generating questions:', error);
+        throw error;
+      }
+
+      if (data?.questions && data.questions.length > 0) {
+        setQuestions(data.questions);
+      } else {
+        // Fallback to mock questions if AI fails
+        generateMockQuestions();
+      }
+    } catch (error) {
+      console.error('Failed to generate questions:', error);
+      toast({
+        title: "Using practice questions",
+        description: "Generating AI questions failed. Using practice questions instead.",
+        variant: "default",
+      });
+      generateMockQuestions();
+    } finally {
+      setGeneratingQuestions(false);
+      setLoading(false);
+    }
+  }, [domain, toast]);
+
+  const generateMockQuestions = () => {
+    // Generate 50 mock questions with varying difficulty
+    const difficulties: ("Easy" | "Medium" | "Hard")[] = ["Easy", "Medium", "Hard"];
+    const mockQuestions: Question[] = Array.from({ length: TOTAL_QUESTIONS }, (_, i) => {
+      const difficulty = difficulties[i % 3];
+      return {
+        id: `q-${i + 1}`,
+        question: `${domain} Question ${i + 1} (${difficulty}): This is a sample ${difficulty.toLowerCase()} level question about ${domain}. What is the correct approach?`,
+        option_a: `Option A - This is the first choice for question ${i + 1}`,
+        option_b: `Option B - This is the second choice for question ${i + 1}`,
+        option_c: `Option C - This is the third choice for question ${i + 1}`,
+        option_d: `Option D - This is the fourth choice for question ${i + 1}`,
+        correct_answer: ["A", "B", "C", "D"][Math.floor(Math.random() * 4)],
+        difficulty
+      };
+    });
+    setQuestions(mockQuestions);
+  };
+
+  // Timer effect - only runs when test has started
   useEffect(() => {
-    loadQuestions();
-  }, [domain]);
+    if (!testStarted || showResults) return;
 
-  // Demo mode removed for security - tests must be completed legitimately
-
-  useEffect(() => {
     if (timeLeft === 0) {
       handleSubmitTest();
       return;
@@ -62,40 +122,7 @@ const MCQTest = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timeLeft]);
-
-  const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
-
-  const loadQuestions = async () => {
-    try {
-      setLoading(true);
-
-      // DEMO MODE: Generate mock questions
-      const mockQuestions: Question[] = Array.from({ length: 25 }, (_, i) => ({
-        id: `demo-q-${i}`,
-        question: `Demo Question ${i + 1} for ${domain}`,
-        option_a: "Option A",
-        option_b: "Option B", 
-        option_c: "Option C",
-        option_d: "Option D",
-        correct_answer: "A"
-      }));
-
-      setQuestions(mockQuestions);
-      
-      // Auto-select all correct answers for demo
-      const autoAnswers: Record<number, string> = {};
-      mockQuestions.forEach((_, index) => {
-        autoAnswers[index] = "A";
-      });
-      setSelectedAnswers(autoAnswers);
-      
-    } catch (error) {
-      console.error('Error loading questions:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [timeLeft, testStarted, showResults]);
 
   const handleAnswerSelect = (answer: string) => {
     setSelectedAnswers({
@@ -132,51 +159,88 @@ const MCQTest = () => {
     }
   };
 
-  const handleSubmitTest = async () => {
-    // DEMO MODE: Auto-pass with perfect score
-    const correctCount = questions.length;
-    const testPassed = true;
-    setScore(correctCount);
-    setPassed(testPassed);
+  const handleStartTest = async () => {
+    setShowInstructions(false);
+    await generateQuestions();
+    setTestStarted(true);
+  };
 
-    toast({
-      title: "Demo Mode",
-      description: "Auto-passed MCQ test! Moving to coding test...",
+  const handleSubmitTest = () => {
+    let correctCount = 0;
+    const incorrectAnswers: {question: string; yourAnswer: string; correctAnswer: string}[] = [];
+
+    questions.forEach((q, index) => {
+      const userAnswer = selectedAnswers[index];
+      if (userAnswer === q.correct_answer) {
+        correctCount++;
+      } else {
+        incorrectAnswers.push({
+          question: q.question,
+          yourAnswer: userAnswer || "Not answered",
+          correctAnswer: q.correct_answer,
+        });
+      }
     });
 
+    const percentage = (correctCount / questions.length) * 100;
+    const testPassed = percentage >= PASSING_PERCENTAGE;
+
+    setScore(correctCount);
+    setPassed(testPassed);
+    setWrongAnswers(incorrectAnswers);
     setShowResults(true);
+    setTestStarted(false);
+
+    if (testPassed) {
+      toast({
+        title: "Congratulations! 🎉",
+        description: `You scored ${percentage.toFixed(0)}% and passed the MCQ test!`,
+      });
+    } else {
+      toast({
+        title: "Test Not Passed",
+        description: `You scored ${percentage.toFixed(0)}%. You need at least ${PASSING_PERCENTAGE}% to pass.`,
+        variant: "destructive",
+      });
+    }
   };
 
   const formatTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+    }
     return `${minutes}:${secs.toString().padStart(2, "0")}`;
   };
 
   const handleResultsClose = () => {
     if (passed) {
-      navigate("/coding-test", { state: { domain } });
+      navigate("/coding-test", { state: { domain, mcqScore: score, mcqTotal: questions.length } });
     } else {
-      // Reset the test for retry
+      // Reset for retry
       setShowResults(false);
       setShowInstructions(true);
       setCurrentQuestionIndex(0);
       setSelectedAnswers({});
-      setTimeLeft(2700);
+      setTimeLeft(EXAM_DURATION_SECONDS);
       setScore(0);
       setPassed(false);
-      setExplanations([]);
-      setLoading(true);
-      loadQuestions();
+      setWrongAnswers([]);
+      setQuestions([]);
+      setMarkedQuestions(new Set());
     }
   };
 
-  if (loading) {
+  // Loading state
+  if (loading || generatingQuestions) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading questions...</p>
+          <p className="text-muted-foreground">Generating {TOTAL_QUESTIONS} questions for {domain}...</p>
+          <p className="text-sm text-muted-foreground mt-2">This may take a moment</p>
         </div>
       </div>
     );
@@ -208,33 +272,60 @@ const MCQTest = () => {
                 <div className="space-y-4 text-muted-foreground">
                   <div className="flex gap-3">
                     <span className="font-semibold text-foreground min-w-[24px]">1.</span>
-                    <p><span className="font-semibold text-foreground">Number of Questions:</span> {questions.length}</p>
+                    <p><span className="font-semibold text-foreground">Number of Questions:</span> {TOTAL_QUESTIONS} questions</p>
                   </div>
                   <div className="flex gap-3">
                     <span className="font-semibold text-foreground min-w-[24px]">2.</span>
-                    <p><span className="font-semibold text-foreground">Types of Questions:</span> Multiple Choice Questions (MCQs)</p>
+                    <p><span className="font-semibold text-foreground">Difficulty Levels:</span> Easy, Medium, and Hard questions mixed</p>
                   </div>
                   <div className="flex gap-3">
                     <span className="font-semibold text-foreground min-w-[24px]">3.</span>
+                    <p><span className="font-semibold text-foreground">Time Limit:</span> 1 Hour 30 Minutes (90 minutes)</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="font-semibold text-foreground min-w-[24px]">4.</span>
                     <div>
                       <p><span className="font-semibold text-foreground">Marking Scheme:</span> All questions have equal weightage. Every correct response gets +1 mark.</p>
-                      <p className="mt-1">There is no negative marking.</p>
+                      <p className="mt-1">There is <span className="text-success font-medium">no negative marking</span>.</p>
                     </div>
-                  </div>
-                   <div className="flex gap-3">
-                    <span className="font-semibold text-foreground min-w-[24px]">4.</span>
-                    <p>You must score <span className="font-semibold text-foreground">≥60%</span> (at least 15 correct answers) to pass this test.</p>
                   </div>
                   <div className="flex gap-3">
                     <span className="font-semibold text-foreground min-w-[24px]">5.</span>
-                    <p><span className="font-semibold text-foreground">Time Limit:</span> 10 seconds (DEMO MODE)</p>
+                    <p>You must score <span className="font-semibold text-primary">≥{PASSING_PERCENTAGE}%</span> (at least {Math.ceil(TOTAL_QUESTIONS * PASSING_PERCENTAGE / 100)} correct answers) to pass this test.</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="font-semibold text-foreground min-w-[24px]">6.</span>
+                    <p>The test will <span className="font-semibold text-destructive">auto-submit</span> when time runs out.</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="font-semibold text-foreground min-w-[24px]">7.</span>
+                    <p>Questions are generated based on your selected domain: <span className="font-semibold text-primary">{domain}</span></p>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="font-semibold text-foreground min-w-[24px]">8.</span>
+                    <p>If you don't pass, you'll see which questions you got wrong and can retry.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-warning/10 border border-warning/30 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-warning mt-0.5" />
+                  <div>
+                    <h3 className="font-semibold text-warning mb-1">Important</h3>
+                    <ul className="text-sm text-muted-foreground space-y-1">
+                      <li>• Ensure you have a stable internet connection</li>
+                      <li>• Do not refresh or close the browser during the test</li>
+                      <li>• You can mark questions to review later</li>
+                      <li>• Use the Preview button to see all questions status</li>
+                    </ul>
                   </div>
                 </div>
               </div>
 
               <div className="pt-6 flex justify-center">
                 <Button 
-                  onClick={() => setShowInstructions(false)}
+                  onClick={handleStartTest}
                   size="lg"
                   className="px-8"
                   variant="hero"
@@ -249,6 +340,18 @@ const MCQTest = () => {
     );
   }
 
+  // Check if questions loaded
+  if (questions.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Card className="p-8 text-center">
+          <p className="text-muted-foreground mb-4">No questions available. Please try again.</p>
+          <Button onClick={() => setShowInstructions(true)}>Go Back</Button>
+        </Card>
+      </div>
+    );
+  }
+
   const currentQuestion = questions[currentQuestionIndex];
   const progress = questions.length ? ((currentQuestionIndex + 1) / questions.length) * 100 : 0;
 
@@ -259,30 +362,36 @@ const MCQTest = () => {
         <div className="container mx-auto px-6 max-w-6xl">
           <div className="mb-6 flex items-center justify-between">
             <h1 className="text-2xl font-bold">Question Overview</h1>
-            <Button onClick={() => setShowPreview(false)} variant="outline">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Test
-            </Button>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 px-4 py-2 bg-muted rounded-lg">
+                <Clock className="w-5 h-5 text-primary" />
+                <span className="text-lg font-semibold">{formatTime(timeLeft)}</span>
+              </div>
+              <Button onClick={() => setShowPreview(false)} variant="outline">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Test
+              </Button>
+            </div>
           </div>
 
           <Card className="p-6 mb-6">
             <div className="flex gap-6 mb-4">
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-green-500"></div>
+                <div className="w-4 h-4 rounded bg-success"></div>
                 <span className="text-sm">Answered ({Object.keys(selectedAnswers).length})</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-orange-500"></div>
+                <div className="w-4 h-4 rounded bg-warning"></div>
                 <span className="text-sm">Marked ({markedQuestions.size})</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-white border-2"></div>
+                <div className="w-4 h-4 rounded bg-muted border-2 border-border"></div>
                 <span className="text-sm">Not Attempted ({questions.length - Object.keys(selectedAnswers).length})</span>
               </div>
             </div>
             
             <div className="grid grid-cols-10 gap-2">
-              {questions.map((_, index) => {
+              {questions.map((q, index) => {
                 const status = getQuestionStatus(index);
                 return (
                   <button
@@ -292,16 +401,25 @@ const MCQTest = () => {
                       setShowPreview(false);
                     }}
                     className={`
-                      w-12 h-12 rounded font-semibold transition-all hover:scale-105
-                      ${status === 'answered' ? 'bg-green-500 text-white' : ''}
-                      ${status === 'marked' ? 'bg-orange-500 text-white' : ''}
-                      ${status === 'unattempted' ? 'bg-white border-2 border-border text-foreground' : ''}
+                      w-12 h-12 rounded font-semibold transition-all hover:scale-105 relative
+                      ${status === 'answered' ? 'bg-success text-success-foreground' : ''}
+                      ${status === 'marked' ? 'bg-warning text-warning-foreground' : ''}
+                      ${status === 'unattempted' ? 'bg-muted border-2 border-border text-foreground' : ''}
                     `}
                   >
                     {index + 1}
+                    {q.difficulty === 'Hard' && (
+                      <span className="absolute -top-1 -right-1 w-2 h-2 bg-destructive rounded-full"></span>
+                    )}
                   </button>
                 );
               })}
+            </div>
+
+            <div className="mt-4 flex gap-4 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 bg-destructive rounded-full"></span> Hard Question
+              </span>
             </div>
           </Card>
 
@@ -311,10 +429,10 @@ const MCQTest = () => {
             </Button>
             <Button 
               onClick={handleSubmitTest}
-              disabled={Object.keys(selectedAnswers).length < questions.length}
               size="lg"
+              variant="hero"
             >
-              Submit Test
+              Submit Test ({Object.keys(selectedAnswers).length}/{questions.length} Answered)
             </Button>
           </div>
         </div>
@@ -330,7 +448,21 @@ const MCQTest = () => {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-2xl font-bold">{domain} MCQ Test</h1>
-              <p className="text-sm text-muted-foreground">Question {currentQuestionIndex + 1} of {questions.length}</p>
+              <p className="text-sm text-muted-foreground">
+                Question {currentQuestionIndex + 1} of {questions.length}
+                {currentQuestion?.difficulty && (
+                  <Badge 
+                    variant="outline" 
+                    className={`ml-2 ${
+                      currentQuestion.difficulty === 'Easy' ? 'border-success text-success' :
+                      currentQuestion.difficulty === 'Medium' ? 'border-warning text-warning' :
+                      'border-destructive text-destructive'
+                    }`}
+                  >
+                    {currentQuestion.difficulty}
+                  </Badge>
+                )}
+              </p>
             </div>
             <div className="flex items-center gap-3">
               <Button 
@@ -341,8 +473,10 @@ const MCQTest = () => {
                 <List className="w-4 h-4 mr-2" />
                 Preview
               </Button>
-              <div className="flex items-center gap-2 px-4 py-2 bg-muted rounded-lg">
-                <Clock className="w-5 h-5 text-primary" />
+              <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                timeLeft < 300 ? 'bg-destructive/20 text-destructive' : 'bg-muted'
+              }`}>
+                <Clock className={`w-5 h-5 ${timeLeft < 300 ? 'text-destructive animate-pulse' : 'text-primary'}`} />
                 <span className="text-lg font-semibold">{formatTime(timeLeft)}</span>
               </div>
             </div>
@@ -362,12 +496,18 @@ const MCQTest = () => {
             {["A", "B", "C", "D"].map((option) => {
               const optionText = currentQuestion?.[`option_${option.toLowerCase()}` as keyof Question];
               return (
-                <div key={option} className="flex items-center space-x-3 p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer">
+                <div 
+                  key={option} 
+                  className={`flex items-center space-x-3 p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer ${
+                    selectedAnswers[currentQuestionIndex] === option ? 'border-primary bg-primary/5' : ''
+                  }`}
+                >
                   <RadioGroupItem value={option} id={`option-${option}`} />
                   <Label
                     htmlFor={`option-${option}`}
                     className="flex-1 cursor-pointer text-base"
                   >
+                    <span className="font-semibold mr-2">{option}.</span>
                     {optionText}
                   </Label>
                 </div>
@@ -392,18 +532,18 @@ const MCQTest = () => {
               variant="outline"
               onClick={toggleMarkQuestion}
               size="lg"
-              className={markedQuestions.has(currentQuestionIndex) ? 'bg-orange-500 text-white hover:bg-orange-600' : ''}
+              className={markedQuestions.has(currentQuestionIndex) ? 'bg-warning text-warning-foreground hover:bg-warning/90' : ''}
             >
               <Bookmark className="w-4 h-4 mr-2" />
-              {markedQuestions.has(currentQuestionIndex) ? 'Unmark' : 'Mark'}
+              {markedQuestions.has(currentQuestionIndex) ? 'Unmark' : 'Mark for Review'}
             </Button>
             
             {currentQuestionIndex === questions.length - 1 ? (
               <Button
                 onClick={handleSubmitTest}
-                disabled={Object.keys(selectedAnswers).length < questions.length}
                 size="lg"
                 className="px-8"
+                variant="hero"
               >
                 Submit Test
               </Button>
@@ -422,57 +562,72 @@ const MCQTest = () => {
         {/* Progress Indicator */}
         <div className="mt-6 text-center">
           <p className="text-sm text-muted-foreground">
-            Answered: {Object.keys(selectedAnswers).length}/{questions.length}
+            Answered: {Object.keys(selectedAnswers).length}/{questions.length} | 
+            Marked: {markedQuestions.size} | 
+            Remaining: {questions.length - Object.keys(selectedAnswers).length}
           </p>
         </div>
       </div>
 
       {/* Results Dialog */}
       <AlertDialog open={showResults} onOpenChange={setShowResults}>
-        <AlertDialogContent className="max-w-2xl">
+        <AlertDialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <AlertDialogHeader>
             <div className="flex justify-center mb-4">
               {passed ? (
-                <CheckCircle className="w-16 h-16 text-green-500" />
+                <CheckCircle className="w-16 h-16 text-success" />
               ) : (
-                <XCircle className="w-16 h-16 text-red-500" />
+                <XCircle className="w-16 h-16 text-destructive" />
               )}
             </div>
             <AlertDialogTitle className="text-center text-2xl">
               {passed ? "Congratulations! 🎉" : "Test Not Passed"}
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-center space-y-4">
-              <div>
-                <p className="text-4xl font-bold text-foreground mb-2">
-                  {score}/{questions.length}
-                </p>
-                <p className="text-lg">
-                  You scored {((score / questions.length) * 100).toFixed(0)}%
-                </p>
-              </div>
-              <p>
-                {passed
-                  ? "You've passed the MCQ test! You can now proceed to the coding test."
-                  : "You need at least 60% to pass. Review and retry the exam with new questions."}
-              </p>
-
-              {explanations.length > 0 && (
-                <div className="text-left space-y-4 max-h-96 overflow-y-auto">
-                  <h3 className="font-semibold text-foreground">Review Incorrect Answers:</h3>
-                  {explanations.map((exp, index) => (
-                    <div key={index} className="p-4 bg-muted rounded-lg">
-                      <p className="font-semibold text-sm mb-2">{exp.question}</p>
-                      <p className="text-sm text-destructive mb-1">Your answer: {exp.user_answer}</p>
-                      <p className="text-sm text-green-600 mb-2">Correct answer: {exp.correct_answer}</p>
-                      <p className="text-sm">{exp.explanation}</p>
-                    </div>
-                  ))}
+            <AlertDialogDescription asChild>
+              <div className="text-center space-y-4">
+                <div>
+                  <p className="text-4xl font-bold text-foreground mb-2">
+                    {score}/{questions.length}
+                  </p>
+                  <p className="text-lg">
+                    You scored {((score / questions.length) * 100).toFixed(0)}%
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Required: {PASSING_PERCENTAGE}% ({Math.ceil(questions.length * PASSING_PERCENTAGE / 100)} correct answers)
+                  </p>
                 </div>
-              )}
+                
+                <p>
+                  {passed
+                    ? "You've passed the MCQ test! You can now proceed to the coding test."
+                    : `You need at least ${PASSING_PERCENTAGE}% to pass. Review your wrong answers below and retry.`}
+                </p>
 
-              <Button variant="hero" onClick={handleResultsClose} className="w-full" size="lg">
-                {passed ? "Continue to Coding Test" : "Retry Test"}
-              </Button>
+                {!passed && wrongAnswers.length > 0 && (
+                  <div className="text-left space-y-4 max-h-96 overflow-y-auto mt-4">
+                    <h3 className="font-semibold text-foreground text-lg">
+                      Questions You Got Wrong ({wrongAnswers.length}):
+                    </h3>
+                    {wrongAnswers.map((wa, index) => (
+                      <div key={index} className="p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
+                        <p className="font-semibold text-sm mb-2">{wa.question}</p>
+                        <div className="flex gap-4 text-sm">
+                          <p className="text-destructive">
+                            <span className="font-medium">Your Answer:</span> {wa.yourAnswer}
+                          </p>
+                          <p className="text-success">
+                            <span className="font-medium">Correct:</span> {wa.correctAnswer}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <Button variant="hero" onClick={handleResultsClose} className="w-full mt-4" size="lg">
+                  {passed ? "Continue to Coding Test →" : "Retry Test"}
+                </Button>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
         </AlertDialogContent>

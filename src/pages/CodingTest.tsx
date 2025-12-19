@@ -3,10 +3,18 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, CheckCircle2, XCircle, Code2, Play, Trophy, Mic, ExternalLink } from "lucide-react";
+import { ArrowLeft, CheckCircle2, XCircle, Code2, Play, Trophy, Mic, ExternalLink, Clock, AlertTriangle } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface TestCase {
   id: number;
@@ -40,431 +48,128 @@ interface TestResult {
   yourOutput: string;
   expectedOutput: string;
   input: string;
+  isHidden: boolean;
 }
 
+interface ChallengeScore {
+  questionIndex: number;
+  visiblePassed: number;
+  visibleTotal: number;
+  hiddenPassed: number;
+  hiddenTotal: number;
+  totalPassed: number;
+  totalTestCases: number;
+}
+
+const TOTAL_QUESTIONS = 10;
+const PASSING_PERCENTAGE = 80;
+
 const generateChallenges = (domain: string): Challenge[] => {
-  const challengesByDomain: Record<string, Challenge[]> = {
-    "Web Development": [
-      {
-        id: "web-1",
-        title: "Array Sum Calculator",
-        description: "Write a function to calculate the sum of all numbers in an array.",
-        difficulty: "Easy",
-        domain: "Web Development",
-        problemStatement: `You are given an array of integers. Your task is to write a function that returns the sum of all elements in the array.
+  // Generate 10 coding challenges with varying difficulty
+  const challenges: Challenge[] = [];
+  const difficulties: ("Easy" | "Medium" | "Hard")[] = ["Easy", "Easy", "Easy", "Medium", "Medium", "Medium", "Medium", "Hard", "Hard", "Hard"];
+  
+  for (let i = 0; i < TOTAL_QUESTIONS; i++) {
+    const difficulty = difficulties[i];
+    challenges.push({
+      id: `challenge-${i + 1}`,
+      title: `${domain} Challenge ${i + 1}`,
+      description: `A ${difficulty.toLowerCase()} level coding problem for ${domain}`,
+      difficulty,
+      domain,
+      problemStatement: getChallengeStatement(domain, i + 1, difficulty),
+      inputFormat: "Input as specified in the problem",
+      outputFormat: "Output the result as specified",
+      constraints: getConstraints(difficulty),
+      examples: getExamples(i + 1),
+      testCases: generateTestCases(i + 1, difficulty),
+      hints: getHints(domain, difficulty)
+    });
+  }
+  
+  return challenges;
+};
 
-This is a fundamental problem that tests your understanding of array iteration and basic arithmetic operations in JavaScript/TypeScript.
-
-Your function should handle:
-- Empty arrays (return 0)
-- Arrays with positive numbers
-- Arrays with negative numbers
-- Arrays with mixed positive and negative numbers`,
-        inputFormat: "An array of integers separated by commas. Example: 1,2,3,4,5",
-        outputFormat: "A single integer representing the sum of all elements.",
-        constraints: [
-          "Array length: 0 ≤ n ≤ 1000",
-          "Each element: -10000 ≤ element ≤ 10000",
-          "Time complexity should be O(n)"
-        ],
-        examples: [
-          {
-            input: "1,2,3,4,5",
-            output: "15",
-            explanation: "Sum of 1+2+3+4+5 = 15"
-          },
-          {
-            input: "-1,2,-3,4",
-            output: "2",
-            explanation: "Sum of (-1)+2+(-3)+4 = 2"
-          }
-        ],
-        testCases: [
-          { id: 1, input: "1,2,3,4,5", expectedOutput: "15", isHidden: false },
-          { id: 2, input: "10,20,30", expectedOutput: "60", isHidden: false },
-          { id: 3, input: "-5,-10,15", expectedOutput: "0", isHidden: true },
-          { id: 4, input: "100", expectedOutput: "100", isHidden: true },
-          { id: 5, input: "0,0,0", expectedOutput: "0", isHidden: true }
-        ],
-        hints: ["Use the reduce() method or a simple for loop", "Handle edge case of empty array"]
-      },
-      {
-        id: "web-2",
-        title: "String Reversal",
-        description: "Write a function to reverse a given string.",
-        difficulty: "Easy",
-        domain: "Web Development",
-        problemStatement: `Given a string, write a function that returns the reversed version of the string.
-
-For example:
-- "hello" becomes "olleh"
-- "JavaScript" becomes "tpircSavaJ"
-
-You should NOT use the built-in reverse() method. Implement your own logic.`,
-        inputFormat: "A single string containing alphanumeric characters.",
-        outputFormat: "The reversed string.",
-        constraints: [
-          "String length: 1 ≤ n ≤ 1000",
-          "String contains only alphanumeric characters and spaces",
-          "Do not use built-in reverse method"
-        ],
-        examples: [
-          {
-            input: "hello",
-            output: "olleh",
-            explanation: "Characters are reversed: h-e-l-l-o becomes o-l-l-e-h"
-          },
-          {
-            input: "world",
-            output: "dlrow",
-            explanation: "Characters are reversed"
-          }
-        ],
-        testCases: [
-          { id: 1, input: "hello", expectedOutput: "olleh", isHidden: false },
-          { id: 2, input: "JavaScript", expectedOutput: "tpircSavaJ", isHidden: false },
-          { id: 3, input: "a", expectedOutput: "a", isHidden: true },
-          { id: 4, input: "racecar", expectedOutput: "racecar", isHidden: true },
-          { id: 5, input: "12345", expectedOutput: "54321", isHidden: true }
-        ],
-        hints: ["Try using a loop from the end of the string", "You can convert string to array, work with it, then join back"]
-      },
-      {
-        id: "web-3",
-        title: "Find Maximum Element",
-        description: "Write a function to find the maximum element in an array.",
-        difficulty: "Easy",
-        domain: "Web Development",
-        problemStatement: `Given an array of integers, find and return the maximum element.
-
-Your function should efficiently traverse the array and identify the largest number.`,
-        inputFormat: "An array of integers separated by commas.",
-        outputFormat: "A single integer - the maximum element.",
-        constraints: [
-          "Array length: 1 ≤ n ≤ 1000",
-          "Each element: -10000 ≤ element ≤ 10000"
-        ],
-        examples: [
-          {
-            input: "3,7,2,9,1",
-            output: "9",
-            explanation: "9 is the largest among 3,7,2,9,1"
-          }
-        ],
-        testCases: [
-          { id: 1, input: "3,7,2,9,1", expectedOutput: "9", isHidden: false },
-          { id: 2, input: "100,50,200,75", expectedOutput: "200", isHidden: false },
-          { id: 3, input: "-5,-10,-3,-8", expectedOutput: "-3", isHidden: true },
-          { id: 4, input: "42", expectedOutput: "42", isHidden: true },
-          { id: 5, input: "1,1,1,1", expectedOutput: "1", isHidden: true }
-        ],
-        hints: ["Use Math.max() with spread operator or iterate through array"]
-      }
-    ],
-    "Data Science": [
-      {
-        id: "ds-1",
-        title: "Calculate Mean",
-        description: "Write a function to calculate the arithmetic mean of a dataset.",
-        difficulty: "Easy",
-        domain: "Data Science",
-        problemStatement: `Given a dataset of numerical values, calculate and return the arithmetic mean (average).
-
-The mean is calculated by summing all values and dividing by the count of values.
-
-Formula: mean = (sum of all values) / (count of values)`,
-        inputFormat: "Numbers separated by commas. Example: 10,20,30,40,50",
-        outputFormat: "The mean value rounded to 2 decimal places.",
-        constraints: [
-          "Dataset size: 1 ≤ n ≤ 1000",
-          "Each value: -10000 ≤ value ≤ 10000",
-          "Round result to 2 decimal places"
-        ],
-        examples: [
-          {
-            input: "10,20,30,40,50",
-            output: "30.00",
-            explanation: "(10+20+30+40+50)/5 = 150/5 = 30.00"
-          }
-        ],
-        testCases: [
-          { id: 1, input: "10,20,30,40,50", expectedOutput: "30.00", isHidden: false },
-          { id: 2, input: "5,5,5,5", expectedOutput: "5.00", isHidden: false },
-          { id: 3, input: "1,2,3", expectedOutput: "2.00", isHidden: true },
-          { id: 4, input: "100", expectedOutput: "100.00", isHidden: true },
-          { id: 5, input: "-10,10", expectedOutput: "0.00", isHidden: true }
-        ],
-        hints: ["Sum all values first, then divide by count", "Use toFixed(2) for formatting"]
-      },
-      {
-        id: "ds-2",
-        title: "Find Median",
-        description: "Write a function to find the median of a sorted dataset.",
-        difficulty: "Medium",
-        domain: "Data Science",
-        problemStatement: `Given a dataset, find the median value.
-
-The median is the middle value when data is sorted:
-- For odd count: the middle element
-- For even count: average of two middle elements`,
-        inputFormat: "Numbers separated by commas (may be unsorted).",
-        outputFormat: "The median value rounded to 2 decimal places.",
-        constraints: [
-          "Dataset size: 1 ≤ n ≤ 1000",
-          "Values may be unsorted - you need to sort them first"
-        ],
-        examples: [
-          {
-            input: "1,3,5,7,9",
-            output: "5.00",
-            explanation: "Middle element of sorted array [1,3,5,7,9] is 5"
-          },
-          {
-            input: "1,2,3,4",
-            output: "2.50",
-            explanation: "Average of middle elements (2+3)/2 = 2.50"
-          }
-        ],
-        testCases: [
-          { id: 1, input: "1,3,5,7,9", expectedOutput: "5.00", isHidden: false },
-          { id: 2, input: "1,2,3,4", expectedOutput: "2.50", isHidden: false },
-          { id: 3, input: "5,2,8,1,9", expectedOutput: "5.00", isHidden: true },
-          { id: 4, input: "10", expectedOutput: "10.00", isHidden: true },
-          { id: 5, input: "1,1,1,1,1", expectedOutput: "1.00", isHidden: true }
-        ],
-        hints: ["Sort the array first", "Handle both odd and even length cases"]
-      },
-      {
-        id: "ds-3",
-        title: "Standard Deviation",
-        description: "Calculate the standard deviation of a dataset.",
-        difficulty: "Medium",
-        domain: "Data Science",
-        problemStatement: `Calculate the population standard deviation of a dataset.
-
-Steps:
-1. Calculate the mean
-2. For each value, calculate (value - mean)²
-3. Calculate mean of squared differences
-4. Take square root of result`,
-        inputFormat: "Numbers separated by commas.",
-        outputFormat: "Standard deviation rounded to 2 decimal places.",
-        constraints: [
-          "Dataset size: 2 ≤ n ≤ 1000",
-          "Use population standard deviation formula"
-        ],
-        examples: [
-          {
-            input: "2,4,4,4,5,5,7,9",
-            output: "2.00",
-            explanation: "Mean=5, variance=4, std dev=2.00"
-          }
-        ],
-        testCases: [
-          { id: 1, input: "2,4,4,4,5,5,7,9", expectedOutput: "2.00", isHidden: false },
-          { id: 2, input: "10,10,10,10", expectedOutput: "0.00", isHidden: false },
-          { id: 3, input: "1,2,3,4,5", expectedOutput: "1.41", isHidden: true },
-          { id: 4, input: "5,10", expectedOutput: "2.50", isHidden: true },
-          { id: 5, input: "100,200,300", expectedOutput: "81.65", isHidden: true }
-        ],
-        hints: ["Break down into steps: mean → squared differences → variance → sqrt"]
-      }
-    ],
-    "Machine Learning": [
-      {
-        id: "ml-1",
-        title: "Normalize Data",
-        description: "Implement min-max normalization for a dataset.",
-        difficulty: "Easy",
-        domain: "Machine Learning",
-        problemStatement: `Implement min-max normalization to scale values between 0 and 1.
-
-Formula: normalized = (value - min) / (max - min)
-
-This is a crucial preprocessing step in machine learning.`,
-        inputFormat: "Numbers separated by commas.",
-        outputFormat: "Normalized values separated by commas, each rounded to 2 decimal places.",
-        constraints: [
-          "Dataset size: 2 ≤ n ≤ 100",
-          "All values should be scaled between 0 and 1"
-        ],
-        examples: [
-          {
-            input: "1,2,3,4,5",
-            output: "0.00,0.25,0.50,0.75,1.00",
-            explanation: "Min=1, Max=5. Each value normalized using formula."
-          }
-        ],
-        testCases: [
-          { id: 1, input: "1,2,3,4,5", expectedOutput: "0.00,0.25,0.50,0.75,1.00", isHidden: false },
-          { id: 2, input: "10,20,30", expectedOutput: "0.00,0.50,1.00", isHidden: false },
-          { id: 3, input: "0,100", expectedOutput: "0.00,1.00", isHidden: true },
-          { id: 4, input: "5,5,5", expectedOutput: "0.00,0.00,0.00", isHidden: true },
-          { id: 5, input: "2,4,6,8,10", expectedOutput: "0.00,0.25,0.50,0.75,1.00", isHidden: true }
-        ],
-        hints: ["Find min and max first", "Handle case where all values are same (avoid division by zero)"]
-      },
-      {
-        id: "ml-2",
-        title: "Euclidean Distance",
-        description: "Calculate Euclidean distance between two points.",
-        difficulty: "Easy",
-        domain: "Machine Learning",
-        problemStatement: `Calculate the Euclidean distance between two points in n-dimensional space.
-
-Formula: √(Σ(x_i - y_i)²)
-
-This is fundamental for algorithms like K-Nearest Neighbors.`,
-        inputFormat: "Two lines: first point coordinates, second point coordinates (comma-separated). Use | to separate the two points.",
-        outputFormat: "Distance rounded to 2 decimal places.",
-        constraints: [
-          "Dimensions: 1 ≤ n ≤ 100",
-          "Both points must have same number of dimensions"
-        ],
-        examples: [
-          {
-            input: "0,0|3,4",
-            output: "5.00",
-            explanation: "√((3-0)² + (4-0)²) = √(9+16) = √25 = 5.00"
-          }
-        ],
-        testCases: [
-          { id: 1, input: "0,0|3,4", expectedOutput: "5.00", isHidden: false },
-          { id: 2, input: "1,1|4,5", expectedOutput: "5.00", isHidden: false },
-          { id: 3, input: "0,0,0|1,1,1", expectedOutput: "1.73", isHidden: true },
-          { id: 4, input: "5,5|5,5", expectedOutput: "0.00", isHidden: true },
-          { id: 5, input: "0|10", expectedOutput: "10.00", isHidden: true }
-        ],
-        hints: ["Parse both point arrays", "Sum squared differences, then take square root"]
-      },
-      {
-        id: "ml-3",
-        title: "Accuracy Score",
-        description: "Calculate classification accuracy from predictions.",
-        difficulty: "Easy",
-        domain: "Machine Learning",
-        problemStatement: `Given actual labels and predicted labels, calculate the accuracy score.
-
-Accuracy = (Number of correct predictions) / (Total predictions) × 100`,
-        inputFormat: "Two lines separated by |: actual labels, predicted labels (comma-separated).",
-        outputFormat: "Accuracy percentage rounded to 2 decimal places.",
-        constraints: [
-          "Both arrays must have same length",
-          "Labels are integers (0, 1, 2, etc.)"
-        ],
-        examples: [
-          {
-            input: "1,0,1,1,0|1,0,0,1,0",
-            output: "80.00",
-            explanation: "4 out of 5 predictions are correct = 80%"
-          }
-        ],
-        testCases: [
-          { id: 1, input: "1,0,1,1,0|1,0,0,1,0", expectedOutput: "80.00", isHidden: false },
-          { id: 2, input: "1,1,1,1|1,1,1,1", expectedOutput: "100.00", isHidden: false },
-          { id: 3, input: "0,0,0,0|1,1,1,1", expectedOutput: "0.00", isHidden: true },
-          { id: 4, input: "1,2,3|1,2,3", expectedOutput: "100.00", isHidden: true },
-          { id: 5, input: "1,0|0,1", expectedOutput: "0.00", isHidden: true }
-        ],
-        hints: ["Compare element by element", "Count matches and divide by total"]
-      }
-    ]
+const getChallengeStatement = (domain: string, num: number, difficulty: string): string => {
+  const statements: Record<number, string> = {
+    1: `Write a function that takes an array of numbers and returns their sum.\n\nThis is a fundamental problem that tests your understanding of array iteration.`,
+    2: `Write a function that reverses a given string without using built-in reverse methods.\n\nImplement your own logic to reverse the characters.`,
+    3: `Write a function that finds the maximum element in an array of numbers.\n\nReturn the largest value from the array.`,
+    4: `Write a function that checks if a given string is a palindrome.\n\nA palindrome reads the same forwards and backwards.`,
+    5: `Write a function that removes duplicate values from an array.\n\nReturn a new array with only unique elements.`,
+    6: `Write a function that finds the second largest number in an array.\n\nHandle edge cases where the array might have duplicates.`,
+    7: `Write a function that counts the frequency of each character in a string.\n\nReturn an object with characters as keys and counts as values.`,
+    8: `Write a function that finds all pairs in an array that sum to a target value.\n\nReturn an array of pairs.`,
+    9: `Write a function that implements binary search on a sorted array.\n\nReturn the index of the target or -1 if not found.`,
+    10: `Write a function that merges two sorted arrays into one sorted array.\n\nMaintain the sorted order in the result.`
   };
+  return statements[num] || `${domain} ${difficulty} challenge ${num}`;
+};
 
-  // Default challenges for any domain not specifically defined
-  const defaultChallenges: Challenge[] = [
-    {
-      id: "default-1",
-      title: "FizzBuzz",
-      description: "Classic FizzBuzz problem",
-      difficulty: "Easy",
-      domain: domain,
-      problemStatement: `Write a function that for numbers 1 to N:
-- Prints "Fizz" for multiples of 3
-- Prints "Buzz" for multiples of 5
-- Prints "FizzBuzz" for multiples of both 3 and 5
-- Prints the number otherwise
+const getConstraints = (difficulty: string): string[] => {
+  const base = ["Array length: 1 ≤ n ≤ 1000", "Time complexity should be optimal"];
+  if (difficulty === "Medium") {
+    return [...base, "Consider edge cases carefully"];
+  }
+  if (difficulty === "Hard") {
+    return [...base, "Optimize for both time and space", "Handle all edge cases"];
+  }
+  return base;
+};
 
-Return all outputs separated by commas.`,
-      inputFormat: "A single integer N.",
-      outputFormat: "Comma-separated outputs for 1 to N.",
-      constraints: ["1 ≤ N ≤ 100"],
-      examples: [
-        {
-          input: "15",
-          output: "1,2,Fizz,4,Buzz,Fizz,7,8,Fizz,Buzz,11,Fizz,13,14,FizzBuzz",
-          explanation: "Standard FizzBuzz output for 1-15"
-        }
-      ],
-      testCases: [
-        { id: 1, input: "5", expectedOutput: "1,2,Fizz,4,Buzz", isHidden: false },
-        { id: 2, input: "3", expectedOutput: "1,2,Fizz", isHidden: false },
-        { id: 3, input: "15", expectedOutput: "1,2,Fizz,4,Buzz,Fizz,7,8,Fizz,Buzz,11,Fizz,13,14,FizzBuzz", isHidden: true },
-        { id: 4, input: "1", expectedOutput: "1", isHidden: true },
-        { id: 5, input: "10", expectedOutput: "1,2,Fizz,4,Buzz,Fizz,7,8,Fizz,Buzz", isHidden: true }
-      ],
-      hints: ["Use modulo operator %", "Check divisibility by 15 first (both 3 and 5)"]
-    },
-    {
-      id: "default-2",
-      title: "Palindrome Check",
-      description: "Check if a string is a palindrome",
-      difficulty: "Easy",
-      domain: domain,
-      problemStatement: `Given a string, determine if it is a palindrome.
+const getExamples = (num: number): Array<{input: string; output: string; explanation: string}> => {
+  const examples: Record<number, Array<{input: string; output: string; explanation: string}>> = {
+    1: [{ input: "1,2,3,4,5", output: "15", explanation: "Sum of all elements = 15" }],
+    2: [{ input: "hello", output: "olleh", explanation: "Characters reversed" }],
+    3: [{ input: "3,7,2,9,1", output: "9", explanation: "9 is the maximum" }],
+    4: [{ input: "racecar", output: "true", explanation: "Reads same both ways" }],
+    5: [{ input: "1,2,2,3,3,3", output: "1,2,3", explanation: "Duplicates removed" }],
+    6: [{ input: "5,10,3,8,1", output: "8", explanation: "Second largest after 10" }],
+    7: [{ input: "hello", output: "{h:1,e:1,l:2,o:1}", explanation: "Character counts" }],
+    8: [{ input: "1,2,3,4|5", output: "[[1,4],[2,3]]", explanation: "Pairs summing to 5" }],
+    9: [{ input: "1,3,5,7,9|5", output: "2", explanation: "5 is at index 2" }],
+    10: [{ input: "1,3,5|2,4,6", output: "1,2,3,4,5,6", explanation: "Merged and sorted" }]
+  };
+  return examples[num] || [{ input: "sample", output: "result", explanation: "Example" }];
+};
 
-A palindrome reads the same forwards and backwards.
-Ignore case and non-alphanumeric characters.`,
-      inputFormat: "A single string.",
-      outputFormat: "'true' if palindrome, 'false' otherwise.",
-      constraints: ["1 ≤ string length ≤ 1000"],
-      examples: [
-        {
-          input: "racecar",
-          output: "true",
-          explanation: "racecar reads the same forwards and backwards"
-        }
-      ],
-      testCases: [
-        { id: 1, input: "racecar", expectedOutput: "true", isHidden: false },
-        { id: 2, input: "hello", expectedOutput: "false", isHidden: false },
-        { id: 3, input: "A man a plan a canal Panama", expectedOutput: "true", isHidden: true },
-        { id: 4, input: "a", expectedOutput: "true", isHidden: true },
-        { id: 5, input: "ab", expectedOutput: "false", isHidden: true }
-      ],
-      hints: ["Clean the string first", "Compare with reversed version"]
-    },
-    {
-      id: "default-3",
-      title: "Count Vowels",
-      description: "Count the number of vowels in a string",
-      difficulty: "Easy",
-      domain: domain,
-      problemStatement: `Count the number of vowels (a, e, i, o, u) in a given string.
+const generateTestCases = (num: number, difficulty: string): TestCase[] => {
+  // Generate test cases based on question number
+  // Each question has visible and hidden test cases
+  const visibleCount = 2;
+  const hiddenCount = difficulty === "Easy" ? 3 : difficulty === "Medium" ? 4 : 5;
+  
+  const testCases: TestCase[] = [];
+  
+  // Visible test cases
+  for (let i = 1; i <= visibleCount; i++) {
+    testCases.push({
+      id: i,
+      input: `visible_input_${num}_${i}`,
+      expectedOutput: `expected_${num}_${i}`,
+      isHidden: false
+    });
+  }
+  
+  // Hidden test cases
+  for (let i = 1; i <= hiddenCount; i++) {
+    testCases.push({
+      id: visibleCount + i,
+      input: `hidden_input_${num}_${i}`,
+      expectedOutput: `hidden_expected_${num}_${i}`,
+      isHidden: true
+    });
+  }
+  
+  return testCases;
+};
 
-Consider both uppercase and lowercase vowels.`,
-      inputFormat: "A single string.",
-      outputFormat: "Integer count of vowels.",
-      constraints: ["1 ≤ string length ≤ 1000"],
-      examples: [
-        {
-          input: "hello world",
-          output: "3",
-          explanation: "e, o, o are the vowels = 3"
-        }
-      ],
-      testCases: [
-        { id: 1, input: "hello world", expectedOutput: "3", isHidden: false },
-        { id: 2, input: "AEIOU", expectedOutput: "5", isHidden: false },
-        { id: 3, input: "xyz", expectedOutput: "0", isHidden: true },
-        { id: 4, input: "aEiOu", expectedOutput: "5", isHidden: true },
-        { id: 5, input: "Programming", expectedOutput: "3", isHidden: true }
-      ],
-      hints: ["Convert to lowercase first", "Use includes() or indexOf()"]
-    }
+const getHints = (domain: string, difficulty: string): string[] => {
+  return [
+    "Break down the problem into smaller steps",
+    "Consider edge cases like empty inputs",
+    difficulty === "Hard" ? "Think about optimization" : "Use built-in methods where helpful"
   ];
-
-  return challengesByDomain[domain] || defaultChallenges;
 };
 
 const CodingTest = () => {
@@ -472,20 +177,27 @@ const CodingTest = () => {
   const location = useLocation();
   const { toast } = useToast();
   const domain = location.state?.domain || "Web Development";
+  const mcqScore = location.state?.mcqScore;
+  const mcqTotal = location.state?.mcqTotal;
 
+  const [showInstructions, setShowInstructions] = useState(true);
   const [challenges] = useState<Challenge[]>(() => generateChallenges(domain));
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [code, setCode] = useState("");
   const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [allTestsPassed, setAllTestsPassed] = useState(false);
-  const [completedChallenges, setCompletedChallenges] = useState<Set<number>>(new Set());
+  const [challengeScores, setChallengeScores] = useState<ChallengeScore[]>([]);
   const [showHints, setShowHints] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const [totalScore, setTotalScore] = useState({ passed: 0, total: 0 });
+  const [passed, setPassed] = useState(false);
 
   const currentChallenge = challenges[currentQuestionIndex];
-  const allChallengesCompleted = completedChallenges.size === challenges.length;
+  const completedChallenges = new Set(challengeScores.map(s => s.questionIndex));
+  const allChallengesCompleted = challengeScores.length === challenges.length;
 
-  // Run tests - Demo mode: auto-pass when code is submitted
+  // Run tests
   const runTests = () => {
     if (!code.trim()) {
       toast({
@@ -499,27 +211,67 @@ const CodingTest = () => {
     setIsRunning(true);
     setTestResults([]);
 
-    // Simulate test execution with delay
+    // Simulate test execution
     setTimeout(() => {
-      // DEMO MODE: Auto-pass all tests when code is submitted
-      const results: TestResult[] = currentChallenge.testCases.map((tc) => ({
-        testCaseId: tc.id,
-        passed: true,
-        yourOutput: tc.expectedOutput,
-        expectedOutput: tc.expectedOutput,
-        input: tc.input,
-      }));
+      // Simulate test results - in real implementation, this would evaluate code
+      const results: TestResult[] = currentChallenge.testCases.map((tc) => {
+        // Simulate passing based on code length and structure (demo mode)
+        const hasValidCode = code.length > 20 && (code.includes('return') || code.includes('=>') || code.includes('function'));
+        const randomPass = Math.random() > 0.3; // 70% pass rate for demo
+        const passed = hasValidCode && randomPass;
+        
+        return {
+          testCaseId: tc.id,
+          passed,
+          yourOutput: passed ? tc.expectedOutput : "incorrect_output",
+          expectedOutput: tc.expectedOutput,
+          input: tc.input,
+          isHidden: tc.isHidden
+        };
+      });
 
       setTestResults(results);
       setIsRunning(false);
-      setAllTestsPassed(true);
-      setCompletedChallenges((prev) => new Set([...prev, currentQuestionIndex]));
+
+      const visibleResults = results.filter(r => !r.isHidden);
+      const hiddenResults = results.filter(r => r.isHidden);
       
-      toast({
-        title: "All Tests Passed! 🎉",
-        description: `Question ${currentQuestionIndex + 1} of 3 completed!`,
+      const visiblePassed = visibleResults.filter(r => r.passed).length;
+      const hiddenPassed = hiddenResults.filter(r => r.passed).length;
+      const totalPassed = results.filter(r => r.passed).length;
+      
+      const allPassed = totalPassed === results.length;
+      setAllTestsPassed(allPassed);
+
+      // Record score for this challenge
+      const newScore: ChallengeScore = {
+        questionIndex: currentQuestionIndex,
+        visiblePassed,
+        visibleTotal: visibleResults.length,
+        hiddenPassed,
+        hiddenTotal: hiddenResults.length,
+        totalPassed,
+        totalTestCases: results.length
+      };
+
+      setChallengeScores(prev => {
+        const filtered = prev.filter(s => s.questionIndex !== currentQuestionIndex);
+        return [...filtered, newScore];
       });
-    }, 1500);
+
+      if (allPassed) {
+        toast({
+          title: "All Tests Passed! 🎉",
+          description: `Question ${currentQuestionIndex + 1} completed perfectly!`,
+        });
+      } else {
+        toast({
+          title: `${totalPassed}/${results.length} Tests Passed`,
+          description: `Visible: ${visiblePassed}/${visibleResults.length}, Hidden: ${hiddenPassed}/${hiddenResults.length}`,
+          variant: totalPassed >= results.length * 0.5 ? "default" : "destructive",
+        });
+      }
+    }, 2000);
   };
 
   const goToNextChallenge = () => {
@@ -542,10 +294,149 @@ const CodingTest = () => {
     }
   };
 
-  // Navigate to AI Mock Interview
-  const proceedToInterview = () => {
-    window.location.href = 'https://intern-ai-coach.lovable.app';
+  const handleSubmitAllChallenges = () => {
+    // Calculate total score
+    let totalPassedTests = 0;
+    let totalTests = 0;
+    
+    challengeScores.forEach(score => {
+      totalPassedTests += score.totalPassed;
+      totalTests += score.totalTestCases;
+    });
+
+    // Add scores for unattempted challenges as 0
+    const attemptedIndexes = new Set(challengeScores.map(s => s.questionIndex));
+    challenges.forEach((c, idx) => {
+      if (!attemptedIndexes.has(idx)) {
+        totalTests += c.testCases.length;
+      }
+    });
+
+    const percentage = totalTests > 0 ? (totalPassedTests / totalTests) * 100 : 0;
+    const testPassed = percentage >= PASSING_PERCENTAGE;
+
+    setTotalScore({ passed: totalPassedTests, total: totalTests });
+    setPassed(testPassed);
+    setShowResults(true);
   };
+
+  const handleResultsClose = () => {
+    if (passed) {
+      window.location.href = 'https://intern-ai-coach.lovable.app';
+    } else {
+      // Reset for retry
+      setShowResults(false);
+      setShowInstructions(true);
+      setCurrentQuestionIndex(0);
+      setCode("");
+      setTestResults([]);
+      setAllTestsPassed(false);
+      setChallengeScores([]);
+    }
+  };
+
+  // Instructions Screen
+  if (showInstructions) {
+    return (
+      <div className="min-h-screen bg-background py-8">
+        <div className="container mx-auto px-6 max-w-3xl">
+          <Button
+            variant="ghost"
+            onClick={() => navigate("/assessment-intro")}
+            className="mb-6"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+
+          <Card className="p-8 shadow-sm border">
+            <div className="mb-8">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-gradient-hero rounded-lg">
+                  <Code2 className="w-6 h-6 text-primary-foreground" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold">{domain} Coding Test</h1>
+                  <p className="text-muted-foreground">Practical coding challenges</p>
+                </div>
+              </div>
+              
+              {mcqScore !== undefined && (
+                <div className="bg-success/10 border border-success/30 rounded-lg p-4 mb-4">
+                  <p className="text-success font-medium">
+                    ✓ MCQ Test Passed: {mcqScore}/{mcqTotal} ({((mcqScore/mcqTotal)*100).toFixed(0)}%)
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-semibold mb-4">Instructions:</h2>
+                <div className="space-y-4 text-muted-foreground">
+                  <div className="flex gap-3">
+                    <span className="font-semibold text-foreground min-w-[24px]">1.</span>
+                    <p><span className="font-semibold text-foreground">Number of Questions:</span> {TOTAL_QUESTIONS} coding challenges</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="font-semibold text-foreground min-w-[24px]">2.</span>
+                    <p><span className="font-semibold text-foreground">Difficulty Levels:</span> Easy, Medium, and Hard problems</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="font-semibold text-foreground min-w-[24px]">3.</span>
+                    <p><span className="font-semibold text-foreground">Test Cases:</span> Each problem has <span className="text-primary">visible</span> and <span className="text-warning">hidden</span> test cases</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="font-semibold text-foreground min-w-[24px]">4.</span>
+                    <p>You must achieve <span className="font-semibold text-primary">≥{PASSING_PERCENTAGE}%</span> overall test case pass rate to proceed</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="font-semibold text-foreground min-w-[24px]">5.</span>
+                    <p>You can navigate between questions and submit solutions multiple times</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="font-semibold text-foreground min-w-[24px]">6.</span>
+                    <p>After completing all challenges, you'll proceed to the <span className="font-semibold text-primary">AI Interview Round</span></p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-muted/50 border rounded-lg p-4">
+                <h3 className="font-semibold mb-2">Test Case Types:</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-success mt-0.5" />
+                    <div>
+                      <p className="font-medium">Visible Test Cases</p>
+                      <p className="text-muted-foreground">You can see input/output</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-warning mt-0.5" />
+                    <div>
+                      <p className="font-medium">Hidden Test Cases</p>
+                      <p className="text-muted-foreground">Only pass/fail shown</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-6 flex justify-center">
+                <Button 
+                  onClick={() => setShowInstructions(false)}
+                  size="lg"
+                  className="px-8"
+                  variant="hero"
+                >
+                  START CODING TEST →
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   if (!currentChallenge) {
     return (
@@ -557,6 +448,8 @@ const CodingTest = () => {
       </div>
     );
   }
+
+  const overallProgress = (challengeScores.length / challenges.length) * 100;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background">
@@ -578,7 +471,7 @@ const CodingTest = () => {
                   <Code2 className="w-5 h-5 text-primary-foreground" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold">Coding Challenge</h1>
+                  <h1 className="text-xl font-bold">Coding Challenge {currentQuestionIndex + 1}/{TOTAL_QUESTIONS}</h1>
                   <p className="text-xs text-muted-foreground">{domain}</p>
                 </div>
               </div>
@@ -607,15 +500,16 @@ const CodingTest = () => {
                 ))}
               </div>
               <Badge variant="outline" className="text-sm">
-                {completedChallenges.size}/{challenges.length} Completed
+                {challengeScores.length}/{challenges.length} Attempted
               </Badge>
             </div>
           </div>
+          <Progress value={overallProgress} className="h-1 mt-3" />
         </div>
       </div>
 
       <div className="container mx-auto px-6 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-140px)]">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-180px)]">
           {/* Left Panel - Problem Description */}
           <div className="overflow-y-auto pr-2">
             <Card className="p-6 border-2">
@@ -675,6 +569,19 @@ const CodingTest = () => {
                         </p>
                       </Card>
                     ))}
+                  </div>
+
+                  {/* Test case info */}
+                  <div className="bg-muted/30 p-4 rounded-lg">
+                    <h3 className="text-sm font-semibold mb-2">Test Cases for this Problem:</h3>
+                    <div className="flex gap-4 text-sm">
+                      <span className="text-success">
+                        Visible: {currentChallenge.testCases.filter(t => !t.isHidden).length}
+                      </span>
+                      <span className="text-warning">
+                        Hidden: {currentChallenge.testCases.filter(t => t.isHidden).length}
+                      </span>
+                    </div>
                   </div>
 
                   {showHints && (
@@ -743,43 +650,47 @@ const CodingTest = () => {
                 <p className="text-muted-foreground text-sm">Run tests to see results...</p>
               ) : (
                 <div className="space-y-2">
-                  {testResults.map((result, idx) => {
-                    const tc = currentChallenge.testCases[idx];
-                    return (
-                      <div
-                        key={result.testCaseId}
-                        className={`p-3 rounded-lg border ${
-                          result.passed
-                            ? "bg-success/10 border-success/30"
-                            : "bg-destructive/10 border-destructive/30"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            {result.passed ? (
-                              <CheckCircle2 className="w-4 h-4 text-success" />
-                            ) : (
-                              <XCircle className="w-4 h-4 text-destructive" />
-                            )}
-                            <span className="font-medium">
-                              Test Case {result.testCaseId}
-                              {tc.isHidden && " (Hidden)"}
-                            </span>
-                          </div>
-                          <Badge variant={result.passed ? "default" : "destructive"}>
-                            {result.passed ? "Passed" : "Failed"}
-                          </Badge>
+                  {testResults.map((result, idx) => (
+                    <div
+                      key={result.testCaseId}
+                      className={`p-3 rounded-lg border ${
+                        result.passed
+                          ? "bg-success/10 border-success/30"
+                          : "bg-destructive/10 border-destructive/30"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          {result.passed ? (
+                            <CheckCircle2 className="w-4 h-4 text-success" />
+                          ) : (
+                            <XCircle className="w-4 h-4 text-destructive" />
+                          )}
+                          <span className="font-medium">
+                            Test Case {result.testCaseId}
+                          </span>
+                          {result.isHidden && (
+                            <Badge variant="outline" className="text-xs border-warning text-warning">
+                              Hidden
+                            </Badge>
+                          )}
                         </div>
-                        {!tc.isHidden && (
-                          <div className="text-xs space-y-1">
-                            <p><strong>Input:</strong> {result.input}</p>
-                            <p><strong>Expected:</strong> {result.expectedOutput}</p>
-                            <p><strong>Your Output:</strong> {result.yourOutput}</p>
-                          </div>
-                        )}
+                        <Badge variant={result.passed ? "default" : "destructive"}>
+                          {result.passed ? "Passed" : "Failed"}
+                        </Badge>
                       </div>
-                    );
-                  })}
+                      {!result.isHidden && (
+                        <div className="text-xs space-y-1">
+                          <p><strong>Input:</strong> {result.input}</p>
+                          <p><strong>Expected:</strong> {result.expectedOutput}</p>
+                          <p><strong>Your Output:</strong> {result.yourOutput}</p>
+                        </div>
+                      )}
+                      {result.isHidden && !result.passed && (
+                        <p className="text-xs text-muted-foreground">Hidden test case failed. Check edge cases.</p>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
             </Card>
@@ -805,18 +716,10 @@ const CodingTest = () => {
               ) : (
                 <Button
                   variant="hero"
-                  onClick={proceedToInterview}
-                  disabled={!allChallengesCompleted}
+                  onClick={handleSubmitAllChallenges}
                   className="flex-1"
                 >
-                  {allChallengesCompleted ? (
-                    <>
-                      <Mic className="w-4 h-4 mr-2" />
-                      Proceed to AI Interview
-                    </>
-                  ) : (
-                    <>Complete All Challenges</>
-                  )}
+                  Submit All & View Results
                 </Button>
               )}
             </div>
@@ -824,30 +727,93 @@ const CodingTest = () => {
         </div>
       </div>
 
-      {/* Success Modal */}
-      {allChallengesCompleted && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
-          <Card className="p-8 max-w-md text-center border-2 border-success">
-            <div className="p-4 bg-success/20 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">
-              <Trophy className="w-10 h-10 text-success" />
+      {/* Results Dialog */}
+      <AlertDialog open={showResults} onOpenChange={setShowResults}>
+        <AlertDialogContent className="max-w-2xl">
+          <AlertDialogHeader>
+            <div className="flex justify-center mb-4">
+              {passed ? (
+                <div className="p-4 bg-success/20 rounded-full">
+                  <Trophy className="w-12 h-12 text-success" />
+                </div>
+              ) : (
+                <div className="p-4 bg-destructive/20 rounded-full">
+                  <XCircle className="w-12 h-12 text-destructive" />
+                </div>
+              )}
             </div>
-            <h2 className="text-2xl font-bold mb-2">Coding Challenge Complete! 🎉</h2>
-            <p className="text-muted-foreground mb-6">
-              You've passed all {challenges.length} coding challenges in {domain}! Now proceed to your AI Mock Interview.
-            </p>
-            <div className="space-y-3">
-              <Button variant="hero" size="lg" className="w-full" onClick={proceedToInterview}>
-                <Mic className="w-5 h-5 mr-2" />
-                Start AI Mock Interview
-              </Button>
-              <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
-                <ExternalLink className="w-3 h-3" />
-                You'll be redirected to the interview platform
-              </p>
-            </div>
-          </Card>
-        </div>
-      )}
+            <AlertDialogTitle className="text-center text-2xl">
+              {passed ? "Coding Test Passed! 🎉" : "Test Not Passed"}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="text-center space-y-4">
+                <div>
+                  <p className="text-4xl font-bold text-foreground mb-2">
+                    {totalScore.passed}/{totalScore.total}
+                  </p>
+                  <p className="text-lg">
+                    Test Cases Passed ({((totalScore.passed / totalScore.total) * 100).toFixed(0)}%)
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Required: {PASSING_PERCENTAGE}%
+                  </p>
+                </div>
+
+                {/* Score breakdown */}
+                <div className="bg-muted/50 rounded-lg p-4 text-left">
+                  <h3 className="font-semibold mb-2">Score Breakdown:</h3>
+                  <div className="space-y-2 text-sm">
+                    {challengeScores.map((score, idx) => (
+                      <div key={idx} className="flex justify-between">
+                        <span>Challenge {score.questionIndex + 1}</span>
+                        <span className={score.totalPassed === score.totalTestCases ? "text-success" : "text-warning"}>
+                          {score.totalPassed}/{score.totalTestCases} 
+                          ({score.visiblePassed}/{score.visibleTotal} visible, {score.hiddenPassed}/{score.hiddenTotal} hidden)
+                        </span>
+                      </div>
+                    ))}
+                    {challenges.map((_, idx) => {
+                      if (!challengeScores.find(s => s.questionIndex === idx)) {
+                        return (
+                          <div key={`unattempted-${idx}`} className="flex justify-between text-destructive">
+                            <span>Challenge {idx + 1}</span>
+                            <span>Not Attempted</span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })}
+                  </div>
+                </div>
+
+                <p>
+                  {passed
+                    ? "Excellent work! You've passed both MCQ and Coding tests. Proceed to the AI Interview!"
+                    : `You need at least ${PASSING_PERCENTAGE}% to pass. Review and try again.`}
+                </p>
+
+                <Button variant="hero" onClick={handleResultsClose} className="w-full" size="lg">
+                  {passed ? (
+                    <>
+                      <Mic className="w-5 h-5 mr-2" />
+                      Proceed to AI Interview
+                    </>
+                  ) : (
+                    "Retry Coding Test"
+                  )}
+                </Button>
+
+                {passed && (
+                  <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                    <ExternalLink className="w-3 h-3" />
+                    You'll be redirected to the interview platform
+                  </p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
