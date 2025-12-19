@@ -138,6 +138,13 @@ export type Database = {
             referencedRelation: "mcq_questions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "user_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "mcq_questions_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       user_test_attempts: {
@@ -172,7 +179,42 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      mcq_questions_public: {
+        Row: {
+          created_at: string | null
+          difficulty: string | null
+          domain: string | null
+          id: string | null
+          option_a: string | null
+          option_b: string | null
+          option_c: string | null
+          option_d: string | null
+          question: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          difficulty?: string | null
+          domain?: string | null
+          id?: string | null
+          option_a?: string | null
+          option_b?: string | null
+          option_c?: string | null
+          option_d?: string | null
+          question?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          difficulty?: string | null
+          domain?: string | null
+          id?: string | null
+          option_a?: string | null
+          option_b?: string | null
+          option_c?: string | null
+          option_d?: string | null
+          question?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       validate_mcq_answer: {
