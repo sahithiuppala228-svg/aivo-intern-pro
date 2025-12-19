@@ -485,7 +485,7 @@ const CodingTest = () => {
   const currentChallenge = challenges[currentQuestionIndex];
   const allChallengesCompleted = completedChallenges.size === challenges.length;
 
-  // Simulate running test cases
+  // Run tests - Demo mode: auto-pass when code is submitted
   const runTests = () => {
     if (!code.trim()) {
       toast({
@@ -501,64 +501,24 @@ const CodingTest = () => {
 
     // Simulate test execution with delay
     setTimeout(() => {
-      const results: TestResult[] = currentChallenge.testCases.map((tc) => {
-        // Simple evaluation logic - in production, this would be a secure sandbox
-        let passed = false;
-        let yourOutput = "";
-
-        try {
-          // Basic simulation: check if the code contains key logic patterns
-          const codeLC = code.toLowerCase();
-          
-          // Simple heuristic: if code has reasonable structure and matches expected patterns
-          if (codeLC.includes("return") || codeLC.includes("console") || codeLC.includes("=>")) {
-            // Simulate some test passes based on code quality
-            const hasLoops = codeLC.includes("for") || codeLC.includes("while") || codeLC.includes("map") || codeLC.includes("reduce");
-            const hasConditions = codeLC.includes("if") || codeLC.includes("?");
-            const codeLength = code.length;
-
-            // More sophisticated code = higher chance of passing
-            const passChance = (hasLoops ? 0.3 : 0) + (hasConditions ? 0.3 : 0) + (codeLength > 50 ? 0.4 : 0.2);
-            passed = Math.random() < passChance;
-            yourOutput = passed ? tc.expectedOutput : "incorrect output";
-          } else {
-            yourOutput = "No valid output";
-          }
-        } catch {
-          yourOutput = "Error in execution";
-        }
-
-        return {
-          testCaseId: tc.id,
-          passed,
-          yourOutput,
-          expectedOutput: tc.expectedOutput,
-          input: tc.input,
-        };
-      });
+      // DEMO MODE: Auto-pass all tests when code is submitted
+      const results: TestResult[] = currentChallenge.testCases.map((tc) => ({
+        testCaseId: tc.id,
+        passed: true,
+        yourOutput: tc.expectedOutput,
+        expectedOutput: tc.expectedOutput,
+        input: tc.input,
+      }));
 
       setTestResults(results);
       setIsRunning(false);
-
-      const passedCount = results.filter((r) => r.passed).length;
-      const totalCount = results.length;
-      const allPassed = passedCount === totalCount;
-
-      setAllTestsPassed(allPassed);
-
-      if (allPassed) {
-        setCompletedChallenges((prev) => new Set([...prev, currentQuestionIndex]));
-        toast({
-          title: "All Tests Passed! 🎉",
-          description: `Congratulations! You solved "${currentChallenge.title}"`,
-        });
-      } else {
-        toast({
-          title: `${passedCount}/${totalCount} Tests Passed`,
-          description: "Review your solution and try again.",
-          variant: "destructive",
-        });
-      }
+      setAllTestsPassed(true);
+      setCompletedChallenges((prev) => new Set([...prev, currentQuestionIndex]));
+      
+      toast({
+        title: "All Tests Passed! 🎉",
+        description: `Question ${currentQuestionIndex + 1} of 3 completed!`,
+      });
     }, 1500);
   };
 
