@@ -322,7 +322,7 @@ const CodingTest = () => {
 
   const handleResultsClose = () => {
     if (passed) {
-      window.location.href = 'https://intern-ai-coach.lovable.app';
+      navigate("/mock-interview", { state: { domain } });
     } else {
       // Reset for retry
       setShowResults(false);
