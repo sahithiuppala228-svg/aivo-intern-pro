@@ -9,6 +9,7 @@ import ProfileSetup from "./pages/ProfileSetup";
 import AssessmentIntro from "./pages/AssessmentIntro";
 import MCQTest from "./pages/MCQTest";
 import CodingTest from "./pages/CodingTest";
+import MockInterview from "./pages/MockInterview";
 import PracticeMode from "./pages/PracticeMode";
 import Certificate from "./pages/Certificate";
 import AdminSeedQuestions from "./pages/AdminSeedQuestions";
@@ -30,6 +31,7 @@ const App = () => (
           <Route path="/assessment-intro" element={<AssessmentIntro />} />
           <Route path="/mcq-test" element={<MCQTest />} />
           <Route path="/coding-test" element={<CodingTest />} />
+          <Route path="/mock-interview" element={<MockInterview />} />
           <Route path="/practice-mode" element={<PracticeMode />} />
           <Route path="/certificate" element={<Certificate />} />
           <Route path="/admin/seed-questions" element={<AdminSeedQuestions />} />
