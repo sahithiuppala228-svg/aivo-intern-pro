@@ -8,3 +8,9 @@ verify_jwt = false
 
 [functions.generate-mcq-questions]
 verify_jwt = false
+
+[functions.seed-mcq-questions]
+verify_jwt = false
+
+[functions.get-random-mcq-questions]
+verify_jwt = false
