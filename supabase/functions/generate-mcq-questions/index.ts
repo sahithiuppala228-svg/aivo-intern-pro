@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,49 +11,43 @@ serve(async (req) => {
   }
 
   try {
-    // Verify authentication
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!
-    );
-
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    );
-
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
     const { domain, count } = await req.json();
     const total = typeof count === 'number' && count > 0 ? count : 50;
+
+    console.log(`Generating ${total} MCQ questions for domain: ${domain}`);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const batchSize = Math.min(6, total); // smaller batches to reduce rate-limit risk
+    const batchSize = Math.min(6, total);
     const allQuestions: any[] = [];
     const seen = new Set<string>();
 
     const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
+    
     async function generateBatch(n: number) {
-      const prompt = `Generate ${n} MCQs for ${domain}. Each question: 4 options, mix Easy/Medium/Hard difficulty. Return via tool.`;
+      const prompt = `Generate ${n} multiple-choice questions specifically about "${domain}".
+
+IMPORTANT REQUIREMENTS:
+- Questions MUST be directly related to ${domain} concepts, terminology, tools, and best practices
+- Include technical details, frameworks, libraries, and real-world scenarios specific to ${domain}
+- Mix difficulty levels: Easy (basic concepts), Medium (intermediate applications), Hard (advanced scenarios)
+- Each question must have exactly 4 distinct options (A, B, C, D)
+- Only ONE option should be correct
+- Questions should test practical knowledge a professional in ${domain} would need
+
+Examples of good domain-specific questions:
+- For "React": Questions about hooks, component lifecycle, state management, JSX
+- For "Python": Questions about data structures, libraries like pandas/numpy, syntax
+- For "Machine Learning": Questions about algorithms, training, evaluation metrics
+- For "Data Science": Questions about statistics, data analysis, visualization
+
+Return the questions using the provided tool.`;
 
       const body = {
-        model: "google/gemini-2.5-flash-lite",
+        model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: "You are an MCQ question generator. Use the provided tool to return results." },
+          { role: "system", content: `You are an expert MCQ question generator specializing in ${domain}. Generate technically accurate, domain-specific questions that test real knowledge. Always use the provided tool to return structured results.` },
           { role: "user", content: prompt },
         ],
         tools: [
@@ -62,7 +55,7 @@ serve(async (req) => {
             type: "function",
             function: {
               name: "generate_questions",
-              description: `Return ${n} multiple-choice questions for ${domain}`,
+              description: `Return ${n} domain-specific multiple-choice questions for ${domain}`,
               parameters: {
                 type: "object",
                 properties: {
@@ -73,21 +66,16 @@ serve(async (req) => {
                       properties: {
                         id: { type: "string" },
                         question: { type: "string" },
-                        options: {
-                          type: "array",
-                          items: { type: "string" },
-                          minItems: 4,
-                          maxItems: 4,
-                        },
-                        correctAnswer: { type: "string" },
-                        domain: { type: "string" },
+                        option_a: { type: "string" },
+                        option_b: { type: "string" },
+                        option_c: { type: "string" },
+                        option_d: { type: "string" },
+                        correct_answer: { type: "string", enum: ["A", "B", "C", "D"] },
                         difficulty: { type: "string", enum: ["Easy", "Medium", "Hard"] },
                       },
-                      required: ["id", "question", "options", "correctAnswer"],
-                      additionalProperties: true,
+                      required: ["id", "question", "option_a", "option_b", "option_c", "option_d", "correct_answer", "difficulty"],
+                      additionalProperties: false,
                     },
-                    minItems: n,
-                    maxItems: n,
                   },
                 },
                 required: ["questions"],
@@ -167,15 +155,21 @@ serve(async (req) => {
 {
   "questions": [
     {
-      "id": "uuid",
-      "question": "Question text",
-      "options": ["A", "B", "C", "D"],
-      "correctAnswer": "One of the options"
+      "id": "unique-id",
+      "question": "Question text about ${domain}",
+      "option_a": "First option",
+      "option_b": "Second option", 
+      "option_c": "Third option",
+      "option_d": "Fourth option",
+      "correct_answer": "A",
+      "difficulty": "Medium"
     }
   ]
 }
-Generate ${n} unique, domain-relevant MCQs for ${domain}.
-Exactly 4 options per question. Difficulty: mix of Easy, Medium, Hard.`;
+Generate ${n} unique MCQs specifically about ${domain}.
+Questions must be technically accurate and test real ${domain} knowledge.
+correct_answer must be exactly one of: A, B, C, D
+difficulty must be exactly one of: Easy, Medium, Hard`;
 
         try {
           const resp2 = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -232,23 +226,47 @@ Exactly 4 options per question. Difficulty: mix of Easy, Medium, Hard.`;
         const questionText = String(q.question ?? '').trim();
         if (!questionText || seen.has(questionText.toLowerCase())) continue;
 
-        const options: string[] = Array.isArray(q.options) ? q.options.slice(0, 4) : [];
-        if (options.length !== 4) continue;
+        // Handle both formats: option_a/b/c/d OR options array
+        let option_a: string, option_b: string, option_c: string, option_d: string;
+        let correct_answer: string;
 
-        // Ensure correctAnswer maps to a letter A-D matching the options
-        let correctAnswerText: string = String(q.correctAnswer ?? '').trim();
-        if (!options.includes(correctAnswerText)) {
-          correctAnswerText = options[0];
+        if (q.option_a && q.option_b && q.option_c && q.option_d) {
+          // New format with option_a, option_b, etc.
+          option_a = String(q.option_a).trim();
+          option_b = String(q.option_b).trim();
+          option_c = String(q.option_c).trim();
+          option_d = String(q.option_d).trim();
+          correct_answer = String(q.correct_answer ?? 'A').toUpperCase().trim();
+        } else if (Array.isArray(q.options) && q.options.length >= 4) {
+          // Old format with options array
+          option_a = String(q.options[0]).trim();
+          option_b = String(q.options[1]).trim();
+          option_c = String(q.options[2]).trim();
+          option_d = String(q.options[3]).trim();
+          
+          // Map correctAnswer to letter
+          const correctAnswerText = String(q.correctAnswer ?? '').trim();
+          const options = [option_a, option_b, option_c, option_d];
+          const idx = options.findIndex((o) => o === correctAnswerText);
+          correct_answer = idx >= 0 ? ['A', 'B', 'C', 'D'][idx] : 'A';
+        } else {
+          continue; // Skip invalid question
         }
-        const idx = Math.max(0, options.findIndex((o) => String(o).trim() === correctAnswerText));
-        const letters = ['A', 'B', 'C', 'D'] as const;
-        const correctAnswer = letters[idx] ?? 'A';
+
+        // Validate correct_answer is A, B, C, or D
+        if (!['A', 'B', 'C', 'D'].includes(correct_answer)) {
+          correct_answer = 'A';
+        }
 
         const normalized = {
           id: String(q.id ?? crypto.randomUUID()),
           question: questionText,
-          options,
-          correctAnswer, // letter A-D
+          option_a,
+          option_b,
+          option_c,
+          option_d,
+          correct_answer,
+          difficulty: ['Easy', 'Medium', 'Hard'].includes(q.difficulty) ? q.difficulty : 'Medium',
           domain: String(q.domain ?? domain),
         };
 
