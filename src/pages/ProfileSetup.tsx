@@ -187,6 +187,24 @@ const ProfileSetup = () => {
       return;
     }
 
+    // Save profile to localStorage for use in mock interview
+    const profileData = {
+      firstName,
+      lastName,
+      college,
+      course,
+      year,
+      selectedDomains,
+      internshipType,
+      availability,
+      linkedin,
+      github,
+      skills,
+      interests,
+      projects,
+    };
+    localStorage.setItem('userProfile', JSON.stringify(profileData));
+
     toast({
       title: "Profile saved!",
       description: "Let's begin your assessment journey.",

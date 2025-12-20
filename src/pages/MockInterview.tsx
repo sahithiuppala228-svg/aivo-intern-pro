@@ -5,7 +5,6 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import { 
   ArrowLeft, 
   Clock, 
@@ -17,7 +16,8 @@ import {
   AlertTriangle,
   CheckCircle2,
   Volume2,
-  VolumeX
+  VolumeX,
+  Square
 } from "lucide-react";
 import AnimatedInterviewer from "@/components/AnimatedInterviewer";
 import InterviewFeedback from "@/components/InterviewFeedback";
@@ -113,8 +113,23 @@ const MockInterview = () => {
   const { toast } = useToast();
   const domain = location.state?.domain || "Web Development";
   
+  // Get user name from localStorage
+  const [userName, setUserName] = useState("Candidate");
+  
+  useEffect(() => {
+    const profileData = localStorage.getItem('userProfile');
+    if (profileData) {
+      const profile = JSON.parse(profileData);
+      if (profile.firstName) {
+        setUserName(profile.firstName);
+      }
+    }
+  }, []);
+  
   // Interview state
   const [showInstructions, setShowInstructions] = useState(true);
+  const [showCameraTest, setShowCameraTest] = useState(false);
+  const [showAudioTest, setShowAudioTest] = useState(false);
   const [interviewStarted, setInterviewStarted] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
@@ -127,6 +142,17 @@ const MockInterview = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [audioTestPassed, setAudioTestPassed] = useState(false);
+  const [cameraTestPassed, setCameraTestPassed] = useState(false);
+  const [noAudioTimer, setNoAudioTimer] = useState<number | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  
+  // Audio recording
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const audioStreamRef = useRef<MediaStream | null>(null);
   
   const questions = getInterviewQuestions(domain);
   const currentQuestion = questions[currentQuestionIndex];
@@ -142,15 +168,27 @@ const MockInterview = () => {
     stopCamera 
   } = useFaceDetection();
 
-  // Speech synthesis
+  // Speech synthesis with personalized name
   const speakText = useCallback((text: string) => {
     if (!soundEnabled) return;
     
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 0.9;
-    utterance.pitch = 1;
+    utterance.pitch = 0.9; // Slightly lower for male voice
     utterance.volume = 0.8;
+    
+    // Try to use a male voice
+    const voices = window.speechSynthesis.getVoices();
+    const maleVoice = voices.find(v => 
+      v.name.toLowerCase().includes('male') || 
+      v.name.toLowerCase().includes('david') ||
+      v.name.toLowerCase().includes('james') ||
+      v.name.toLowerCase().includes('mark')
+    );
+    if (maleVoice) {
+      utterance.voice = maleVoice;
+    }
     
     utterance.onstart = () => {
       setIsSpeaking(true);
@@ -182,24 +220,54 @@ const MockInterview = () => {
     return () => clearInterval(timer);
   }, [interviewStarted, showFeedback]);
 
-  // Speak question when it changes
-  useEffect(() => {
-    if (interviewStarted && currentQuestion && !showFeedback) {
-      setTimeout(() => {
-        speakText(currentQuestion.question);
-      }, 500);
-    }
-  }, [currentQuestionIndex, interviewStarted, showFeedback]);
-
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const handleStartInterview = async () => {
-    await startCamera();
+  // Start camera test
+  const handleStartCameraTest = async () => {
     setShowInstructions(false);
+    setShowCameraTest(true);
+    await startCamera();
+  };
+
+  // Camera test passed
+  const handleCameraTestPassed = () => {
+    setCameraTestPassed(true);
+    setShowCameraTest(false);
+    setShowAudioTest(true);
+  };
+
+  // Start audio test
+  const startAudioTest = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioStreamRef.current = stream;
+      
+      audioContextRef.current = new AudioContext();
+      analyserRef.current = audioContextRef.current.createAnalyser();
+      const source = audioContextRef.current.createMediaStreamSource(stream);
+      source.connect(analyserRef.current);
+      
+      setAudioTestPassed(true);
+      toast({
+        title: "Audio Test Passed!",
+        description: "Your microphone is working correctly.",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Microphone Error",
+        description: "Please allow microphone access to continue.",
+      });
+    }
+  };
+
+  // Start the actual interview
+  const handleStartInterview = () => {
+    setShowAudioTest(false);
     setInterviewStarted(true);
     
     toast({
@@ -208,32 +276,137 @@ const MockInterview = () => {
     });
     
     setTimeout(() => {
-      speakText(`Welcome to your ${domain} technical interview. I'm Dr. Sarah Chen, your interviewer today. Let's begin with the first question.`);
+      speakText(`Hello ${userName}! Welcome to your ${domain} technical interview. I'm Mr. James Wilson, your interviewer today. I'll be asking you ${questions.length} questions over the next 20 minutes. Let's begin with the first question.`);
     }, 1000);
+    
+    // Speak first question after intro
+    setTimeout(() => {
+      speakText(currentQuestion.question);
+    }, 8000);
   };
 
-  const handleNextQuestion = () => {
-    // Save current answer
-    if (currentAnswer.trim()) {
-      setAnswers(prev => ({ ...prev, [currentQuestionIndex]: currentAnswer }));
-    }
-    
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
-      setCurrentAnswer(answers[currentQuestionIndex + 1] || "");
-    } else {
-      handleEndInterview();
+  // Start recording answer
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioStreamRef.current = stream;
+      
+      audioContextRef.current = new AudioContext();
+      analyserRef.current = audioContextRef.current.createAnalyser();
+      const source = audioContextRef.current.createMediaStreamSource(stream);
+      source.connect(analyserRef.current);
+      
+      mediaRecorderRef.current = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        audioChunksRef.current.push(event.data);
+      };
+      
+      mediaRecorderRef.current.start();
+      setIsRecording(true);
+      
+      // Start no-audio detection timer
+      let silenceCounter = 0;
+      const checkAudio = setInterval(() => {
+        if (analyserRef.current) {
+          const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+          analyserRef.current.getByteFrequencyData(dataArray);
+          const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+          
+          if (average < 5) {
+            silenceCounter++;
+            if (silenceCounter >= 10) { // 10 seconds of silence
+              speakText(`${userName}, I didn't detect any audio. Please make sure your microphone is working and try speaking again.`);
+              silenceCounter = 0;
+            }
+          } else {
+            silenceCounter = 0;
+          }
+        }
+      }, 1000);
+      
+      setNoAudioTimer(checkAudio as unknown as number);
+      
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Recording Error",
+        description: "Could not access microphone.",
+      });
     }
   };
 
-  const handlePreviousQuestion = () => {
-    if (currentAnswer.trim()) {
-      setAnswers(prev => ({ ...prev, [currentQuestionIndex]: currentAnswer }));
+  // Stop recording and transcribe
+  const stopRecording = async () => {
+    if (noAudioTimer) {
+      clearInterval(noAudioTimer);
+      setNoAudioTimer(null);
     }
     
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(prev => prev - 1);
-      setCurrentAnswer(answers[currentQuestionIndex - 1] || "");
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      
+      mediaRecorderRef.current.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        
+        // Convert to base64 for speech-to-text
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const base64Audio = (reader.result as string).split(',')[1];
+          
+          setIsAnalyzing(true);
+          speakText("Thank you. Let me analyze your answer.");
+          
+          try {
+            // Call speech-to-text edge function
+            const { data: transcription, error: sttError } = await supabase.functions.invoke('speech-to-text', {
+              body: { audio: base64Audio }
+            });
+            
+            if (sttError) throw sttError;
+            
+            const transcribedText = transcription?.text || "";
+            setCurrentAnswer(transcribedText);
+            
+            // Analyze the answer
+            const evaluation = evaluateAnswer(transcribedText, currentQuestion);
+            
+            // Give personalized feedback
+            setTimeout(() => {
+              let feedbackMessage = "";
+              if (evaluation.score >= 80) {
+                feedbackMessage = `Excellent answer, ${userName}! You covered the key concepts very well. ${evaluation.feedback}`;
+              } else if (evaluation.score >= 60) {
+                feedbackMessage = `Good answer, ${userName}. You addressed the main points. ${evaluation.feedback}`;
+              } else if (evaluation.score >= 40) {
+                feedbackMessage = `${userName}, that was a moderate answer. ${evaluation.feedback}`;
+              } else {
+                feedbackMessage = `${userName}, your answer needs more depth. ${evaluation.feedback}`;
+              }
+              
+              speakText(feedbackMessage);
+              setIsAnalyzing(false);
+            }, 2000);
+            
+          } catch (error) {
+            console.error("Transcription error:", error);
+            toast({
+              variant: "destructive",
+              title: "Transcription Error",
+              description: "Could not transcribe your answer. Please type it instead.",
+            });
+            setIsAnalyzing(false);
+          }
+        };
+        reader.readAsDataURL(audioBlob);
+        
+        // Stop audio stream
+        if (audioStreamRef.current) {
+          audioStreamRef.current.getTracks().forEach(track => track.stop());
+        }
+      };
     }
   };
 
@@ -272,16 +445,47 @@ const MockInterview = () => {
     
     // Generate feedback
     if (score >= 80) {
-      feedback = "Excellent answer! You covered the key points thoroughly and demonstrated deep understanding.";
+      feedback = "You demonstrated deep understanding of the concepts.";
     } else if (score >= 60) {
-      feedback = "Good answer. You addressed the main concepts but could have elaborated more on specific details.";
+      feedback = "You could elaborate more on specific details.";
     } else if (score >= 40) {
-      feedback = "Partial answer. You touched on some points but missed several important concepts.";
+      feedback = "You missed several important concepts.";
     } else {
-      feedback = "This answer needs improvement. Review the core concepts and practice explaining them clearly.";
+      feedback = "Review the core concepts and practice explaining them clearly.";
     }
     
     return { score, feedback };
+  };
+
+  const handleNextQuestion = () => {
+    // Save current answer
+    if (currentAnswer.trim()) {
+      setAnswers(prev => ({ ...prev, [currentQuestionIndex]: currentAnswer }));
+    }
+    
+    if (currentQuestionIndex < questions.length - 1) {
+      setCurrentQuestionIndex(prev => prev + 1);
+      setCurrentAnswer(answers[currentQuestionIndex + 1] || "");
+      
+      // Speak next question
+      setTimeout(() => {
+        const nextQ = questions[currentQuestionIndex + 1];
+        speakText(`${userName}, here's your next question. ${nextQ.question}`);
+      }, 1000);
+    } else {
+      handleEndInterview();
+    }
+  };
+
+  const handlePreviousQuestion = () => {
+    if (currentAnswer.trim()) {
+      setAnswers(prev => ({ ...prev, [currentQuestionIndex]: currentAnswer }));
+    }
+    
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(prev => prev - 1);
+      setCurrentAnswer(answers[currentQuestionIndex - 1] || "");
+    }
   };
 
   const handleEndInterview = async () => {
@@ -376,27 +580,27 @@ const MockInterview = () => {
       totalTime: 20
     });
     
-    setIsSubmitting(false);
     setShowFeedback(true);
+    setIsSubmitting(false);
+  };
+
+  const handleClose = () => {
+    navigate("/");
   };
 
   const handleRetry = () => {
-    setShowFeedback(false);
-    setFeedback(null);
+    setShowInstructions(true);
+    setShowCameraTest(false);
+    setShowAudioTest(false);
+    setInterviewStarted(false);
     setCurrentQuestionIndex(0);
     setAnswers({});
     setCurrentAnswer("");
     setTimeRemaining(INTERVIEW_TIME_LIMIT);
-    setShowInstructions(true);
-    setInterviewStarted(false);
-  };
-
-  const handleClose = () => {
-    if (feedback && feedback.overallScore >= 70) {
-      navigate("/certificate", { state: { domain, score: feedback.overallScore } });
-    } else {
-      navigate("/practice-mode");
-    }
+    setShowFeedback(false);
+    setFeedback(null);
+    setCameraTestPassed(false);
+    setAudioTestPassed(false);
   };
 
   // Show feedback
@@ -408,6 +612,153 @@ const MockInterview = () => {
         onRetry={handleRetry}
         domain={domain}
       />
+    );
+  }
+
+  // Camera Test Screen
+  if (showCameraTest) {
+    return (
+      <div className="min-h-screen bg-background py-8">
+        <div className="container mx-auto px-6 max-w-3xl">
+          <Button
+            variant="ghost"
+            onClick={() => {
+              stopCamera();
+              setShowCameraTest(false);
+              setShowInstructions(true);
+            }}
+            className="mb-6"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+
+          <Card className="p-8 shadow-sm border">
+            <div className="text-center mb-6">
+              <h1 className="text-2xl font-bold mb-2">Camera Test</h1>
+              <p className="text-muted-foreground">Please ensure your face is clearly visible</p>
+            </div>
+
+            <div className="relative aspect-video bg-muted rounded-lg overflow-hidden mb-6">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover"
+                style={{ transform: 'scaleX(-1)' }}
+              />
+              <canvas ref={canvasRef} className="hidden" />
+              
+              {!cameraActive && !cameraError && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-center">
+                    <Video className="w-12 h-12 text-muted-foreground mx-auto mb-2 animate-pulse" />
+                    <p className="text-muted-foreground">Starting camera...</p>
+                  </div>
+                </div>
+              )}
+              
+              {cameraError && (
+                <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                  <div className="text-center p-4">
+                    <VideoOff className="w-12 h-12 text-destructive mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground mb-2">{cameraError}</p>
+                    <Button onClick={startCamera} size="sm">
+                      Retry Camera
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-center gap-2 mb-6">
+              {faceResult.faceDetected ? (
+                <>
+                  <CheckCircle2 className="w-5 h-5 text-green-500" />
+                  <span className="text-green-600 font-medium">{faceResult.message}</span>
+                </>
+              ) : (
+                <>
+                  <AlertTriangle className="w-5 h-5 text-yellow-500" />
+                  <span className="text-yellow-600">{faceResult.message}</span>
+                </>
+              )}
+            </div>
+
+            <div className="flex justify-center">
+              <Button 
+                onClick={handleCameraTestPassed}
+                disabled={!cameraActive}
+                variant="hero"
+                size="lg"
+              >
+                Continue to Audio Test →
+              </Button>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Audio Test Screen
+  if (showAudioTest) {
+    return (
+      <div className="min-h-screen bg-background py-8">
+        <div className="container mx-auto px-6 max-w-3xl">
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setShowAudioTest(false);
+              setShowCameraTest(true);
+            }}
+            className="mb-6"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+
+          <Card className="p-8 shadow-sm border">
+            <div className="text-center mb-6">
+              <h1 className="text-2xl font-bold mb-2">Audio Test</h1>
+              <p className="text-muted-foreground">Please test your microphone before starting</p>
+            </div>
+
+            <div className="flex flex-col items-center gap-6 mb-8">
+              <div className={`w-32 h-32 rounded-full flex items-center justify-center ${
+                audioTestPassed ? 'bg-green-100' : 'bg-muted'
+              }`}>
+                {audioTestPassed ? (
+                  <CheckCircle2 className="w-16 h-16 text-green-500" />
+                ) : (
+                  <Mic className="w-16 h-16 text-muted-foreground" />
+                )}
+              </div>
+
+              {!audioTestPassed ? (
+                <Button onClick={startAudioTest} size="lg">
+                  <Mic className="w-4 h-4 mr-2" />
+                  Test Microphone
+                </Button>
+              ) : (
+                <p className="text-green-600 font-medium">Microphone is working!</p>
+              )}
+            </div>
+
+            <div className="flex justify-center">
+              <Button 
+                onClick={handleStartInterview}
+                disabled={!audioTestPassed}
+                variant="hero"
+                size="lg"
+              >
+                Start Interview →
+              </Button>
+            </div>
+          </Card>
+        </div>
+      </div>
     );
   }
 
@@ -452,15 +803,15 @@ const MockInterview = () => {
                   </div>
                   <div className="flex gap-3">
                     <span className="font-semibold text-foreground min-w-[24px]">3.</span>
-                    <p><span className="font-semibold text-foreground">Camera Required:</span> Face detection is enabled for interview integrity</p>
+                    <p><span className="font-semibold text-foreground">Camera & Audio:</span> Both will be tested before the interview starts</p>
                   </div>
                   <div className="flex gap-3">
                     <span className="font-semibold text-foreground min-w-[24px]">4.</span>
-                    <p><span className="font-semibold text-foreground">Strict Evaluation:</span> Answers are evaluated on accuracy, depth, and communication</p>
+                    <p><span className="font-semibold text-foreground">Voice Recording:</span> Click the mic button to record your answer, click again to stop</p>
                   </div>
                   <div className="flex gap-3">
                     <span className="font-semibold text-foreground min-w-[24px]">5.</span>
-                    <p><span className="font-semibold text-foreground">Passing Score:</span> 70% or higher to receive certification</p>
+                    <p><span className="font-semibold text-foreground">AI Feedback:</span> The interviewer will analyze and give feedback on each answer</p>
                   </div>
                 </div>
               </div>
@@ -480,12 +831,12 @@ const MockInterview = () => {
 
               <div className="pt-6 flex justify-center">
                 <Button 
-                  onClick={handleStartInterview}
+                  onClick={handleStartCameraTest}
                   size="lg"
                   className="px-8"
                   variant="hero"
                 >
-                  START INTERVIEW →
+                  BEGIN CAMERA TEST →
                 </Button>
               </div>
             </div>
@@ -542,6 +893,7 @@ const MockInterview = () => {
               <AnimatedInterviewer 
                 isSpeaking={isSpeaking}
                 currentText={currentSpeech}
+                interviewerName="Mr. James Wilson"
               />
             </Card>
           </div>
@@ -575,7 +927,7 @@ const MockInterview = () => {
                   autoPlay
                   playsInline
                   muted
-                  className="w-full h-full object-cover mirror"
+                  className="w-full h-full object-cover"
                   style={{ transform: 'scaleX(-1)' }}
                 />
                 <canvas ref={canvasRef} className="hidden" />
@@ -611,16 +963,54 @@ const MockInterview = () => {
               </h2>
               
               <div className="space-y-4">
-                <Textarea
-                  value={currentAnswer}
-                  onChange={(e) => setCurrentAnswer(e.target.value)}
-                  placeholder="Type your answer here. Be thorough and specific in your response..."
-                  className="min-h-[200px] resize-none"
-                />
+                {/* Recording Button */}
+                <div className="flex items-center justify-center gap-4 py-4">
+                  <Button
+                    size="lg"
+                    variant={isRecording ? "destructive" : "default"}
+                    onClick={isRecording ? stopRecording : startRecording}
+                    disabled={isAnalyzing}
+                    className="gap-2"
+                  >
+                    {isRecording ? (
+                      <>
+                        <Square className="w-5 h-5" />
+                        Stop Recording
+                      </>
+                    ) : (
+                      <>
+                        <Mic className="w-5 h-5" />
+                        Start Recording
+                      </>
+                    )}
+                  </Button>
+                  
+                  {isRecording && (
+                    <div className="flex items-center gap-2 text-destructive">
+                      <div className="w-3 h-3 bg-destructive rounded-full animate-pulse" />
+                      <span className="text-sm font-medium">Recording...</span>
+                    </div>
+                  )}
+                  
+                  {isAnalyzing && (
+                    <div className="flex items-center gap-2 text-primary">
+                      <div className="w-3 h-3 bg-primary rounded-full animate-pulse" />
+                      <span className="text-sm font-medium">Analyzing...</span>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Transcribed Answer Display */}
+                {currentAnswer && (
+                  <div className="bg-muted rounded-lg p-4">
+                    <p className="text-sm text-muted-foreground mb-1">Your Answer:</p>
+                    <p className="text-foreground">{currentAnswer}</p>
+                  </div>
+                )}
                 
                 <div className="flex items-center justify-between text-sm text-muted-foreground">
                   <span>{currentAnswer.split(/\s+/).filter(w => w).length} words</span>
-                  <span>Tip: Aim for 50+ words with specific examples</span>
+                  <span>Tip: Speak clearly and thoroughly</span>
                 </div>
               </div>
             </Card>
@@ -637,7 +1027,7 @@ const MockInterview = () => {
               
               <div className="flex gap-2">
                 {currentQuestionIndex < questions.length - 1 ? (
-                  <Button onClick={handleNextQuestion} variant="hero">
+                  <Button onClick={handleNextQuestion} variant="hero" disabled={isRecording || isAnalyzing}>
                     Next Question
                     <Send className="w-4 h-4 ml-2" />
                   </Button>
@@ -645,7 +1035,7 @@ const MockInterview = () => {
                   <Button 
                     onClick={handleEndInterview} 
                     variant="hero"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || isRecording || isAnalyzing}
                   >
                     {isSubmitting ? "Evaluating..." : "Submit Interview"}
                     <Send className="w-4 h-4 ml-2" />
