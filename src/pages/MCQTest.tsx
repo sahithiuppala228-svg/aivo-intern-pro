@@ -53,74 +53,53 @@ const MCQTest = () => {
   const [testStarted, setTestStarted] = useState(false);
   const [generatingQuestions, setGeneratingQuestions] = useState(false);
 
-  // Generate questions - first try database, then AI, then mock
+  // Generate questions - get from database only (no fallback to mock/AI)
   const generateQuestions = useCallback(async () => {
     setGeneratingQuestions(true);
     setLoading(true);
     
     try {
-      // First, try to get questions from the database
-      console.log(`Fetching ${TOTAL_QUESTIONS} random questions for domain: ${domain}`);
+      // Get questions from the database for the selected domain
+      console.log(`Fetching random questions for domain: ${domain}`);
       const { data: dbData, error: dbError } = await supabase.functions.invoke('get-random-mcq-questions', {
         body: { domain, count: TOTAL_QUESTIONS }
       });
 
-      if (!dbError && dbData?.questions && dbData.questions.length >= TOTAL_QUESTIONS) {
-        console.log(`Got ${dbData.questions.length} questions from database`);
+      if (dbError) {
+        console.error('Error fetching questions:', dbError);
+        throw dbError;
+      }
+
+      if (dbData?.questions && dbData.questions.length > 0) {
+        console.log(`Got ${dbData.questions.length} questions from database for ${domain}`);
         setQuestions(dbData.questions);
-        return;
-      }
-
-      console.log(`Database has ${dbData?.available || 0} questions, need ${TOTAL_QUESTIONS}. Falling back to AI generation.`);
-      
-      // Fallback to AI generation if database doesn't have enough questions
-      const { data, error } = await supabase.functions.invoke('generate-mcq-questions', {
-        body: { domain, count: TOTAL_QUESTIONS }
-      });
-
-      if (error) {
-        console.error('Error generating questions:', error);
-        throw error;
-      }
-
-      if (data?.questions && data.questions.length > 0) {
-        setQuestions(data.questions);
+        
+        if (dbData.questions.length < TOTAL_QUESTIONS) {
+          toast({
+            title: "Limited questions available",
+            description: `Only ${dbData.questions.length} questions available for ${domain}. Complete these to proceed.`,
+          });
+        }
       } else {
-        // Fallback to mock questions if AI fails
-        generateMockQuestions();
+        toast({
+          title: "No questions available",
+          description: `No questions found for ${domain}. Please contact administrator to add questions.`,
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      console.error('Failed to generate questions:', error);
+      console.error('Failed to fetch questions:', error);
       toast({
-        title: "Using practice questions",
-        description: "Generating AI questions failed. Using practice questions instead.",
-        variant: "default",
+        title: "Error loading questions",
+        description: "Could not load questions from database. Please try again.",
+        variant: "destructive",
       });
-      generateMockQuestions();
     } finally {
       setGeneratingQuestions(false);
       setLoading(false);
     }
   }, [domain, toast]);
 
-  const generateMockQuestions = () => {
-    // Generate 50 mock questions with varying difficulty
-    const difficulties: ("Easy" | "Medium" | "Hard")[] = ["Easy", "Medium", "Hard"];
-    const mockQuestions: Question[] = Array.from({ length: TOTAL_QUESTIONS }, (_, i) => {
-      const difficulty = difficulties[i % 3];
-      return {
-        id: `q-${i + 1}`,
-        question: `${domain} Question ${i + 1} (${difficulty}): This is a sample ${difficulty.toLowerCase()} level question about ${domain}. What is the correct approach?`,
-        option_a: `Option A - This is the first choice for question ${i + 1}`,
-        option_b: `Option B - This is the second choice for question ${i + 1}`,
-        option_c: `Option C - This is the third choice for question ${i + 1}`,
-        option_d: `Option D - This is the fourth choice for question ${i + 1}`,
-        correct_answer: ["A", "B", "C", "D"][Math.floor(Math.random() * 4)],
-        difficulty
-      };
-    });
-    setQuestions(mockQuestions);
-  };
 
   // Timer effect - only runs when test has started
   useEffect(() => {
