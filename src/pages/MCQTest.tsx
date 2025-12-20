@@ -26,6 +26,7 @@ interface Question {
   option_d: string;
   correct_answer: string;
   difficulty: "Easy" | "Medium" | "Hard";
+  explanation?: string;
 }
 
 const TOTAL_QUESTIONS = 50;
@@ -160,7 +161,7 @@ const MCQTest = () => {
 
   const handleSubmitTest = () => {
     let correctCount = 0;
-    const incorrectAnswers: {question: string; yourAnswer: string; correctAnswer: string}[] = [];
+    const incorrectAnswers: {question: string; yourAnswer: string; correctAnswer: string; explanation?: string}[] = [];
 
     questions.forEach((q, index) => {
       const userAnswer = selectedAnswers[index];
@@ -171,6 +172,7 @@ const MCQTest = () => {
           question: q.question,
           yourAnswer: userAnswer || "Not answered",
           correctAnswer: q.correct_answer,
+          explanation: q.explanation,
         });
       }
     });
@@ -604,13 +606,20 @@ const MCQTest = () => {
                     {wrongAnswers.map((wa, index) => (
                       <div key={index} className="p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
                         <p className="font-semibold text-sm mb-2">{wa.question}</p>
-                        <div className="flex gap-4 text-sm">
-                          <p className="text-destructive">
-                            <span className="font-medium">Your Answer:</span> {wa.yourAnswer}
-                          </p>
-                          <p className="text-success">
-                            <span className="font-medium">Correct:</span> {wa.correctAnswer}
-                          </p>
+                        <div className="flex flex-col gap-2 text-sm">
+                          <div className="flex gap-4">
+                            <p className="text-destructive">
+                              <span className="font-medium">Your Answer:</span> {wa.yourAnswer}
+                            </p>
+                            <p className="text-success">
+                              <span className="font-medium">Correct:</span> {wa.correctAnswer}
+                            </p>
+                          </div>
+                          {wa.explanation && (
+                            <p className="text-muted-foreground bg-muted/50 p-2 rounded text-xs">
+                              <span className="font-medium text-foreground">Explanation:</span> {wa.explanation}
+                            </p>
+                          )}
                         </div>
                       </div>
                     ))}
