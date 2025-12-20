@@ -92,7 +92,8 @@ serve(async (req) => {
               option_c: q.option_c,
               option_d: q.option_d,
               correct_answer: q.correct_answer,
-              difficulty: q.difficulty
+              difficulty: q.difficulty,
+              explanation: q.explanation || null
             })));
 
           if (insertError) {
@@ -136,7 +137,7 @@ async function generateQuestionBatch(apiKey: string, domain: string, count: numb
   const difficulties = ['Easy', 'Medium', 'Hard'];
   const difficultyMix = difficulties[batchNumber % 3]; // Rotate through difficulties
 
-  const prompt = `Generate exactly ${count} unique multiple-choice questions about ${domain}.
+const prompt = `Generate exactly ${count} unique multiple-choice questions about ${domain}.
 
 Requirements:
 - Questions must be specifically about ${domain} concepts, technologies, tools, and best practices
@@ -145,6 +146,7 @@ Requirements:
 - All questions should be ${difficultyMix} difficulty
 - Questions should be unique and not repeat common patterns
 - Cover different aspects: fundamentals, advanced concepts, tools, frameworks, best practices
+- IMPORTANT: Include a clear explanation for why the correct answer is right
 
 Batch ${batchNumber + 1} - Focus on different subtopics to ensure variety.`;
 
@@ -159,7 +161,7 @@ Batch ${batchNumber + 1} - Focus on different subtopics to ensure variety.`;
       messages: [
         { 
           role: 'system', 
-          content: `You are an expert question generator for ${domain}. Generate high-quality MCQ questions that test real knowledge.`
+          content: `You are an expert question generator for ${domain}. Generate high-quality MCQ questions that test real knowledge. Always include a clear explanation for each answer.`
         },
         { role: 'user', content: prompt }
       ],
@@ -182,9 +184,10 @@ Batch ${batchNumber + 1} - Focus on different subtopics to ensure variety.`;
                     option_c: { type: 'string', description: 'Option C' },
                     option_d: { type: 'string', description: 'Option D' },
                     correct_answer: { type: 'string', enum: ['A', 'B', 'C', 'D'], description: 'The correct answer letter' },
-                    difficulty: { type: 'string', enum: ['Easy', 'Medium', 'Hard'], description: 'Question difficulty' }
+                    difficulty: { type: 'string', enum: ['Easy', 'Medium', 'Hard'], description: 'Question difficulty' },
+                    explanation: { type: 'string', description: 'Explanation of why the correct answer is right' }
                   },
-                  required: ['question', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer', 'difficulty']
+                  required: ['question', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer', 'difficulty', 'explanation']
                 }
               }
             },
@@ -222,7 +225,8 @@ Batch ${batchNumber + 1} - Focus on different subtopics to ensure variety.`;
     ).map((q: any) => ({
       ...q,
       correct_answer: q.correct_answer.toUpperCase(),
-      difficulty: ['Easy', 'Medium', 'Hard'].includes(q.difficulty) ? q.difficulty : difficultyMix
+      difficulty: ['Easy', 'Medium', 'Hard'].includes(q.difficulty) ? q.difficulty : difficultyMix,
+      explanation: q.explanation || 'No explanation provided.'
     }));
   } catch (e) {
     console.error('Failed to parse questions:', e);

@@ -86,7 +86,7 @@ serve(async (req) => {
       
       const { data: moreQuestions } = await supabase
         .from('mcq_questions')
-        .select('id, question, option_a, option_b, option_c, option_d, correct_answer, difficulty')
+        .select('id, question, option_a, option_b, option_c, option_d, correct_answer, difficulty, explanation')
         .eq('domain', domain)
         .not('id', 'in', `(${existingIds.join(',')})`)
         .limit(needed);
@@ -140,7 +140,7 @@ async function fetchRandomByDifficulty(supabase: any, domain: string, difficulty
 
   return await supabase
     .from('mcq_questions')
-    .select('id, question, option_a, option_b, option_c, option_d, correct_answer, difficulty')
+    .select('id, question, option_a, option_b, option_c, option_d, correct_answer, difficulty, explanation')
     .eq('domain', domain)
     .eq('difficulty', difficulty)
     .range(randomOffset, randomOffset + toFetch - 1);
