@@ -1,0 +1,156 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { domain, count = 50 } = await req.json();
+
+    if (!domain) {
+      return new Response(JSON.stringify({ error: 'Domain is required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log(`Fetching ${count} random questions for domain: ${domain}`);
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get total count for this domain
+    const { count: totalCount, error: countError } = await supabase
+      .from('mcq_questions')
+      .select('*', { count: 'exact', head: true })
+      .eq('domain', domain);
+
+    if (countError) {
+      console.error('Error counting questions:', countError);
+      return new Response(JSON.stringify({ 
+        error: 'Failed to count questions',
+        questions: [],
+        available: 0
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const available = totalCount || 0;
+    console.log(`Domain ${domain} has ${available} questions available`);
+
+    if (available === 0) {
+      return new Response(JSON.stringify({ 
+        questions: [],
+        available: 0,
+        message: 'No questions available for this domain'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Fetch random questions using a random offset approach for better distribution
+    // This is more efficient than ORDER BY RANDOM() for large datasets
+    const requestedCount = Math.min(count, available);
+    
+    // Get questions with mixed difficulties
+    const easyCount = Math.floor(requestedCount * 0.3);  // 30% easy
+    const mediumCount = Math.floor(requestedCount * 0.4); // 40% medium
+    const hardCount = requestedCount - easyCount - mediumCount; // 30% hard
+
+    const [easyResult, mediumResult, hardResult] = await Promise.all([
+      fetchRandomByDifficulty(supabase, domain, 'Easy', easyCount),
+      fetchRandomByDifficulty(supabase, domain, 'Medium', mediumCount),
+      fetchRandomByDifficulty(supabase, domain, 'Hard', hardCount)
+    ]);
+
+    let allQuestions = [
+      ...(easyResult.data || []),
+      ...(mediumResult.data || []),
+      ...(hardResult.data || [])
+    ];
+
+    // If we didn't get enough questions by difficulty, fetch more randomly
+    if (allQuestions.length < requestedCount) {
+      const needed = requestedCount - allQuestions.length;
+      const existingIds = allQuestions.map(q => q.id);
+      
+      const { data: moreQuestions } = await supabase
+        .from('mcq_questions')
+        .select('id, question, option_a, option_b, option_c, option_d, correct_answer, difficulty')
+        .eq('domain', domain)
+        .not('id', 'in', `(${existingIds.join(',')})`)
+        .limit(needed);
+
+      if (moreQuestions) {
+        allQuestions = [...allQuestions, ...moreQuestions];
+      }
+    }
+
+    // Shuffle the questions for randomness
+    allQuestions = shuffleArray(allQuestions);
+
+    console.log(`Returning ${allQuestions.length} questions for domain ${domain}`);
+
+    return new Response(JSON.stringify({ 
+      questions: allQuestions,
+      available,
+      returned: allQuestions.length
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
+  } catch (error) {
+    console.error('Get random questions error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return new Response(JSON.stringify({ error: errorMessage, questions: [] }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+});
+
+async function fetchRandomByDifficulty(supabase: any, domain: string, difficulty: string, count: number) {
+  if (count <= 0) return { data: [] };
+
+  // Get count for this difficulty
+  const { count: difficultyCount } = await supabase
+    .from('mcq_questions')
+    .select('*', { count: 'exact', head: true })
+    .eq('domain', domain)
+    .eq('difficulty', difficulty);
+
+  const available = difficultyCount || 0;
+  const toFetch = Math.min(count, available);
+
+  if (toFetch <= 0) return { data: [] };
+
+  // Use random offset for better distribution
+  const maxOffset = Math.max(0, available - toFetch);
+  const randomOffset = Math.floor(Math.random() * (maxOffset + 1));
+
+  return await supabase
+    .from('mcq_questions')
+    .select('id, question, option_a, option_b, option_c, option_d, correct_answer, difficulty')
+    .eq('domain', domain)
+    .eq('difficulty', difficulty)
+    .range(randomOffset, randomOffset + toFetch - 1);
+}
+
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}

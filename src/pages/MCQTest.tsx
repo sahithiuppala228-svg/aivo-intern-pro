@@ -53,13 +53,27 @@ const MCQTest = () => {
   const [testStarted, setTestStarted] = useState(false);
   const [generatingQuestions, setGeneratingQuestions] = useState(false);
 
-  // Generate questions using AI when test starts
+  // Generate questions - first try database, then AI, then mock
   const generateQuestions = useCallback(async () => {
     setGeneratingQuestions(true);
     setLoading(true);
     
     try {
-      // Call the edge function to generate questions
+      // First, try to get questions from the database
+      console.log(`Fetching ${TOTAL_QUESTIONS} random questions for domain: ${domain}`);
+      const { data: dbData, error: dbError } = await supabase.functions.invoke('get-random-mcq-questions', {
+        body: { domain, count: TOTAL_QUESTIONS }
+      });
+
+      if (!dbError && dbData?.questions && dbData.questions.length >= TOTAL_QUESTIONS) {
+        console.log(`Got ${dbData.questions.length} questions from database`);
+        setQuestions(dbData.questions);
+        return;
+      }
+
+      console.log(`Database has ${dbData?.available || 0} questions, need ${TOTAL_QUESTIONS}. Falling back to AI generation.`);
+      
+      // Fallback to AI generation if database doesn't have enough questions
       const { data, error } = await supabase.functions.invoke('generate-mcq-questions', {
         body: { domain, count: TOTAL_QUESTIONS }
       });
