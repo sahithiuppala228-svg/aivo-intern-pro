@@ -20,10 +20,46 @@ export const useFaceDetection = () => {
     message: "Initializing camera..."
   });
 
+  // Attach stream to video element when video ref changes
+  const attachStreamToVideo = useCallback(() => {
+    if (streamRef.current && videoRef.current && !videoRef.current.srcObject) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(console.error);
+    }
+  }, []);
+
+  // Monitor video ref changes
+  useEffect(() => {
+    if (cameraActive) {
+      attachStreamToVideo();
+    }
+  }, [cameraActive, attachStreamToVideo]);
+
+  // Also attach on interval to handle re-renders
+  useEffect(() => {
+    if (!cameraActive) return;
+    
+    const interval = setInterval(() => {
+      if (streamRef.current && videoRef.current) {
+        if (!videoRef.current.srcObject || videoRef.current.srcObject !== streamRef.current) {
+          videoRef.current.srcObject = streamRef.current;
+          videoRef.current.play().catch(console.error);
+        }
+      }
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [cameraActive]);
+
   const startCamera = useCallback(async () => {
     try {
       setCameraError(null);
       setFaceResult({ faceDetected: false, faceConfidence: 0, message: "Requesting camera access..." });
+      
+      // Stop any existing stream first
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
       
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -38,11 +74,16 @@ export const useFaceDetection = () => {
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-        setCameraActive(true);
-        setFaceResult({ faceDetected: false, faceConfidence: 0, message: "Camera active. Looking for face..." });
-        startFaceDetection();
+        try {
+          await videoRef.current.play();
+        } catch (playError) {
+          console.log("Video play error, will retry:", playError);
+        }
       }
+      
+      setCameraActive(true);
+      setFaceResult({ faceDetected: false, faceConfidence: 0, message: "Camera active. Looking for face..." });
+      startFaceDetection();
     } catch (error) {
       console.error("Camera error:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to access camera";
@@ -72,7 +113,7 @@ export const useFaceDetection = () => {
 
   const startFaceDetection = useCallback(() => {
     const detectFace = () => {
-      if (!videoRef.current || !canvasRef.current || !cameraActive) {
+      if (!videoRef.current || !canvasRef.current) {
         animationFrameRef.current = requestAnimationFrame(detectFace);
         return;
       }
@@ -81,7 +122,7 @@ export const useFaceDetection = () => {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext("2d");
       
-      if (!ctx || video.videoWidth === 0) {
+      if (!ctx || video.videoWidth === 0 || video.readyState < 2) {
         animationFrameRef.current = requestAnimationFrame(detectFace);
         return;
       }
@@ -98,7 +139,6 @@ export const useFaceDetection = () => {
       const data = imageData.data;
       
       // Simple face detection using skin color detection
-      // This is a basic heuristic - in production you'd use a proper ML model
       let skinPixels = 0;
       let totalPixels = 0;
       
@@ -130,7 +170,7 @@ export const useFaceDetection = () => {
       }
       
       const skinRatio = skinPixels / totalPixels;
-      const faceDetected = skinRatio > 0.15 && skinRatio < 0.7; // Reasonable face coverage
+      const faceDetected = skinRatio > 0.15 && skinRatio < 0.7;
       const confidence = Math.min(skinRatio / 0.4, 1) * 100;
       
       let message = "";
@@ -154,7 +194,7 @@ export const useFaceDetection = () => {
     };
 
     animationFrameRef.current = requestAnimationFrame(detectFace);
-  }, [cameraActive]);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -169,6 +209,7 @@ export const useFaceDetection = () => {
     cameraError,
     faceResult,
     startCamera,
-    stopCamera
+    stopCamera,
+    stream: streamRef.current
   };
 };
