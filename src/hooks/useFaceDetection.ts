@@ -20,97 +20,6 @@ export const useFaceDetection = () => {
     message: "Initializing camera..."
   });
 
-  // Attach stream to video element when video ref changes
-  const attachStreamToVideo = useCallback(() => {
-    if (streamRef.current && videoRef.current && !videoRef.current.srcObject) {
-      videoRef.current.srcObject = streamRef.current;
-      videoRef.current.play().catch(console.error);
-    }
-  }, []);
-
-  // Monitor video ref changes
-  useEffect(() => {
-    if (cameraActive) {
-      attachStreamToVideo();
-    }
-  }, [cameraActive, attachStreamToVideo]);
-
-  // Also attach on interval to handle re-renders
-  useEffect(() => {
-    if (!cameraActive) return;
-    
-    const interval = setInterval(() => {
-      if (streamRef.current && videoRef.current) {
-        if (!videoRef.current.srcObject || videoRef.current.srcObject !== streamRef.current) {
-          videoRef.current.srcObject = streamRef.current;
-          videoRef.current.play().catch(console.error);
-        }
-      }
-    }, 500);
-
-    return () => clearInterval(interval);
-  }, [cameraActive]);
-
-  const startCamera = useCallback(async () => {
-    try {
-      setCameraError(null);
-      setFaceResult({ faceDetected: false, faceConfidence: 0, message: "Requesting camera access..." });
-      
-      // Stop any existing stream first
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
-      
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-          facingMode: "user"
-        },
-        audio: false
-      });
-
-      streamRef.current = stream;
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        try {
-          await videoRef.current.play();
-        } catch (playError) {
-          console.log("Video play error, will retry:", playError);
-        }
-      }
-      
-      setCameraActive(true);
-      setFaceResult({ faceDetected: false, faceConfidence: 0, message: "Camera active. Looking for face..." });
-      startFaceDetection();
-    } catch (error) {
-      console.error("Camera error:", error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to access camera";
-      setCameraError(errorMessage);
-      setFaceResult({ faceDetected: false, faceConfidence: 0, message: `Camera error: ${errorMessage}` });
-    }
-  }, []);
-
-  const stopCamera = useCallback(() => {
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
-    
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-    
-    setCameraActive(false);
-    setFaceResult({ faceDetected: false, faceConfidence: 0, message: "Camera stopped" });
-  }, []);
-
   const startFaceDetection = useCallback(() => {
     const detectFace = () => {
       if (!videoRef.current || !canvasRef.current) {
@@ -127,22 +36,16 @@ export const useFaceDetection = () => {
         return;
       }
 
-      // Set canvas size to match video
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      
-      // Draw video frame to canvas
       ctx.drawImage(video, 0, 0);
       
-      // Get image data for analysis
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imageData.data;
       
-      // Simple face detection using skin color detection
       let skinPixels = 0;
       let totalPixels = 0;
       
-      // Focus on the center region where face is likely to be
       const centerX = canvas.width / 2;
       const centerY = canvas.height / 2;
       const regionWidth = canvas.width * 0.5;
@@ -155,7 +58,6 @@ export const useFaceDetection = () => {
           const g = data[i + 1];
           const b = data[i + 2];
           
-          // Skin color detection (works for various skin tones)
           const isSkinColor = 
             r > 60 && r < 255 &&
             g > 40 && g < 220 &&
@@ -196,11 +98,91 @@ export const useFaceDetection = () => {
     animationFrameRef.current = requestAnimationFrame(detectFace);
   }, []);
 
+  const stopCamera = useCallback(() => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    
+    setCameraActive(false);
+    setFaceResult({ faceDetected: false, faceConfidence: 0, message: "Camera stopped" });
+  }, []);
+
+  const startCamera = useCallback(async () => {
+    try {
+      setCameraError(null);
+      setFaceResult({ faceDetected: false, faceConfidence: 0, message: "Requesting camera access..." });
+      
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+      
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          facingMode: "user"
+        },
+        audio: false
+      });
+
+      streamRef.current = stream;
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        try {
+          await videoRef.current.play();
+        } catch (playError) {
+          console.log("Video play error, will retry:", playError);
+        }
+      }
+      
+      setCameraActive(true);
+      setFaceResult({ faceDetected: false, faceConfidence: 0, message: "Camera active. Looking for face..." });
+      startFaceDetection();
+    } catch (error) {
+      console.error("Camera error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to access camera";
+      setCameraError(errorMessage);
+      setFaceResult({ faceDetected: false, faceConfidence: 0, message: `Camera error: ${errorMessage}` });
+    }
+  }, [startFaceDetection]);
+
+  // Re-attach stream to video on re-renders
+  useEffect(() => {
+    if (cameraActive && streamRef.current && videoRef.current) {
+      const checkVideo = setInterval(() => {
+        if (videoRef.current && streamRef.current) {
+          if (!videoRef.current.srcObject || videoRef.current.srcObject !== streamRef.current) {
+            videoRef.current.srcObject = streamRef.current;
+            videoRef.current.play().catch(() => {});
+          }
+        }
+      }, 500);
+      return () => clearInterval(checkVideo);
+    }
+  }, [cameraActive]);
+
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      stopCamera();
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
     };
-  }, [stopCamera]);
+  }, []);
 
   return {
     videoRef,
@@ -209,7 +191,6 @@ export const useFaceDetection = () => {
     cameraError,
     faceResult,
     startCamera,
-    stopCamera,
-    stream: streamRef.current
+    stopCamera
   };
 };
