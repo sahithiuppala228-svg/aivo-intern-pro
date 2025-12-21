@@ -202,6 +202,7 @@ const ProfileSetup = () => {
       skills,
       interests,
       projects,
+      avatar: avatarPreview,
     };
     localStorage.setItem('userProfile', JSON.stringify(profileData));
 

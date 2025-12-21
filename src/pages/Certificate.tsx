@@ -3,23 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Award, FileText, Download, ExternalLink, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { useState, useEffect } from "react";
-import ResumeDialog from "@/components/ResumeDialog";
-
-interface ProfileData {
-  firstName: string;
-  lastName: string;
-  college: string;
-  course: string;
-  year: string;
-  selectedDomains: string[];
-  internshipType: string;
-  availability: string;
-  linkedin: string;
-  github: string;
-  skills: string;
-  interests: string;
-  projects: string;
-}
+import { ResumeBuilder, ProfileData } from "@/components/ResumeBuilder";
 
 const Certificate = () => {
   const location = useLocation();
@@ -281,8 +265,8 @@ const Certificate = () => {
         </Card>
       </div>
 
-      {/* Resume Dialog */}
-      <ResumeDialog 
+      {/* Resume Builder */}
+      <ResumeBuilder 
         open={showResume} 
         onOpenChange={setShowResume}
         profile={profile}
