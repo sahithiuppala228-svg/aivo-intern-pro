@@ -12,6 +12,7 @@ import CodingTest from "./pages/CodingTest";
 import MockInterview from "./pages/MockInterview";
 import PracticeMode from "./pages/PracticeMode";
 import Certificate from "./pages/Certificate";
+import Internships from "./pages/Internships";
 import NotFound from "./pages/NotFound";
 import GlobalAIMentor from "./components/GlobalAIMentor";
 
@@ -33,6 +34,7 @@ const App = () => (
           <Route path="/mock-interview" element={<MockInterview />} />
           <Route path="/practice-mode" element={<PracticeMode />} />
           <Route path="/certificate" element={<Certificate />} />
+          <Route path="/internships" element={<Internships />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
