@@ -12,7 +12,6 @@ import CodingTest from "./pages/CodingTest";
 import MockInterview from "./pages/MockInterview";
 import PracticeMode from "./pages/PracticeMode";
 import Certificate from "./pages/Certificate";
-import AdminSeedQuestions from "./pages/AdminSeedQuestions";
 import NotFound from "./pages/NotFound";
 import GlobalAIMentor from "./components/GlobalAIMentor";
 
@@ -34,7 +33,6 @@ const App = () => (
           <Route path="/mock-interview" element={<MockInterview />} />
           <Route path="/practice-mode" element={<PracticeMode />} />
           <Route path="/certificate" element={<Certificate />} />
-          <Route path="/admin/seed-questions" element={<AdminSeedQuestions />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
