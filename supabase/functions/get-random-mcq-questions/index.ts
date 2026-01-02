@@ -12,6 +12,39 @@ serve(async (req) => {
   }
 
   try {
+    // Verify authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      console.error("No authorization header provided");
+      return new Response(JSON.stringify({ error: 'Unauthorized', questions: [] }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    // Use anon key client to verify user authentication
+    const authClient = createClient(supabaseUrl, supabaseAnonKey);
+    const { data: { user }, error: authError } = await authClient.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    );
+
+    if (authError || !user) {
+      console.error("Auth error:", authError?.message || "User not found");
+      return new Response(JSON.stringify({ error: 'Unauthorized', questions: [] }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log("Authenticated user:", user.id);
+
+    // Use service key for database operations (to bypass RLS for reading questions)
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
     const { domain, count = 50 } = await req.json();
 
     if (!domain) {
@@ -21,11 +54,7 @@ serve(async (req) => {
       });
     }
 
-    console.log(`Fetching ${count} random questions for domain: ${domain}`);
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    console.log(`Fetching ${count} random questions for domain: ${domain} (user: ${user.id})`);
 
     // Get total count for this domain
     const { count: totalCount, error: countError } = await supabase
@@ -59,7 +88,6 @@ serve(async (req) => {
     }
 
     // Fetch random questions using a random offset approach for better distribution
-    // This is more efficient than ORDER BY RANDOM() for large datasets
     const requestedCount = Math.min(count, available);
     
     // Get questions with mixed difficulties
@@ -86,7 +114,8 @@ serve(async (req) => {
       
       const { data: moreQuestions } = await supabase
         .from('mcq_questions')
-        .select('id, question, option_a, option_b, option_c, option_d, correct_answer, difficulty, explanation')
+        // SECURITY: Do NOT include correct_answer - this protects test integrity
+        .select('id, question, option_a, option_b, option_c, option_d, difficulty, explanation')
         .eq('domain', domain)
         .not('id', 'in', `(${existingIds.join(',')})`)
         .limit(needed);
@@ -140,7 +169,8 @@ async function fetchRandomByDifficulty(supabase: any, domain: string, difficulty
 
   return await supabase
     .from('mcq_questions')
-    .select('id, question, option_a, option_b, option_c, option_d, correct_answer, difficulty, explanation')
+    // SECURITY: Do NOT include correct_answer - this protects test integrity
+    .select('id, question, option_a, option_b, option_c, option_d, difficulty, explanation')
     .eq('domain', domain)
     .eq('difficulty', difficulty)
     .range(randomOffset, randomOffset + toFetch - 1);
