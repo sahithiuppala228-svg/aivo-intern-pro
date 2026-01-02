@@ -24,7 +24,6 @@ interface Question {
   option_b: string;
   option_c: string;
   option_d: string;
-  correct_answer: string;
   difficulty: "Easy" | "Medium" | "Hard";
   explanation?: string;
 }
@@ -60,6 +59,19 @@ const MCQTest = () => {
     setLoading(true);
     
     try {
+      // Check if user is authenticated
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to take the MCQ test.",
+          variant: "destructive",
+        });
+        navigate("/auth");
+        return;
+      }
+
       // Get questions from the database for the selected domain
       console.log(`Fetching random questions for domain: ${domain}`);
       const { data: dbData, error: dbError } = await supabase.functions.invoke('get-random-mcq-questions', {
@@ -99,7 +111,7 @@ const MCQTest = () => {
       setGeneratingQuestions(false);
       setLoading(false);
     }
-  }, [domain, toast]);
+  }, [domain, toast, navigate]);
 
 
   // Timer effect - only runs when test has started
@@ -159,44 +171,81 @@ const MCQTest = () => {
     setTestStarted(true);
   };
 
-  const handleSubmitTest = () => {
+  const handleSubmitTest = async () => {
+    setLoading(true);
     let correctCount = 0;
     const incorrectAnswers: {question: string; yourAnswer: string; correctAnswer: string; explanation?: string}[] = [];
 
-    questions.forEach((q, index) => {
-      const userAnswer = selectedAnswers[index];
-      if (userAnswer === q.correct_answer) {
-        correctCount++;
+    try {
+      // Validate answers server-side using the secure RPC function
+      for (let index = 0; index < questions.length; index++) {
+        const q = questions[index];
+        const userAnswer = selectedAnswers[index];
+        
+        if (userAnswer) {
+          // Use the secure server-side validation function
+          const { data: isCorrect, error } = await supabase.rpc('validate_mcq_answer', {
+            question_id: q.id,
+            user_answer: userAnswer
+          });
+
+          if (error) {
+            console.error('Error validating answer:', error);
+            // Skip this question if validation fails
+            continue;
+          }
+
+          if (isCorrect) {
+            correctCount++;
+          } else {
+            incorrectAnswers.push({
+              question: q.question,
+              yourAnswer: userAnswer,
+              correctAnswer: "Check explanation below", // Don't expose correct answer
+              explanation: q.explanation,
+            });
+          }
+        } else {
+          // Not answered
+          incorrectAnswers.push({
+            question: q.question,
+            yourAnswer: "Not answered",
+            correctAnswer: "Check explanation below",
+            explanation: q.explanation,
+          });
+        }
+      }
+
+      const percentage = (correctCount / questions.length) * 100;
+      const testPassed = percentage >= PASSING_PERCENTAGE;
+
+      setScore(correctCount);
+      setPassed(testPassed);
+      setWrongAnswers(incorrectAnswers);
+      setShowResults(true);
+      setTestStarted(false);
+
+      if (testPassed) {
+        toast({
+          title: "Congratulations! 🎉",
+          description: `You scored ${percentage.toFixed(0)}% and passed the MCQ test!`,
+        });
       } else {
-        incorrectAnswers.push({
-          question: q.question,
-          yourAnswer: userAnswer || "Not answered",
-          correctAnswer: q.correct_answer,
-          explanation: q.explanation,
+        toast({
+          title: "Test Not Passed",
+          description: `You scored ${percentage.toFixed(0)}%. You need at least ${PASSING_PERCENTAGE}% to pass.`,
+          variant: "destructive",
         });
       }
-    });
-
-    const percentage = (correctCount / questions.length) * 100;
-    const testPassed = percentage >= PASSING_PERCENTAGE;
-
-    setScore(correctCount);
-    setPassed(testPassed);
-    setWrongAnswers(incorrectAnswers);
-    setShowResults(true);
-    setTestStarted(false);
-
-    if (testPassed) {
+    } catch (error) {
+      console.error('Error submitting test:', error);
       toast({
-        title: "Congratulations! 🎉",
-        description: `You scored ${percentage.toFixed(0)}% and passed the MCQ test!`,
-      });
-    } else {
-      toast({
-        title: "Test Not Passed",
-        description: `You scored ${percentage.toFixed(0)}%. You need at least ${PASSING_PERCENTAGE}% to pass.`,
+        title: "Error",
+        description: "Failed to submit test. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
