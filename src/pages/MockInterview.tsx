@@ -244,7 +244,9 @@ const MockInterview = () => {
   const [isTestingAudio, setIsTestingAudio] = useState(false);
   const [audioDetected, setAudioDetected] = useState(false);
   const [audioTestTimeout, setAudioTestTimeout] = useState<number | null>(null);
+  const [audioTestFailed, setAudioTestFailed] = useState(false);
   const audioTestIntervalRef = useRef<number | null>(null);
+  const audioDetectedRef = useRef(false);
   
   const testSentence = "Hello, my name is a candidate and I am ready for this interview.";
 
@@ -261,6 +263,8 @@ const MockInterview = () => {
       
       setIsTestingAudio(true);
       setAudioDetected(false);
+      setAudioTestFailed(false);
+      audioDetectedRef.current = false;
       
       // Check for audio detection
       let detectionCount = 0;
@@ -274,37 +278,13 @@ const MockInterview = () => {
           if (average > 10) {
             detectionCount++;
             // Need sustained audio (at least 5 checks = ~500ms of speech)
-            if (detectionCount >= 5) {
+            if (detectionCount >= 5 && !audioDetectedRef.current) {
+              audioDetectedRef.current = true;
               setAudioDetected(true);
-              setAudioTestPassed(true);
-              setIsTestingAudio(false);
-              if (audioTestIntervalRef.current) {
-                clearInterval(audioTestIntervalRef.current);
-                audioTestIntervalRef.current = null;
-              }
-              toast({
-                title: "Audio Test Passed!",
-                description: "Your microphone is working correctly.",
-              });
             }
           }
         }
       }, 100);
-      
-      // Set timeout to stop test after 15 seconds if no audio detected
-      const timeout = window.setTimeout(() => {
-        if (!audioDetected && audioTestIntervalRef.current) {
-          clearInterval(audioTestIntervalRef.current);
-          audioTestIntervalRef.current = null;
-          setIsTestingAudio(false);
-          toast({
-            variant: "destructive",
-            title: "No Audio Detected",
-            description: "Please check your microphone and try again.",
-          });
-        }
-      }, 15000);
-      setAudioTestTimeout(timeout);
       
     } catch (error) {
       toast({
@@ -315,7 +295,7 @@ const MockInterview = () => {
     }
   };
   
-  // Stop audio test
+  // Stop audio test and check if audio was detected
   const stopAudioTest = () => {
     if (audioTestIntervalRef.current) {
       clearInterval(audioTestIntervalRef.current);
@@ -325,7 +305,23 @@ const MockInterview = () => {
       clearTimeout(audioTestTimeout);
       setAudioTestTimeout(null);
     }
+    
     setIsTestingAudio(false);
+    
+    if (audioDetectedRef.current) {
+      setAudioTestPassed(true);
+      toast({
+        title: "Audio Test Passed!",
+        description: "Your microphone is working correctly.",
+      });
+    } else {
+      setAudioTestFailed(true);
+      toast({
+        variant: "destructive",
+        title: "No Audio Detected",
+        description: "Please check your microphone and try again.",
+      });
+    }
   };
   
   // Cleanup audio test on unmount
@@ -811,29 +807,54 @@ const MockInterview = () => {
               <div className={`w-32 h-32 rounded-full flex items-center justify-center transition-all ${
                 audioTestPassed 
                   ? 'bg-green-100' 
-                  : isTestingAudio 
-                    ? 'bg-primary/20 animate-pulse' 
-                    : 'bg-muted'
+                  : audioTestFailed
+                    ? 'bg-destructive/20'
+                    : isTestingAudio 
+                      ? audioDetected 
+                        ? 'bg-green-100 animate-pulse' 
+                        : 'bg-primary/20 animate-pulse' 
+                      : 'bg-muted'
               }`}>
                 {audioTestPassed ? (
                   <CheckCircle2 className="w-16 h-16 text-green-500" />
+                ) : audioTestFailed ? (
+                  <MicOff className="w-16 h-16 text-destructive" />
                 ) : (
-                  <Mic className={`w-16 h-16 ${isTestingAudio ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <Mic className={`w-16 h-16 ${
+                    isTestingAudio 
+                      ? audioDetected 
+                        ? 'text-green-500' 
+                        : 'text-primary' 
+                      : 'text-muted-foreground'
+                  }`} />
                 )}
               </div>
+
+              {/* Audio detection indicator during test */}
+              {isTestingAudio && (
+                <div className={`text-sm font-medium ${audioDetected ? 'text-green-600' : 'text-muted-foreground'}`}>
+                  {audioDetected ? '✓ Audio detected!' : 'Waiting for audio...'}
+                </div>
+              )}
 
               {!audioTestPassed ? (
                 <div className="flex flex-col items-center gap-3">
                   {!isTestingAudio ? (
-                    <Button onClick={startAudioTest} size="lg">
-                      <Mic className="w-4 h-4 mr-2" />
-                      Start Audio Test
-                    </Button>
+                    <>
+                      <Button onClick={startAudioTest} size="lg">
+                        <Mic className="w-4 h-4 mr-2" />
+                        {audioTestFailed ? 'Try Again' : 'Start Audio Test'}
+                      </Button>
+                      {audioTestFailed && (
+                        <p className="text-destructive text-sm font-medium">No audio detected. Please check your microphone.</p>
+                      )}
+                    </>
                   ) : (
-                    <div className="flex flex-col items-center gap-2">
-                      <p className="text-primary font-medium animate-pulse">Listening... Please read the sentence above</p>
-                      <Button onClick={stopAudioTest} variant="outline" size="sm">
-                        Cancel Test
+                    <div className="flex flex-col items-center gap-3">
+                      <p className="text-primary font-medium animate-pulse">Listening... Read the sentence above</p>
+                      <Button onClick={stopAudioTest} variant="default" size="lg" className="bg-red-500 hover:bg-red-600">
+                        <Square className="w-4 h-4 mr-2" />
+                        Stop Recording
                       </Button>
                     </div>
                   )}
