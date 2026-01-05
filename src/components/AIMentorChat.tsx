@@ -90,30 +90,28 @@ const AIMentorChat = ({ isOpen, onClose }: AIMentorChatProps) => {
     setIsTyping(true);
 
     try {
-      // Get current user session for authentication
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session?.access_token) {
-        toast({
-          variant: "destructive",
-          title: "Authentication Required",
-          description: "Please log in to use the AI mentor.",
-        });
-        setIsTyping(false);
-        return;
-      }
-
       const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-mentor-chat`;
       const response = await fetch(CHAT_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`,
+          "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
         body: JSON.stringify({ messages: [...messages, userMessage].map(m => ({ role: m.role, content: m.content })) }),
       });
 
-      if (!response.ok || !response.body) throw new Error("Failed to start stream");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 429) {
+          throw new Error("Rate limit exceeded. Please try again later.");
+        }
+        if (response.status === 402) {
+          throw new Error("AI service temporarily unavailable.");
+        }
+        throw new Error(errorData.error || "Failed to connect to AI");
+      }
+      
+      if (!response.body) throw new Error("No response body");
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
