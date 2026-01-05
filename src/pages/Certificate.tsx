@@ -56,7 +56,7 @@ const Certificate = () => {
 
         {/* Horizontal Certificate - Royal Blue & Gold Design */}
         <div className="relative mb-8 overflow-x-auto" id="certificate-container">
-          <div className="min-w-[900px] mx-auto">
+          <div className="min-w-[1100px] mx-auto">
             {/* Outer decorative border */}
             <div className="relative bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 p-3 rounded-lg shadow-2xl">
               {/* Inner gold border */}
@@ -123,15 +123,15 @@ const Certificate = () => {
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 h-[60%] w-2 bg-gradient-to-b from-transparent via-blue-600 to-transparent opacity-30"></div>
 
                   {/* Horizontal Layout Content */}
-                  <div className="flex items-center py-10 px-16">
+                  <div className="flex items-center py-14 px-20">
                     {/* Left Section - Seal */}
                     <div className="flex-shrink-0 mr-10">
                       <div className="relative">
-                        <div className="w-36 h-36 rounded-full bg-gradient-to-br from-blue-700 via-blue-800 to-blue-900 flex items-center justify-center shadow-xl border-4 border-yellow-400">
-                          <div className="w-28 h-28 rounded-full bg-gradient-to-br from-blue-50 to-white flex items-center justify-center border-2 border-yellow-500">
+                        <div className="w-44 h-44 rounded-full bg-gradient-to-br from-blue-700 via-blue-800 to-blue-900 flex items-center justify-center shadow-xl border-4 border-yellow-400">
+                          <div className="w-36 h-36 rounded-full bg-gradient-to-br from-blue-50 to-white flex items-center justify-center border-2 border-yellow-500">
                             <div className="text-center">
-                              <Award className="w-10 h-10 text-blue-800 mx-auto mb-1" />
-                              <span className="text-xs font-bold text-blue-900 uppercase tracking-wider">Certified</span>
+                              <Award className="w-12 h-12 text-blue-800 mx-auto mb-1" />
+                              <span className="text-sm font-bold text-blue-900 uppercase tracking-wider">Certified</span>
                             </div>
                           </div>
                         </div>
@@ -144,54 +144,54 @@ const Certificate = () => {
 
                     {/* Center Section - Main Content */}
                     <div className="flex-1 text-center">
-                      <h2 className="text-3xl font-serif tracking-[0.15em] text-blue-900 uppercase mb-2">
+                      <h2 className="text-4xl font-serif tracking-[0.15em] text-blue-900 uppercase mb-3">
                         Certificate of Completion
                       </h2>
                       <div className="flex justify-center mb-4">
                         <div className="w-48 h-1 bg-gradient-to-r from-transparent via-yellow-500 to-transparent"></div>
                       </div>
                       
-                      <p className="text-blue-700 italic text-lg mb-3">This is to certify that</p>
+                      <p className="text-blue-700 italic text-xl mb-4">This is to certify that</p>
                       
                       {/* Name prominently displayed */}
-                      <div className="relative py-3 mb-3">
-                        <h3 className="text-4xl font-serif font-bold text-blue-900 tracking-wide" style={{ fontFamily: 'Georgia, serif' }}>
+                      <div className="relative py-4 mb-4">
+                        <h3 className="text-5xl font-serif font-bold text-blue-900 tracking-wide" style={{ fontFamily: 'Georgia, serif' }}>
                           {fullName}
                         </h3>
                         <div className="absolute left-1/2 -translate-x-1/2 bottom-0 w-64 h-[2px] bg-gradient-to-r from-transparent via-yellow-500 to-transparent"></div>
                       </div>
 
-                      <p className="text-blue-700 italic text-lg mb-2">has successfully completed</p>
+                      <p className="text-blue-700 italic text-xl mb-3">has successfully completed</p>
                       
-                      <h4 className="text-2xl font-serif font-semibold text-blue-900 mb-3">
+                      <h4 className="text-3xl font-serif font-semibold text-blue-900 mb-4">
                         The {domain} Internship
                       </h4>
                       
-                      <p className="text-blue-600 text-sm">
+                      <p className="text-blue-600 text-base">
                         and demonstrated excellence as evaluated by{" "}
                         <span className="font-bold text-blue-800">InternAI Platform</span>
                       </p>
                     </div>
 
                     {/* Right Section - Details */}
-                    <div className="flex-shrink-0 ml-10 text-center space-y-6">
+                    <div className="flex-shrink-0 ml-12 text-center space-y-8">
                       <div>
-                        <div className="text-lg font-semibold text-blue-900">{currentDate}</div>
-                        <div className="text-xs text-blue-600 uppercase tracking-widest mt-1">Date Issued</div>
+                        <div className="text-xl font-semibold text-blue-900">{currentDate}</div>
+                        <div className="text-sm text-blue-600 uppercase tracking-widest mt-1">Date Issued</div>
                       </div>
                       
                       <div className="w-20 h-[1px] bg-yellow-500 mx-auto"></div>
                       
                       <div>
-                        <div className="font-mono text-sm font-bold text-blue-900">{certificateId}</div>
-                        <div className="text-xs text-blue-600 uppercase tracking-widest mt-1">Certificate ID</div>
+                        <div className="font-mono text-base font-bold text-blue-900">{certificateId}</div>
+                        <div className="text-sm text-blue-600 uppercase tracking-widest mt-1">Certificate ID</div>
                       </div>
                       
                       <div className="w-20 h-[1px] bg-yellow-500 mx-auto"></div>
                       
                       <div>
-                        <div className="font-serif italic text-blue-800 font-semibold">InternAI</div>
-                        <div className="text-xs text-blue-600 uppercase tracking-widest mt-1">Authorized</div>
+                        <div className="font-serif italic text-blue-800 font-semibold text-lg">InternAI</div>
+                        <div className="text-sm text-blue-600 uppercase tracking-widest mt-1">Authorized</div>
                       </div>
                     </div>
                   </div>
