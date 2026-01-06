@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,15 +6,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { X, Upload, Plus, Sparkles, ArrowLeft } from "lucide-react";
+import { X, Upload, Plus, Sparkles, ArrowLeft, Loader2, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import aiMentorIcon from "@/assets/ai-mentor-icon.jpg";
 import { useNavigate } from "react-router-dom";
-
+import { supabase } from "@/integrations/supabase/client";
+import { User } from "@supabase/supabase-js";
 
 const ProfileSetup = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [user, setUser] = useState<User | null>(null);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [selectedDomains, setSelectedDomains] = useState<string[]>([]);
   const [avatarPreview, setAvatarPreview] = useState("");
   
@@ -33,6 +36,29 @@ const ProfileSetup = () => {
   const [projects, setProjects] = useState("");
   const [customDomainInput, setCustomDomainInput] = useState("");
   const [customDomains, setCustomDomains] = useState<string[]>([]);
+
+  // Check authentication status
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setUser(session?.user ?? null);
+        setIsCheckingAuth(false);
+        if (!session?.user) {
+          navigate("/auth");
+        }
+      }
+    );
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setIsCheckingAuth(false);
+      if (!session?.user) {
+        navigate("/auth");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
 
   const availableDomains = [
     "Web Development",
@@ -214,16 +240,30 @@ const ProfileSetup = () => {
     navigate("/assessment-intro", { state: { domain: selectedDomains[0], allDomains: selectedDomains } });
   };
 
+  // Show loading while checking auth
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated
+  if (!user) {
+    return null;
+  }
+
   return (
     <>
       <div className="min-h-screen bg-muted/30 py-12 px-6">
         <div className="container mx-auto max-w-4xl space-y-8">
-          {/* Header with Back Button */}
-          <div className="flex items-center gap-4">
+          {/* Header with Back Button and Logout */}
+          <div className="flex items-center justify-between gap-4">
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => navigate(-1)}
+              onClick={() => navigate("/")}
               className="flex-shrink-0"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -234,6 +274,18 @@ const ProfileSetup = () => {
                 Help us understand your goals and interests
               </p>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                await supabase.auth.signOut();
+                navigate("/auth");
+              }}
+              className="flex-shrink-0"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
           </div>
 
         {/* AI Mentor Card */}
