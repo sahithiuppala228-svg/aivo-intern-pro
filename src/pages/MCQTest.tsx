@@ -191,7 +191,6 @@ const MCQTest = () => {
 
           if (error) {
             console.error('Error validating answer:', error);
-            // Skip this question if validation fails
             continue;
           }
 
@@ -201,12 +200,11 @@ const MCQTest = () => {
             incorrectAnswers.push({
               question: q.question,
               yourAnswer: userAnswer,
-              correctAnswer: "Check explanation below", // Don't expose correct answer
+              correctAnswer: "Check explanation below",
               explanation: q.explanation,
             });
           }
         } else {
-          // Not answered
           incorrectAnswers.push({
             question: q.question,
             yourAnswer: "Not answered",
@@ -218,6 +216,26 @@ const MCQTest = () => {
 
       const percentage = (correctCount / questions.length) * 100;
       const testPassed = percentage >= PASSING_PERCENTAGE;
+
+      // Save only the test attempt (not individual answers)
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { error: attemptError } = await supabase
+          .from('user_test_attempts')
+          .insert({
+            user_id: user.id,
+            domain: domain,
+            score: correctCount,
+            total_questions: questions.length,
+            passed: testPassed
+          });
+
+        if (attemptError) {
+          console.error('Error saving test attempt:', attemptError);
+        } else {
+          console.log('Test attempt saved successfully');
+        }
+      }
 
       setScore(correctCount);
       setPassed(testPassed);
