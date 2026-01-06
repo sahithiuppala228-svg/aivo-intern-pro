@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,25 @@ const Auth = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+
+  // Check if user is already logged in
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (session?.user) {
+          navigate("/profile-setup");
+        }
+      }
+    );
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        navigate("/profile-setup");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -41,7 +60,6 @@ const Auth = () => {
         title: "Welcome back!",
         description: "Login successful. Redirecting to your profile...",
       });
-      navigate("/profile-setup");
     }
   };
 
@@ -50,14 +68,29 @@ const Auth = () => {
     setIsLoading(true);
     
     const formData = new FormData(e.currentTarget);
+    const name = formData.get('name') as string;
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
+    const confirmPassword = formData.get('confirmPassword') as string;
+
+    if (password !== confirmPassword) {
+      setIsLoading(false);
+      toast({
+        title: "Error",
+        description: "Passwords do not match",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/`,
+        emailRedirectTo: `${window.location.origin}/profile-setup`,
+        data: {
+          full_name: name,
+        },
       },
     });
 
@@ -74,16 +107,26 @@ const Auth = () => {
         title: "Account created!",
         description: "Welcome aboard! You can now log in.",
       });
-      navigate("/profile-setup");
     }
   };
 
-  const handleOAuthLogin = (provider: string) => {
-    toast({
-      title: `${provider} sign-in`,
-      description: `Redirecting to ${provider}... (demo)`,
+  const handleGoogleLogin = async () => {
+    setIsLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/profile-setup`,
+      },
     });
-    navigate("/profile-setup");
+
+    if (error) {
+      setIsLoading(false);
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -148,6 +191,7 @@ const Auth = () => {
                     <Label htmlFor="login-email">Email</Label>
                     <Input
                       id="login-email"
+                      name="email"
                       type="email"
                       placeholder="you@example.com"
                       required
@@ -157,6 +201,7 @@ const Auth = () => {
                     <Label htmlFor="login-password">Password</Label>
                     <Input
                       id="login-password"
+                      name="password"
                       type="password"
                       placeholder="••••••••"
                       required
@@ -187,21 +232,15 @@ const Auth = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => handleOAuthLogin("Google")}
-                  >
-                    <Mail className="w-4 h-4 mr-2" />
-                    Google
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => handleOAuthLogin("LinkedIn")}
-                  >
-                    LinkedIn
-                  </Button>
-                </div>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleGoogleLogin}
+                  disabled={isLoading}
+                >
+                  <Mail className="w-4 h-4 mr-2" />
+                  Continue with Google
+                </Button>
               </TabsContent>
 
               <TabsContent value="signup" className="space-y-4">
@@ -210,6 +249,7 @@ const Auth = () => {
                     <Label htmlFor="signup-name">Full Name</Label>
                     <Input
                       id="signup-name"
+                      name="name"
                       type="text"
                       placeholder="John Doe"
                       required
@@ -219,6 +259,7 @@ const Auth = () => {
                     <Label htmlFor="signup-email">Email</Label>
                     <Input
                       id="signup-email"
+                      name="email"
                       type="email"
                       placeholder="you@example.com"
                       required
@@ -228,6 +269,7 @@ const Auth = () => {
                     <Label htmlFor="signup-password">Password</Label>
                     <Input
                       id="signup-password"
+                      name="password"
                       type="password"
                       placeholder="Min. 8 characters"
                       required
@@ -238,6 +280,7 @@ const Auth = () => {
                     <Label htmlFor="signup-confirm">Confirm Password</Label>
                     <Input
                       id="signup-confirm"
+                      name="confirmPassword"
                       type="password"
                       placeholder="Confirm password"
                       required
@@ -267,30 +310,17 @@ const Auth = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => handleOAuthLogin("Google")}
-                  >
-                    <Mail className="w-4 h-4 mr-2" />
-                    Google
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => handleOAuthLogin("LinkedIn")}
-                  >
-                    LinkedIn
-                  </Button>
-                </div>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleGoogleLogin}
+                  disabled={isLoading}
+                >
+                  <Mail className="w-4 h-4 mr-2" />
+                  Continue with Google
+                </Button>
               </TabsContent>
             </Tabs>
-
-            <p className="text-xs text-center text-muted-foreground mt-6">
-              Need a demo account?{" "}
-              <Button variant="link" className="px-0 h-auto text-xs">
-                Contact support
-              </Button>
-            </p>
           </CardContent>
         </Card>
       </div>
