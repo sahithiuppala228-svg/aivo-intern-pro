@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { supabase } from "@/integrations/supabase/client";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -64,112 +65,56 @@ interface ChallengeScore {
 const TOTAL_QUESTIONS = 10;
 const PASSING_PERCENTAGE = 80;
 
-const generateChallenges = (domain: string): Challenge[] => {
-  // Generate 10 coding challenges with varying difficulty
-  const challenges: Challenge[] = [];
-  const difficulties: ("Easy" | "Medium" | "Hard")[] = ["Easy", "Easy", "Easy", "Medium", "Medium", "Medium", "Medium", "Hard", "Hard", "Hard"];
-  
-  for (let i = 0; i < TOTAL_QUESTIONS; i++) {
-    const difficulty = difficulties[i];
-    challenges.push({
-      id: `challenge-${i + 1}`,
-      title: `${domain} Challenge ${i + 1}`,
-      description: `A ${difficulty.toLowerCase()} level coding problem for ${domain}`,
-      difficulty,
-      domain,
-      problemStatement: getChallengeStatement(domain, i + 1, difficulty),
-      inputFormat: "Input as specified in the problem",
-      outputFormat: "Output the result as specified",
-      constraints: getConstraints(difficulty),
-      examples: getExamples(i + 1),
-      testCases: generateTestCases(i + 1, difficulty),
-      hints: getHints(domain, difficulty)
-    });
-  }
-  
-  return challenges;
-};
-
-const getChallengeStatement = (domain: string, num: number, difficulty: string): string => {
-  const statements: Record<number, string> = {
-    1: `Write a function that takes an array of numbers and returns their sum.\n\nThis is a fundamental problem that tests your understanding of array iteration.`,
-    2: `Write a function that reverses a given string without using built-in reverse methods.\n\nImplement your own logic to reverse the characters.`,
-    3: `Write a function that finds the maximum element in an array of numbers.\n\nReturn the largest value from the array.`,
-    4: `Write a function that checks if a given string is a palindrome.\n\nA palindrome reads the same forwards and backwards.`,
-    5: `Write a function that removes duplicate values from an array.\n\nReturn a new array with only unique elements.`,
-    6: `Write a function that finds the second largest number in an array.\n\nHandle edge cases where the array might have duplicates.`,
-    7: `Write a function that counts the frequency of each character in a string.\n\nReturn an object with characters as keys and counts as values.`,
-    8: `Write a function that finds all pairs in an array that sum to a target value.\n\nReturn an array of pairs.`,
-    9: `Write a function that implements binary search on a sorted array.\n\nReturn the index of the target or -1 if not found.`,
-    10: `Write a function that merges two sorted arrays into one sorted array.\n\nMaintain the sorted order in the result.`
-  };
-  return statements[num] || `${domain} ${difficulty} challenge ${num}`;
-};
-
-const getConstraints = (difficulty: string): string[] => {
-  const base = ["Array length: 1 ≤ n ≤ 1000", "Time complexity should be optimal"];
-  if (difficulty === "Medium") {
-    return [...base, "Consider edge cases carefully"];
-  }
-  if (difficulty === "Hard") {
-    return [...base, "Optimize for both time and space", "Handle all edge cases"];
-  }
-  return base;
-};
-
-const getExamples = (num: number): Array<{input: string; output: string; explanation: string}> => {
-  const examples: Record<number, Array<{input: string; output: string; explanation: string}>> = {
-    1: [{ input: "1,2,3,4,5", output: "15", explanation: "Sum of all elements = 15" }],
-    2: [{ input: "hello", output: "olleh", explanation: "Characters reversed" }],
-    3: [{ input: "3,7,2,9,1", output: "9", explanation: "9 is the maximum" }],
-    4: [{ input: "racecar", output: "true", explanation: "Reads same both ways" }],
-    5: [{ input: "1,2,2,3,3,3", output: "1,2,3", explanation: "Duplicates removed" }],
-    6: [{ input: "5,10,3,8,1", output: "8", explanation: "Second largest after 10" }],
-    7: [{ input: "hello", output: "{h:1,e:1,l:2,o:1}", explanation: "Character counts" }],
-    8: [{ input: "1,2,3,4|5", output: "[[1,4],[2,3]]", explanation: "Pairs summing to 5" }],
-    9: [{ input: "1,3,5,7,9|5", output: "2", explanation: "5 is at index 2" }],
-    10: [{ input: "1,3,5|2,4,6", output: "1,2,3,4,5,6", explanation: "Merged and sorted" }]
-  };
-  return examples[num] || [{ input: "sample", output: "result", explanation: "Example" }];
-};
-
-const generateTestCases = (num: number, difficulty: string): TestCase[] => {
-  // Generate test cases based on question number
-  // Each question has visible and hidden test cases
-  const visibleCount = 2;
-  const hiddenCount = difficulty === "Easy" ? 3 : difficulty === "Medium" ? 4 : 5;
-  
+// Helper to convert API response to Challenge format
+const convertApiResponseToChallenge = (apiProblem: any, index: number, difficulty: string): Challenge => {
   const testCases: TestCase[] = [];
   
-  // Visible test cases
-  for (let i = 1; i <= visibleCount; i++) {
-    testCases.push({
-      id: i,
-      input: `visible_input_${num}_${i}`,
-      expectedOutput: `expected_${num}_${i}`,
-      isHidden: false
+  // Create visible test cases from API response
+  if (apiProblem.testCases && Array.isArray(apiProblem.testCases)) {
+    apiProblem.testCases.forEach((tc: any, i: number) => {
+      testCases.push({
+        id: i + 1,
+        input: tc.input || '',
+        expectedOutput: tc.output || tc.expectedOutput || '',
+        isHidden: i >= 2 // First 2 visible, rest hidden
+      });
     });
   }
   
-  // Hidden test cases
-  for (let i = 1; i <= hiddenCount; i++) {
-    testCases.push({
-      id: visibleCount + i,
-      input: `hidden_input_${num}_${i}`,
-      expectedOutput: `hidden_expected_${num}_${i}`,
-      isHidden: true
-    });
+  // Ensure minimum test cases
+  if (testCases.length < 3) {
+    for (let i = testCases.length; i < 5; i++) {
+      testCases.push({
+        id: i + 1,
+        input: `test_input_${i}`,
+        expectedOutput: `expected_${i}`,
+        isHidden: i >= 2
+      });
+    }
   }
-  
-  return testCases;
-};
 
-const getHints = (domain: string, difficulty: string): string[] => {
-  return [
-    "Break down the problem into smaller steps",
-    "Consider edge cases like empty inputs",
-    difficulty === "Hard" ? "Think about optimization" : "Use built-in methods where helpful"
-  ];
+  return {
+    id: apiProblem.id || `challenge-${index + 1}`,
+    title: apiProblem.title || `Challenge ${index + 1}`,
+    description: apiProblem.description || '',
+    difficulty: difficulty as "Easy" | "Medium" | "Hard",
+    domain: apiProblem.domain || '',
+    problemStatement: apiProblem.description || '',
+    inputFormat: apiProblem.inputFormat || 'Input as specified in the problem',
+    outputFormat: apiProblem.outputFormat || 'Output the result as specified',
+    constraints: Array.isArray(apiProblem.constraints) ? apiProblem.constraints : [],
+    examples: apiProblem.testCases?.slice(0, 2).map((tc: any) => ({
+      input: tc.input || '',
+      output: tc.output || tc.expectedOutput || '',
+      explanation: tc.explanation || ''
+    })) || [],
+    testCases,
+    hints: [
+      "Break down the problem into smaller steps",
+      "Consider edge cases like empty inputs",
+      difficulty === "Hard" ? "Think about optimization" : "Use built-in methods where helpful"
+    ]
+  };
 };
 
 const CodingTest = () => {
@@ -181,7 +126,8 @@ const CodingTest = () => {
   const mcqTotal = location.state?.mcqTotal;
 
   const [showInstructions, setShowInstructions] = useState(true);
-  const [challenges] = useState<Challenge[]>(() => generateChallenges(domain));
+  const [challenges, setChallenges] = useState<Challenge[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [code, setCode] = useState("");
   const [testResults, setTestResults] = useState<TestResult[]>([]);
@@ -196,6 +142,117 @@ const CodingTest = () => {
   const currentChallenge = challenges[currentQuestionIndex];
   const completedChallenges = new Set(challengeScores.map(s => s.questionIndex));
   const allChallengesCompleted = challengeScores.length === challenges.length;
+
+  // Fetch coding challenges from Gemini API
+  const fetchChallenges = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to take the coding test.",
+          variant: "destructive",
+        });
+        navigate("/auth");
+        return;
+      }
+
+      const difficulties = ["Easy", "Easy", "Easy", "Medium", "Medium", "Medium", "Medium", "Hard", "Hard", "Hard"];
+      const fetchedChallenges: Challenge[] = [];
+
+      // Fetch challenges one by one from the API
+      for (let i = 0; i < TOTAL_QUESTIONS; i++) {
+        const difficulty = difficulties[i];
+        
+        try {
+          const { data, error } = await supabase.functions.invoke('generate-coding-problem', {
+            body: { domain, difficulty }
+          });
+
+          if (error) {
+            console.error(`Error fetching challenge ${i + 1}:`, error);
+            // Create a fallback challenge
+            fetchedChallenges.push(createFallbackChallenge(domain, i, difficulty));
+          } else if (data) {
+            fetchedChallenges.push(convertApiResponseToChallenge(data, i, difficulty));
+          }
+        } catch (err) {
+          console.error(`Failed to fetch challenge ${i + 1}:`, err);
+          fetchedChallenges.push(createFallbackChallenge(domain, i, difficulty));
+        }
+
+        // Small delay between requests to avoid rate limiting
+        if (i < TOTAL_QUESTIONS - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+
+      setChallenges(fetchedChallenges);
+      
+      if (fetchedChallenges.length < TOTAL_QUESTIONS) {
+        toast({
+          title: "Some challenges couldn't be loaded",
+          description: "Using fallback challenges for some questions.",
+          variant: "default",
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch challenges:', error);
+      toast({
+        title: "Error loading challenges",
+        description: "Could not load coding challenges. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [domain, toast, navigate]);
+
+  // Create fallback challenge if API fails
+  const createFallbackChallenge = (domain: string, index: number, difficulty: string): Challenge => {
+    const fallbackProblems = [
+      { title: "Array Sum", desc: "Write a function that takes an array of numbers and returns their sum." },
+      { title: "String Reversal", desc: "Write a function that reverses a given string without using built-in reverse methods." },
+      { title: "Maximum Element", desc: "Write a function that finds the maximum element in an array of numbers." },
+      { title: "Palindrome Check", desc: "Write a function that checks if a given string is a palindrome." },
+      { title: "Remove Duplicates", desc: "Write a function that removes duplicate values from an array." },
+      { title: "Second Largest", desc: "Write a function that finds the second largest number in an array." },
+      { title: "Character Frequency", desc: "Write a function that counts the frequency of each character in a string." },
+      { title: "Pair Sum", desc: "Write a function that finds all pairs in an array that sum to a target value." },
+      { title: "Binary Search", desc: "Write a function that implements binary search on a sorted array." },
+      { title: "Merge Arrays", desc: "Write a function that merges two sorted arrays into one sorted array." }
+    ];
+
+    const problem = fallbackProblems[index] || fallbackProblems[0];
+    
+    return {
+      id: `challenge-${index + 1}`,
+      title: problem.title,
+      description: problem.desc,
+      difficulty: difficulty as "Easy" | "Medium" | "Hard",
+      domain,
+      problemStatement: problem.desc,
+      inputFormat: "Input as specified in the problem",
+      outputFormat: "Output the result as specified",
+      constraints: ["Array length: 1 ≤ n ≤ 1000", "Time complexity should be optimal"],
+      examples: [{ input: "sample", output: "result", explanation: "Example" }],
+      testCases: [
+        { id: 1, input: "test1", expectedOutput: "result1", isHidden: false },
+        { id: 2, input: "test2", expectedOutput: "result2", isHidden: false },
+        { id: 3, input: "test3", expectedOutput: "result3", isHidden: true },
+        { id: 4, input: "test4", expectedOutput: "result4", isHidden: true },
+        { id: 5, input: "test5", expectedOutput: "result5", isHidden: true }
+      ],
+      hints: ["Break down the problem", "Consider edge cases", "Think about optimization"]
+    };
+  };
+
+  const handleStartTest = async () => {
+    setShowInstructions(false);
+    await fetchChallenges();
+  };
 
   // Run tests
   const runTests = () => {
@@ -332,8 +389,22 @@ const CodingTest = () => {
       setTestResults([]);
       setAllTestsPassed(false);
       setChallengeScores([]);
+      setChallenges([]);
     }
   };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Generating {TOTAL_QUESTIONS} coding challenges for {domain}...</p>
+          <p className="text-sm text-muted-foreground mt-2">This may take a moment</p>
+        </div>
+      </div>
+    );
+  }
 
   // Instructions Screen
   if (showInstructions) {
@@ -423,7 +494,7 @@ const CodingTest = () => {
 
               <div className="pt-6 flex justify-center">
                 <Button 
-                  onClick={() => setShowInstructions(false)}
+                  onClick={handleStartTest}
                   size="lg"
                   className="px-8"
                   variant="hero"
