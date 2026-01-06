@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, CheckCircle, Sparkles, Target, Award, Users } from "lucide-react";
+import { ArrowRight, CheckCircle, Sparkles, Target, Award, Users, BarChart3 } from "lucide-react";
 import heroImage from "@/assets/hero-image.jpg";
 
 const Index = () => {
@@ -40,8 +40,11 @@ const Index = () => {
             <span className="text-xl font-bold text-foreground">AI Internship Provider</span>
           </div>
           <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => navigate(-1)}>
-              Back
+            <Button variant="ghost" asChild>
+              <Link to="/analytics">
+                <BarChart3 className="w-4 h-4 mr-2" />
+                Analytics
+              </Link>
             </Button>
             <Button variant="ghost" asChild>
               <Link to="/auth">Login</Link>
