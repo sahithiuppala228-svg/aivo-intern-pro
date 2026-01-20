@@ -301,8 +301,8 @@ const MCQTest = () => {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Generating {TOTAL_QUESTIONS} questions for {domain}...</p>
-          <p className="text-sm text-muted-foreground mt-2">This may take a moment</p>
+          <p className="text-muted-foreground">Loading questions for {domain}...</p>
+          <p className="text-sm text-muted-foreground mt-2">Please wait</p>
         </div>
       </div>
     );
