@@ -77,18 +77,42 @@ serve(async (req) => {
     const available = totalCount || 0;
     console.log(`Domain ${domain} has ${available} questions available`);
 
-    if (available === 0) {
-      return new Response(JSON.stringify({ 
-        questions: [],
-        available: 0,
-        message: 'No questions available for this domain'
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    // If we don't have enough questions, generate more using AI
+    if (available < count) {
+      console.log(`Need to generate ${count - available} more questions for ${domain}`);
+      const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+      
+      if (LOVABLE_API_KEY) {
+        const questionsNeeded = count - available;
+        const generatedQuestions = await generateQuestionsWithAI(LOVABLE_API_KEY, domain, questionsNeeded);
+        
+        if (generatedQuestions.length > 0) {
+          // Insert generated questions into database
+          const { error: insertError } = await supabase
+            .from('mcq_questions')
+            .insert(generatedQuestions.map(q => ({
+              domain,
+              question: q.question,
+              option_a: q.option_a,
+              option_b: q.option_b,
+              option_c: q.option_c,
+              option_d: q.option_d,
+              correct_answer: q.correct_answer,
+              difficulty: q.difficulty,
+              explanation: q.explanation || null
+            })));
+
+          if (insertError) {
+            console.error('Error inserting generated questions:', insertError);
+          } else {
+            console.log(`Successfully inserted ${generatedQuestions.length} generated questions`);
+          }
+        }
+      }
     }
 
-    // Fetch random questions using a random offset approach for better distribution
-    const requestedCount = Math.min(count, available);
+    // Now fetch questions (including any newly generated ones)
+    const requestedCount = count;
     
     // Get questions with mixed difficulties
     const easyCount = Math.floor(requestedCount * 0.3);  // 30% easy
@@ -112,13 +136,18 @@ serve(async (req) => {
       const needed = requestedCount - allQuestions.length;
       const existingIds = allQuestions.map(q => q.id);
       
-      const { data: moreQuestions } = await supabase
+      let query = supabase
         .from('mcq_questions')
         // SECURITY: Do NOT include correct_answer - this protects test integrity
         .select('id, question, option_a, option_b, option_c, option_d, difficulty, explanation')
         .eq('domain', domain)
-        .not('id', 'in', `(${existingIds.join(',')})`)
         .limit(needed);
+
+      if (existingIds.length > 0) {
+        query = query.not('id', 'in', `(${existingIds.join(',')})`);
+      }
+
+      const { data: moreQuestions } = await query;
 
       if (moreQuestions) {
         allQuestions = [...allQuestions, ...moreQuestions];
@@ -132,7 +161,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ 
       questions: allQuestions,
-      available,
+      available: allQuestions.length,
       returned: allQuestions.length
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -147,6 +176,115 @@ serve(async (req) => {
     });
   }
 });
+
+async function generateQuestionsWithAI(apiKey: string, domain: string, count: number): Promise<any[]> {
+  const allQuestions: any[] = [];
+  const batchSize = 10;
+  const batches = Math.ceil(count / batchSize);
+
+  for (let batch = 0; batch < batches; batch++) {
+    const batchCount = Math.min(batchSize, count - allQuestions.length);
+    const difficulty = ['Easy', 'Medium', 'Hard'][batch % 3];
+
+    console.log(`Generating batch ${batch + 1}/${batches} with ${batchCount} ${difficulty} questions`);
+
+    const prompt = `Generate exactly ${batchCount} unique multiple-choice questions about ${domain}.
+
+Requirements:
+- Questions must be specifically about ${domain} concepts, technologies, tools, and best practices
+- Each question should have exactly 4 options (A, B, C, D)
+- All questions should be ${difficulty} difficulty
+- Include a clear explanation for why the correct answer is right
+- Make questions practical and test real-world knowledge`;
+
+    try {
+      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { 
+              role: 'system', 
+              content: `You are an expert question generator for ${domain}. Generate high-quality MCQ questions.`
+            },
+            { role: 'user', content: prompt }
+          ],
+          tools: [{
+            type: 'function',
+            function: {
+              name: 'save_questions',
+              description: 'Save the generated questions',
+              parameters: {
+                type: 'object',
+                properties: {
+                  questions: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        question: { type: 'string' },
+                        option_a: { type: 'string' },
+                        option_b: { type: 'string' },
+                        option_c: { type: 'string' },
+                        option_d: { type: 'string' },
+                        correct_answer: { type: 'string', enum: ['A', 'B', 'C', 'D'] },
+                        difficulty: { type: 'string', enum: ['Easy', 'Medium', 'Hard'] },
+                        explanation: { type: 'string' }
+                      },
+                      required: ['question', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer', 'difficulty', 'explanation']
+                    }
+                  }
+                },
+                required: ['questions']
+              }
+            }
+          }],
+          tool_choice: { type: 'function', function: { name: 'save_questions' } }
+        }),
+      });
+
+      if (!response.ok) {
+        console.error('AI API error:', response.status);
+        continue;
+      }
+
+      const data = await response.json();
+      const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+      
+      if (toolCall?.function?.arguments) {
+        const parsed = JSON.parse(toolCall.function.arguments);
+        const questions = parsed.questions || [];
+        
+        const validQuestions = questions.filter((q: any) => 
+          q.question && 
+          q.option_a && q.option_b && q.option_c && q.option_d && 
+          ['A', 'B', 'C', 'D'].includes(q.correct_answer?.toUpperCase())
+        ).map((q: any) => ({
+          ...q,
+          correct_answer: q.correct_answer.toUpperCase(),
+          difficulty: ['Easy', 'Medium', 'Hard'].includes(q.difficulty) ? q.difficulty : difficulty,
+          explanation: q.explanation || 'No explanation provided.'
+        }));
+
+        allQuestions.push(...validQuestions);
+        console.log(`Batch ${batch + 1}: Generated ${validQuestions.length} questions`);
+      }
+    } catch (e) {
+      console.error(`Error generating batch ${batch + 1}:`, e);
+    }
+
+    // Small delay between batches
+    if (batch < batches - 1) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+
+  return allQuestions;
+}
 
 async function fetchRandomByDifficulty(supabase: any, domain: string, difficulty: string, count: number) {
   if (count <= 0) return { data: [] };
