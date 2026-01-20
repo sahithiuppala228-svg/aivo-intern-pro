@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const BATCH_SIZE = 20;
+const BATCH_SIZE = 10;
 const DELAY_BETWEEN_BATCHES = 2000; // 2 seconds
 
 serve(async (req) => {
@@ -15,7 +15,7 @@ serve(async (req) => {
   }
 
   try {
-    const { domain, targetCount = 1000 } = await req.json();
+    const { domain, targetCount = 50 } = await req.json();
 
     if (!domain) {
       return new Response(JSON.stringify({ error: 'Domain is required' }), {
@@ -134,7 +134,7 @@ serve(async (req) => {
 });
 
 async function generateQuestionBatch(apiKey: string, domain: string, count: number, batchNumber: number): Promise<any[]> {
-  const difficulties = ['Easy', 'Medium', 'Hard'];
+  const difficulties = ['easy', 'medium', 'hard'];
   const difficultyMix = difficulties[batchNumber % 3]; // Rotate through difficulties
 
 const prompt = `Generate exactly ${count} unique multiple-choice questions about ${domain}.
@@ -184,7 +184,7 @@ Batch ${batchNumber + 1} - Focus on different subtopics to ensure variety.`;
                     option_c: { type: 'string', description: 'Option C' },
                     option_d: { type: 'string', description: 'Option D' },
                     correct_answer: { type: 'string', enum: ['A', 'B', 'C', 'D'], description: 'The correct answer letter' },
-                    difficulty: { type: 'string', enum: ['Easy', 'Medium', 'Hard'], description: 'Question difficulty' },
+                    difficulty: { type: 'string', enum: ['easy', 'medium', 'hard'], description: 'Question difficulty (lowercase)' },
                     explanation: { type: 'string', description: 'Explanation of why the correct answer is right' }
                   },
                   required: ['question', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer', 'difficulty', 'explanation']
@@ -225,7 +225,7 @@ Batch ${batchNumber + 1} - Focus on different subtopics to ensure variety.`;
     ).map((q: any) => ({
       ...q,
       correct_answer: q.correct_answer.toUpperCase(),
-      difficulty: ['Easy', 'Medium', 'Hard'].includes(q.difficulty) ? q.difficulty : difficultyMix,
+      difficulty: ['easy', 'medium', 'hard'].includes(q.difficulty?.toLowerCase()) ? q.difficulty.toLowerCase() : difficultyMix,
       explanation: q.explanation || 'No explanation provided.'
     }));
   } catch (e) {
