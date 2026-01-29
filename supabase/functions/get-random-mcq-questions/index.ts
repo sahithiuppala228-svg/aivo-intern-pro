@@ -6,6 +6,23 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Pre-seeded domains that must have questions in the database
+const PRESEEDED_DOMAINS = [
+  "Web Development",
+  "Data Science",
+  "Machine Learning",
+  "Mobile Development",
+  "UI/UX Design",
+  "DevOps",
+  "Cloud Computing",
+  "Cybersecurity",
+  "Blockchain",
+  "Game Development"
+];
+
+const BATCH_SIZE = 10;
+const DELAY_BETWEEN_BATCHES = 1500; // 1.5 seconds
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -54,7 +71,8 @@ serve(async (req) => {
       });
     }
 
-    console.log(`Fetching ${count} random questions for domain: ${domain} (user: ${user.id})`);
+    const isPreseededDomain = PRESEEDED_DOMAINS.includes(domain);
+    console.log(`Domain: ${domain}, isPreseeded: ${isPreseededDomain}, requesting ${count} questions`);
 
     // Get total count for this domain
     const { count: totalCount, error: countError } = await supabase
@@ -77,75 +95,130 @@ serve(async (req) => {
     const available = totalCount || 0;
     console.log(`Domain ${domain} has ${available} questions available`);
 
-    // Check if we have enough questions - return error if not enough
-    if (available < count) {
-      console.error(`Insufficient questions for ${domain}: have ${available}, need ${count}`);
+    // Handle pre-seeded domains vs custom domains differently
+    if (isPreseededDomain) {
+      // Pre-seeded domain: must have questions in DB, return error if not enough
+      if (available < count) {
+        console.error(`Insufficient questions for pre-seeded domain ${domain}: have ${available}, need ${count}`);
+        return new Response(JSON.stringify({ 
+          error: `Insufficient questions for ${domain}. Available: ${available}, Required: ${count}. Please contact administrator to seed questions.`,
+          questions: [],
+          available,
+          required: count,
+          isCustomDomain: false
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Fetch questions from database
+      const questions = await fetchQuestionsFromDatabase(supabase, domain, count);
+      
       return new Response(JSON.stringify({ 
-        error: `Insufficient questions for ${domain}. Available: ${available}, Required: ${count}. Please seed questions first.`,
-        questions: [],
-        available,
-        required: count
+        questions,
+        available: questions.length,
+        returned: questions.length,
+        isCustomDomain: false
       }), {
-        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    } else {
+      // Custom domain: generate questions if not enough in database
+      if (available >= count) {
+        console.log(`Custom domain ${domain} has enough questions, fetching from database`);
+        const questions = await fetchQuestionsFromDatabase(supabase, domain, count);
+        
+        return new Response(JSON.stringify({ 
+          questions,
+          available: questions.length,
+          returned: questions.length,
+          isCustomDomain: true,
+          generated: false
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Need to generate questions for custom domain
+      console.log(`Custom domain ${domain} needs questions, generating via AI...`);
+      
+      const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+      if (!LOVABLE_API_KEY) {
+        return new Response(JSON.stringify({ 
+          error: 'AI generation not configured. Please contact administrator.',
+          questions: [],
+          isCustomDomain: true
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Generate questions
+      const questionsNeeded = count - available;
+      const batchesNeeded = Math.ceil(questionsNeeded / BATCH_SIZE);
+      let totalGenerated = 0;
+
+      for (let batch = 0; batch < batchesNeeded && totalGenerated < questionsNeeded; batch++) {
+        const remaining = questionsNeeded - totalGenerated;
+        const batchCount = Math.min(BATCH_SIZE, remaining);
+
+        console.log(`Generating batch ${batch + 1}/${batchesNeeded}, ${batchCount} questions...`);
+
+        try {
+          const questions = await generateQuestionBatch(LOVABLE_API_KEY, domain, batchCount, batch);
+          
+          if (questions.length > 0) {
+            // Insert into database
+            const { error: insertError } = await supabase
+              .from('mcq_questions')
+              .insert(questions.map(q => ({
+                domain,
+                question: q.question,
+                option_a: q.option_a,
+                option_b: q.option_b,
+                option_c: q.option_c,
+                option_d: q.option_d,
+                correct_answer: q.correct_answer,
+                difficulty: q.difficulty,
+                explanation: q.explanation || null
+              })));
+
+            if (insertError) {
+              console.error('Error inserting batch:', insertError);
+            } else {
+              totalGenerated += questions.length;
+              console.log(`Batch ${batch + 1} inserted: ${questions.length} questions`);
+            }
+          }
+
+          // Delay between batches to avoid rate limiting
+          if (batch < batchesNeeded - 1) {
+            await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
+          }
+        } catch (batchError) {
+          console.error(`Error in batch ${batch + 1}:`, batchError);
+          // Continue with next batch even if this one fails
+        }
+      }
+
+      console.log(`Generated ${totalGenerated} questions for custom domain ${domain}`);
+
+      // Now fetch all questions (existing + newly generated)
+      const questions = await fetchQuestionsFromDatabase(supabase, domain, count);
+
+      return new Response(JSON.stringify({ 
+        questions,
+        available: questions.length,
+        returned: questions.length,
+        isCustomDomain: true,
+        generated: true,
+        generatedCount: totalGenerated
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-
-    // Now fetch questions (including any newly generated ones)
-    const requestedCount = count;
-    
-    // Get questions with mixed difficulties
-    const easyCount = Math.floor(requestedCount * 0.3);  // 30% easy
-    const mediumCount = Math.floor(requestedCount * 0.4); // 40% medium
-    const hardCount = requestedCount - easyCount - mediumCount; // 30% hard
-
-    const [easyResult, mediumResult, hardResult] = await Promise.all([
-      fetchRandomByDifficulty(supabase, domain, 'easy', easyCount),
-      fetchRandomByDifficulty(supabase, domain, 'medium', mediumCount),
-      fetchRandomByDifficulty(supabase, domain, 'hard', hardCount)
-    ]);
-
-    let allQuestions = [
-      ...(easyResult.data || []),
-      ...(mediumResult.data || []),
-      ...(hardResult.data || [])
-    ];
-
-    // If we didn't get enough questions by difficulty, fetch more randomly
-    if (allQuestions.length < requestedCount) {
-      const needed = requestedCount - allQuestions.length;
-      const existingIds = allQuestions.map(q => q.id);
-      
-      let query = supabase
-        .from('mcq_questions')
-        // SECURITY: Do NOT include correct_answer - this protects test integrity
-        .select('id, question, option_a, option_b, option_c, option_d, difficulty, explanation')
-        .eq('domain', domain)
-        .limit(needed);
-
-      if (existingIds.length > 0) {
-        query = query.not('id', 'in', `(${existingIds.join(',')})`);
-      }
-
-      const { data: moreQuestions } = await query;
-
-      if (moreQuestions) {
-        allQuestions = [...allQuestions, ...moreQuestions];
-      }
-    }
-
-    // Shuffle the questions for randomness
-    allQuestions = shuffleArray(allQuestions);
-
-    console.log(`Returning ${allQuestions.length} questions for domain ${domain}`);
-
-    return new Response(JSON.stringify({ 
-      questions: allQuestions,
-      available: allQuestions.length,
-      returned: allQuestions.length
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
 
   } catch (error) {
     console.error('Get random questions error:', error);
@@ -156,6 +229,51 @@ serve(async (req) => {
     });
   }
 });
+
+async function fetchQuestionsFromDatabase(supabase: any, domain: string, count: number) {
+  // Get questions with mixed difficulties
+  const easyCount = Math.floor(count * 0.3);  // 30% easy
+  const mediumCount = Math.floor(count * 0.4); // 40% medium
+  const hardCount = count - easyCount - mediumCount; // 30% hard
+
+  const [easyResult, mediumResult, hardResult] = await Promise.all([
+    fetchRandomByDifficulty(supabase, domain, 'easy', easyCount),
+    fetchRandomByDifficulty(supabase, domain, 'medium', mediumCount),
+    fetchRandomByDifficulty(supabase, domain, 'hard', hardCount)
+  ]);
+
+  let allQuestions = [
+    ...(easyResult.data || []),
+    ...(mediumResult.data || []),
+    ...(hardResult.data || [])
+  ];
+
+  // If we didn't get enough questions by difficulty, fetch more randomly
+  if (allQuestions.length < count) {
+    const needed = count - allQuestions.length;
+    const existingIds = allQuestions.map(q => q.id);
+    
+    let query = supabase
+      .from('mcq_questions')
+      // SECURITY: Do NOT include correct_answer - this protects test integrity
+      .select('id, question, option_a, option_b, option_c, option_d, difficulty, explanation')
+      .eq('domain', domain)
+      .limit(needed);
+
+    if (existingIds.length > 0) {
+      query = query.not('id', 'in', `(${existingIds.join(',')})`);
+    }
+
+    const { data: moreQuestions } = await query;
+
+    if (moreQuestions) {
+      allQuestions = [...allQuestions, ...moreQuestions];
+    }
+  }
+
+  // Shuffle the questions for randomness
+  return shuffleArray(allQuestions);
+}
 
 async function fetchRandomByDifficulty(supabase: any, domain: string, difficulty: string, count: number) {
   if (count <= 0) return { data: [] };
@@ -183,6 +301,107 @@ async function fetchRandomByDifficulty(supabase: any, domain: string, difficulty
     .eq('domain', domain)
     .eq('difficulty', difficulty)
     .range(randomOffset, randomOffset + toFetch - 1);
+}
+
+async function generateQuestionBatch(apiKey: string, domain: string, count: number, batchNumber: number): Promise<any[]> {
+  const difficulties = ['easy', 'medium', 'hard'];
+  const difficultyMix = difficulties[batchNumber % 3]; // Rotate through difficulties
+
+  const prompt = `Generate exactly ${count} unique multiple-choice questions about ${domain}.
+
+Requirements:
+- Questions must be specifically about ${domain} concepts, technologies, tools, and best practices
+- Include technical details, real-world scenarios, and practical knowledge
+- Each question should have exactly 4 options (A, B, C, D)
+- All questions should be ${difficultyMix} difficulty
+- Questions should be unique and not repeat common patterns
+- Cover different aspects: fundamentals, advanced concepts, tools, frameworks, best practices
+- IMPORTANT: Include a clear explanation for why the correct answer is right
+
+Batch ${batchNumber + 1} - Focus on different subtopics to ensure variety.`;
+
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'google/gemini-2.5-flash',
+      messages: [
+        { 
+          role: 'system', 
+          content: `You are an expert question generator for ${domain}. Generate high-quality MCQ questions that test real knowledge. Always include a clear explanation for each answer.`
+        },
+        { role: 'user', content: prompt }
+      ],
+      tools: [{
+        type: 'function',
+        function: {
+          name: 'save_questions',
+          description: 'Save the generated questions',
+          parameters: {
+            type: 'object',
+            properties: {
+              questions: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    question: { type: 'string', description: 'The question text' },
+                    option_a: { type: 'string', description: 'Option A' },
+                    option_b: { type: 'string', description: 'Option B' },
+                    option_c: { type: 'string', description: 'Option C' },
+                    option_d: { type: 'string', description: 'Option D' },
+                    correct_answer: { type: 'string', enum: ['A', 'B', 'C', 'D'], description: 'The correct answer letter' },
+                    difficulty: { type: 'string', enum: ['easy', 'medium', 'hard'], description: 'Question difficulty (lowercase)' },
+                    explanation: { type: 'string', description: 'Explanation of why the correct answer is right' }
+                  },
+                  required: ['question', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer', 'difficulty', 'explanation']
+                }
+              }
+            },
+            required: ['questions']
+          }
+        }
+      }],
+      tool_choice: { type: 'function', function: { name: 'save_questions' } }
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('AI API error:', response.status, errorText);
+    throw new Error(`AI API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+  
+  if (!toolCall?.function?.arguments) {
+    console.error('No tool call in response');
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(toolCall.function.arguments);
+    const questions = parsed.questions || [];
+    
+    // Validate and normalize questions
+    return questions.filter((q: any) => 
+      q.question && 
+      q.option_a && q.option_b && q.option_c && q.option_d && 
+      ['A', 'B', 'C', 'D'].includes(q.correct_answer?.toUpperCase())
+    ).map((q: any) => ({
+      ...q,
+      correct_answer: q.correct_answer.toUpperCase(),
+      difficulty: ['easy', 'medium', 'hard'].includes(q.difficulty?.toLowerCase()) ? q.difficulty.toLowerCase() : difficultyMix,
+      explanation: q.explanation || 'No explanation provided.'
+    }));
+  } catch (e) {
+    console.error('Failed to parse questions:', e);
+    return [];
+  }
 }
 
 function shuffleArray<T>(array: T[]): T[] {

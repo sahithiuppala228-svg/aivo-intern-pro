@@ -32,6 +32,20 @@ const TOTAL_QUESTIONS = 50;
 const EXAM_DURATION_SECONDS = 90 * 60; // 1 hour 30 minutes = 5400 seconds
 const PASSING_PERCENTAGE = 80;
 
+// Pre-seeded domains that have questions stored in database
+const PRESEEDED_DOMAINS = [
+  "Web Development",
+  "Data Science",
+  "Machine Learning",
+  "Mobile Development",
+  "UI/UX Design",
+  "DevOps",
+  "Cloud Computing",
+  "Cybersecurity",
+  "Blockchain",
+  "Game Development"
+];
+
 const MCQTest = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -52,6 +66,7 @@ const MCQTest = () => {
   const [markedQuestions, setMarkedQuestions] = useState<Set<number>>(new Set());
   const [testStarted, setTestStarted] = useState(false);
   const [generatingQuestions, setGeneratingQuestions] = useState(false);
+  const [isCustomDomain, setIsCustomDomain] = useState(!PRESEEDED_DOMAINS.includes(domain));
 
   // Generate questions - get from database only (no fallback to mock/AI)
   const generateQuestions = useCallback(async () => {
@@ -301,8 +316,17 @@ const MCQTest = () => {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading questions for {domain}...</p>
-          <p className="text-sm text-muted-foreground mt-2">Please wait</p>
+          {isCustomDomain ? (
+            <>
+              <p className="text-muted-foreground">Generating questions for {domain}...</p>
+              <p className="text-sm text-muted-foreground mt-2">This may take a moment (30-60 seconds)</p>
+            </>
+          ) : (
+            <>
+              <p className="text-muted-foreground">Loading questions for {domain}...</p>
+              <p className="text-sm text-muted-foreground mt-2">Please wait</p>
+            </>
+          )}
         </div>
       </div>
     );
