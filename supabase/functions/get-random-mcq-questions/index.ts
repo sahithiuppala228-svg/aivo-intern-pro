@@ -95,130 +95,100 @@ serve(async (req) => {
     const available = totalCount || 0;
     console.log(`Domain ${domain} has ${available} questions available`);
 
-    // Handle pre-seeded domains vs custom domains differently
-    if (isPreseededDomain) {
-      // Pre-seeded domain: must have questions in DB, return error if not enough
-      if (available < count) {
-        console.error(`Insufficient questions for pre-seeded domain ${domain}: have ${available}, need ${count}`);
-        return new Response(JSON.stringify({ 
-          error: `Insufficient questions for ${domain}. Available: ${available}, Required: ${count}. Please contact administrator to seed questions.`,
-          questions: [],
-          available,
-          required: count,
-          isCustomDomain: false
-        }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      // Fetch questions from database
+    // Check if we have enough questions in the database
+    if (available >= count) {
+      console.log(`Domain ${domain} has enough questions (${available}), fetching from database`);
       const questions = await fetchQuestionsFromDatabase(supabase, domain, count);
       
       return new Response(JSON.stringify({ 
         questions,
         available: questions.length,
         returned: questions.length,
-        isCustomDomain: false
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    } else {
-      // Custom domain: generate questions if not enough in database
-      if (available >= count) {
-        console.log(`Custom domain ${domain} has enough questions, fetching from database`);
-        const questions = await fetchQuestionsFromDatabase(supabase, domain, count);
-        
-        return new Response(JSON.stringify({ 
-          questions,
-          available: questions.length,
-          returned: questions.length,
-          isCustomDomain: true,
-          generated: false
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      // Need to generate questions for custom domain
-      console.log(`Custom domain ${domain} needs questions, generating via AI...`);
-      
-      const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-      if (!LOVABLE_API_KEY) {
-        return new Response(JSON.stringify({ 
-          error: 'AI generation not configured. Please contact administrator.',
-          questions: [],
-          isCustomDomain: true
-        }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      // Generate questions
-      const questionsNeeded = count - available;
-      const batchesNeeded = Math.ceil(questionsNeeded / BATCH_SIZE);
-      let totalGenerated = 0;
-
-      for (let batch = 0; batch < batchesNeeded && totalGenerated < questionsNeeded; batch++) {
-        const remaining = questionsNeeded - totalGenerated;
-        const batchCount = Math.min(BATCH_SIZE, remaining);
-
-        console.log(`Generating batch ${batch + 1}/${batchesNeeded}, ${batchCount} questions...`);
-
-        try {
-          const questions = await generateQuestionBatch(LOVABLE_API_KEY, domain, batchCount, batch);
-          
-          if (questions.length > 0) {
-            // Insert into database
-            const { error: insertError } = await supabase
-              .from('mcq_questions')
-              .insert(questions.map(q => ({
-                domain,
-                question: q.question,
-                option_a: q.option_a,
-                option_b: q.option_b,
-                option_c: q.option_c,
-                option_d: q.option_d,
-                correct_answer: q.correct_answer,
-                difficulty: q.difficulty,
-                explanation: q.explanation || null
-              })));
-
-            if (insertError) {
-              console.error('Error inserting batch:', insertError);
-            } else {
-              totalGenerated += questions.length;
-              console.log(`Batch ${batch + 1} inserted: ${questions.length} questions`);
-            }
-          }
-
-          // Delay between batches to avoid rate limiting
-          if (batch < batchesNeeded - 1) {
-            await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
-          }
-        } catch (batchError) {
-          console.error(`Error in batch ${batch + 1}:`, batchError);
-          // Continue with next batch even if this one fails
-        }
-      }
-
-      console.log(`Generated ${totalGenerated} questions for custom domain ${domain}`);
-
-      // Now fetch all questions (existing + newly generated)
-      const questions = await fetchQuestionsFromDatabase(supabase, domain, count);
-
-      return new Response(JSON.stringify({ 
-        questions,
-        available: questions.length,
-        returned: questions.length,
-        isCustomDomain: true,
-        generated: true,
-        generatedCount: totalGenerated
+        isCustomDomain: !isPreseededDomain,
+        generated: false
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    // Need to generate questions (for both pre-seeded domains without enough questions and custom domains)
+    console.log(`Domain ${domain} needs questions (have ${available}, need ${count}), generating via AI...`);
+    
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      return new Response(JSON.stringify({ 
+        error: 'AI generation not configured. Please contact administrator.',
+        questions: [],
+        isCustomDomain: !isPreseededDomain
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Generate questions
+    const questionsNeeded = count - available;
+    const batchesNeeded = Math.ceil(questionsNeeded / BATCH_SIZE);
+    let totalGenerated = 0;
+
+    for (let batch = 0; batch < batchesNeeded && totalGenerated < questionsNeeded; batch++) {
+      const remaining = questionsNeeded - totalGenerated;
+      const batchCount = Math.min(BATCH_SIZE, remaining);
+
+      console.log(`Generating batch ${batch + 1}/${batchesNeeded}, ${batchCount} questions...`);
+
+      try {
+        const questions = await generateQuestionBatch(LOVABLE_API_KEY, domain, batchCount, batch);
+        
+        if (questions.length > 0) {
+          // Insert into database
+          const { error: insertError } = await supabase
+            .from('mcq_questions')
+            .insert(questions.map(q => ({
+              domain,
+              question: q.question,
+              option_a: q.option_a,
+              option_b: q.option_b,
+              option_c: q.option_c,
+              option_d: q.option_d,
+              correct_answer: q.correct_answer,
+              difficulty: q.difficulty,
+              explanation: q.explanation || null
+            })));
+
+          if (insertError) {
+            console.error('Error inserting batch:', insertError);
+          } else {
+            totalGenerated += questions.length;
+            console.log(`Batch ${batch + 1} inserted: ${questions.length} questions`);
+          }
+        }
+
+        // Delay between batches to avoid rate limiting
+        if (batch < batchesNeeded - 1) {
+          await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
+        }
+      } catch (batchError) {
+        console.error(`Error in batch ${batch + 1}:`, batchError);
+        // Continue with next batch even if this one fails
+      }
+    }
+
+    console.log(`Generated ${totalGenerated} questions for domain ${domain}`);
+
+    // Now fetch all questions (existing + newly generated)
+    const questions = await fetchQuestionsFromDatabase(supabase, domain, count);
+
+    return new Response(JSON.stringify({ 
+      questions,
+      available: questions.length,
+      returned: questions.length,
+      isCustomDomain: !isPreseededDomain,
+      generated: true,
+      generatedCount: totalGenerated
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
 
   } catch (error) {
     console.error('Get random questions error:', error);
