@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.generate-explanations]
 verify_jwt = false
+
+[functions.get-random-coding-problems]
+verify_jwt = false

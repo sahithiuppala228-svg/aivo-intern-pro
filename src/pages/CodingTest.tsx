@@ -65,13 +65,16 @@ interface ChallengeScore {
 const TOTAL_QUESTIONS = 10;
 const PASSING_PERCENTAGE = 80;
 
-// Helper to convert API response to Challenge format
+// Helper to convert API/DB response to Challenge format
 const convertApiResponseToChallenge = (apiProblem: any, index: number, difficulty: string): Challenge => {
   const testCases: TestCase[] = [];
   
-  // Create visible test cases from API response
-  if (apiProblem.testCases && Array.isArray(apiProblem.testCases)) {
-    apiProblem.testCases.forEach((tc: any, i: number) => {
+  // Handle both API response format and DB format
+  const testCaseData = apiProblem.testCases || apiProblem.test_cases || [];
+  
+  // Create test cases from response
+  if (Array.isArray(testCaseData)) {
+    testCaseData.forEach((tc: any, i: number) => {
       testCases.push({
         id: i + 1,
         input: tc.input || '',
@@ -97,13 +100,13 @@ const convertApiResponseToChallenge = (apiProblem: any, index: number, difficult
     id: apiProblem.id || `challenge-${index + 1}`,
     title: apiProblem.title || `Challenge ${index + 1}`,
     description: apiProblem.description || '',
-    difficulty: difficulty as "Easy" | "Medium" | "Hard",
+    difficulty: (difficulty || apiProblem.difficulty || 'Medium') as "Easy" | "Medium" | "Hard",
     domain: apiProblem.domain || '',
     problemStatement: apiProblem.description || '',
-    inputFormat: apiProblem.inputFormat || 'Input as specified in the problem',
-    outputFormat: apiProblem.outputFormat || 'Output the result as specified',
+    inputFormat: apiProblem.inputFormat || apiProblem.input_format || 'Input as specified in the problem',
+    outputFormat: apiProblem.outputFormat || apiProblem.output_format || 'Output the result as specified',
     constraints: Array.isArray(apiProblem.constraints) ? apiProblem.constraints : [],
-    examples: apiProblem.testCases?.slice(0, 2).map((tc: any) => ({
+    examples: testCaseData.slice(0, 2).map((tc: any) => ({
       input: tc.input || '',
       output: tc.output || tc.expectedOutput || '',
       explanation: tc.explanation || ''
@@ -143,7 +146,7 @@ const CodingTest = () => {
   const completedChallenges = new Set(challengeScores.map(s => s.questionIndex));
   const allChallengesCompleted = challengeScores.length === challenges.length;
 
-  // Fetch coding challenges from Gemini API
+  // Fetch coding challenges from database (with AI generation fallback)
   const fetchChallenges = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -159,43 +162,48 @@ const CodingTest = () => {
         return;
       }
 
-      const difficulties = ["Easy", "Easy", "Easy", "Medium", "Medium", "Medium", "Medium", "Hard", "Hard", "Hard"];
-      const fetchedChallenges: Challenge[] = [];
+      // Fetch all problems at once from the database
+      const { data, error } = await supabase.functions.invoke('get-random-coding-problems', {
+        body: { domain, count: TOTAL_QUESTIONS }
+      });
 
-      // Fetch challenges one by one from the API
-      for (let i = 0; i < TOTAL_QUESTIONS; i++) {
-        const difficulty = difficulties[i];
-        
-        try {
-          const { data, error } = await supabase.functions.invoke('generate-coding-problem', {
-            body: { domain, difficulty }
-          });
-
-          if (error) {
-            console.error(`Error fetching challenge ${i + 1}:`, error);
-            // Create a fallback challenge
-            fetchedChallenges.push(createFallbackChallenge(domain, i, difficulty));
-          } else if (data) {
-            fetchedChallenges.push(convertApiResponseToChallenge(data, i, difficulty));
-          }
-        } catch (err) {
-          console.error(`Failed to fetch challenge ${i + 1}:`, err);
-          fetchedChallenges.push(createFallbackChallenge(domain, i, difficulty));
-        }
-
-        // Small delay between requests to avoid rate limiting
-        if (i < TOTAL_QUESTIONS - 1) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
+      if (error) {
+        console.error('Error fetching challenges:', error);
+        toast({
+          title: "Error loading challenges",
+          description: "Could not load coding challenges. Please try again.",
+          variant: "destructive",
+        });
+        return;
       }
 
-      setChallenges(fetchedChallenges);
-      
-      if (fetchedChallenges.length < TOTAL_QUESTIONS) {
+      if (data?.problems && data.problems.length > 0) {
+        const fetchedChallenges: Challenge[] = data.problems.map((problem: any, index: number) => 
+          convertApiResponseToChallenge(problem, index, problem.difficulty || 'Medium')
+        );
+        
+        setChallenges(fetchedChallenges);
+        
+        if (data.generated) {
+          toast({
+            title: "Challenges Generated",
+            description: `Generated ${data.generatedCount} new challenges for ${domain}.`,
+          });
+        }
+      } else {
+        // Fallback to generating challenges individually if DB fetch fails
+        console.log('No problems in response, using fallback');
+        const fallbackChallenges: Challenge[] = [];
+        const difficulties = ["Easy", "Easy", "Easy", "Medium", "Medium", "Medium", "Medium", "Hard", "Hard", "Hard"];
+        
+        for (let i = 0; i < TOTAL_QUESTIONS; i++) {
+          fallbackChallenges.push(createFallbackChallenge(domain, i, difficulties[i]));
+        }
+        
+        setChallenges(fallbackChallenges);
         toast({
-          title: "Some challenges couldn't be loaded",
-          description: "Using fallback challenges for some questions.",
-          variant: "default",
+          title: "Using practice challenges",
+          description: "Pre-loaded challenges for practice mode.",
         });
       }
     } catch (error) {

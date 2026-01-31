@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      coding_problems: {
+        Row: {
+          constraints: Json | null
+          created_at: string
+          description: string
+          difficulty: string
+          domain: string
+          id: string
+          input_format: string | null
+          output_format: string | null
+          sample_input: string | null
+          sample_output: string | null
+          test_cases: Json | null
+          title: string
+        }
+        Insert: {
+          constraints?: Json | null
+          created_at?: string
+          description: string
+          difficulty: string
+          domain: string
+          id?: string
+          input_format?: string | null
+          output_format?: string | null
+          sample_input?: string | null
+          sample_output?: string | null
+          test_cases?: Json | null
+          title: string
+        }
+        Update: {
+          constraints?: Json | null
+          created_at?: string
+          description?: string
+          difficulty?: string
+          domain?: string
+          id?: string
+          input_format?: string | null
+          output_format?: string | null
+          sample_input?: string | null
+          sample_output?: string | null
+          test_cases?: Json | null
+          title?: string
+        }
+        Relationships: []
+      }
       mcq_questions: {
         Row: {
           correct_answer: string
