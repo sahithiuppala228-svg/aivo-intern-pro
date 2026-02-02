@@ -1,211 +1,220 @@
 
 
-# Fix Camera Detection & Add Real-Time AI Answer Analysis
+# Fix Camera Display and Face Detection
 
-## Summary
+## Root Cause Identified
 
-This plan addresses two critical issues:
-1. **Camera not detecting face** - Debug and fix the video element display and face detection
-2. **Real-time speech-to-text with AI analysis** - Convert speech to text live, then analyze with AI for intelligent feedback
+The investigation reveals that:
+1. Models load successfully (200 OK network responses)
+2. Camera stream is obtained (no errors logged)
+3. Face detection loop runs (console logs show repeated detection attempts)
+4. BUT detection always returns 0 faces
 
----
+**The actual problem**: Looking at the screenshot, the video area shows a crossed-out camera placeholder instead of the actual video feed. This means the `<video>` element is not displaying the camera stream, even though the stream was obtained successfully.
 
-## Part 1: Camera & Face Detection Fix
-
-### Current Issue
-The console shows "Face detection models loaded successfully" and the model files load correctly (200 OK). The issue is likely:
-- Video element not properly displaying
-- Camera stream not being attached correctly
-- Face detection loop not running after video starts playing
-
-### Fixes
-
-**1. Add video `onloadedmetadata` event handler**
-Wait for the video to have actual dimensions before starting face detection.
-
-**2. Force video element to be visible**
-Add explicit width/height and ensure the video is not hidden by CSS.
-
-**3. Add retry logic for face detection**
-If face detection returns 0 faces for more than 5 seconds with an active camera, retry the detection loop.
-
-**4. Add debug logging**
-Log video dimensions, ready state, and detection results to help diagnose issues.
+The issue is a **React ref connection problem** - the `videoRef` from the `useFaceDetection` hook is losing its connection to the actual DOM video element, likely due to:
+1. The video element being conditionally rendered
+2. The ref not being properly attached when the stream is set
+3. The video not auto-playing correctly
 
 ---
 
-## Part 2: Real-Time Speech-to-Text with AI Analysis
+## Solution
 
-### Current Problem
-- Speech is converted to text only AFTER recording stops
-- Answer evaluation uses a basic word-count algorithm
-- Feedback is generic, not based on actual answer content
+### Step 1: Fix Video Element Display in useFaceDetection.ts
 
-### Solution: ElevenLabs Real-Time STT + AI Answer Analysis
+**Problem**: The hook sets `videoRef.current.srcObject = stream` but the video may not be playing or displaying.
 
-**Option 1: ElevenLabs Scribe (Recommended)**
-Use ElevenLabs real-time speech-to-text for live transcription while speaking.
+**Fixes**:
+1. Add `muted` attribute programmatically (required for autoplay)
+2. Ensure `play()` is called after srcObject is set
+3. Add explicit video element styles to ensure visibility
+4. Add a polling mechanism to re-attach stream if video goes blank
 
-**Option 2: OpenAI Whisper (Current)**
-Keep current approach but add AI-powered analysis.
+### Step 2: Fix Video Element Rendering in MockInterview.tsx
 
-### Implementation Flow
+**Problem**: The video element may be losing its ref when the component re-renders.
 
+**Fixes**:
+1. Ensure the video element has explicit `width` and `height` attributes
+2. Add a fallback UI when video stream is not active
+3. Add error handling for video play failures
+
+### Step 3: Add Robust Stream Re-attachment
+
+**Problem**: If the video loses its srcObject, face detection will fail.
+
+**Fixes**:
+1. Periodically check if video.srcObject matches the stored stream
+2. Re-attach if needed
+3. Re-trigger play() if video is paused
+
+---
+
+## Technical Changes
+
+### File: `src/hooks/useFaceDetection.ts`
+
+**Changes**:
+
+1. **Ensure video plays correctly**:
+   - Set `video.muted = true` before playing (required for autoplay)
+   - Set `video.playsInline = true` 
+   - Call `play()` with proper error handling
+
+2. **Add stream health monitoring**:
+   - Check if video tracks are still active
+   - Re-attach stream if video element loses connection
+   - Log video state for debugging
+
+3. **Improve detection loop**:
+   - Add check for video.paused and auto-resume
+   - Add check for video.srcObject and re-attach if null
+   - Increase detection reliability with better error handling
+
+### File: `src/pages/MockInterview.tsx`
+
+**Changes**:
+
+1. **Video element attributes**:
+   - Add explicit `width="640"` and `height="480"` attributes
+   - Ensure `muted` is set (required for autoplay without user gesture)
+   - Add `onLoadedData` event to confirm video is playing
+
+2. **Add video status indicator**:
+   - Show "Camera starting..." while waiting for video
+   - Show actual video dimensions for debugging (can be removed later)
+   - Add visual indicator when video stream is active vs inactive
+
+---
+
+## Implementation Details
+
+### Key Code Changes in useFaceDetection.ts
+
+**In `startCamera` function**:
+```typescript
+// After getting stream
+if (videoRef.current) {
+  // CRITICAL: Set muted BEFORE setting srcObject for autoplay to work
+  videoRef.current.muted = true;
+  videoRef.current.playsInline = true;
+  videoRef.current.srcObject = stream;
+  
+  // Wait for video to be ready
+  await new Promise<void>((resolve) => {
+    if (videoRef.current) {
+      videoRef.current.onloadeddata = () => {
+        console.log("Video loaded, dimensions:", 
+          videoRef.current?.videoWidth, "x", videoRef.current?.videoHeight);
+        resolve();
+      };
+    }
+  });
+  
+  // Play with retry
+  try {
+    await videoRef.current.play();
+  } catch (playError) {
+    console.error("Play failed, retrying:", playError);
+    // Retry after short delay
+    setTimeout(async () => {
+      try {
+        await videoRef.current?.play();
+      } catch (e) {
+        console.error("Play retry failed:", e);
+      }
+    }, 100);
+  }
+}
 ```
-User speaks → Live transcription displays → 
-Stop recording → AI analyzes full answer →
-Interviewer gives intelligent feedback
+
+**Add video health check in detection loop**:
+```typescript
+const detectFace = async () => {
+  const video = videoRef.current;
+  
+  // Check if video is actually playing with content
+  if (!video || !video.srcObject) {
+    // Re-attach stream if available
+    if (streamRef.current && video) {
+      video.srcObject = streamRef.current;
+      video.play().catch(() => {});
+    }
+    // Continue loop
+    setTimeout(() => {
+      animationFrameRef.current = requestAnimationFrame(detectFace);
+    }, 100);
+    return;
+  }
+  
+  // Resume if paused
+  if (video.paused) {
+    video.play().catch(() => {});
+  }
+  
+  // ... rest of detection logic
+};
+```
+
+### Key Code Changes in MockInterview.tsx
+
+**Video element improvements**:
+```tsx
+<video
+  ref={videoRef}
+  autoPlay
+  playsInline
+  muted
+  width={640}
+  height={480}
+  className="w-full h-full object-cover"
+  style={{ transform: 'scaleX(-1)' }}
+  onLoadedData={() => console.log("Video element loaded data")}
+/>
 ```
 
 ---
 
-## Technical Implementation
+## Expected Behavior After Fix
 
-### Step 1: Enhance Face Detection Reliability
-
-**File: `src/hooks/useFaceDetection.ts`**
-- Add `onloadedmetadata` callback to start detection only when video is ready
-- Add debug logging for video dimensions and detection results
-- Add automatic retry if detection continuously fails
-
-### Step 2: Add Live Transcription Display
-
-**File: `src/pages/MockInterview.tsx`**
-- Show transcription updating in real-time while recording
-- Use a streaming approach with the STT service
-- Display partial results as user speaks
-
-### Step 3: Create AI Answer Analysis Edge Function
-
-**New File: `supabase/functions/analyze-interview-answer/index.ts`**
-
-This function will:
-1. Receive the user's transcribed answer
-2. Receive the question and expected points
-3. Use Lovable AI (Gemini) to analyze the answer
-4. Return structured feedback:
-   - Score (0-100)
-   - Level (Excellent/Good/Needs Improvement)
-   - Specific strengths identified
-   - Areas for improvement
-   - Suggested better answer approach
-
-**AI Prompt Structure:**
-```
-You are an expert technical interviewer evaluating a candidate's answer.
-
-Question: {question}
-Expected concepts to cover: {expectedPoints}
-Domain: {domain}
-
-Candidate's Answer: {answer}
-
-Evaluate the answer and provide:
-1. Score (0-100)
-2. Level: "Excellent" | "Good" | "Satisfactory" | "Needs Improvement"
-3. Strengths: What the candidate did well
-4. Improvements: What could be better
-5. Verbal Feedback: A 2-3 sentence spoken feedback for the interviewer to say
-```
-
-### Step 4: Update MockInterview.tsx Answer Flow
-
-**Recording Flow:**
-1. User clicks "Start Recording"
-2. Audio is recorded AND sent to STT in chunks (if using real-time STT)
-3. Live transcription displays on screen
-4. User clicks "Stop Recording"
-5. Full transcription is sent to AI analysis function
-6. AI returns detailed feedback
-7. Interviewer speaks the verbal feedback
-8. Detailed scores display on screen
-
-### Step 5: Enhanced Feedback Display
-
-**After each answer, show:**
-- Score gauge (0-100)
-- Level badge (Excellent/Good/etc.)
-- Strengths list with checkmarks
-- Improvements list with suggestions
-- Interviewer speaks personalized feedback
+1. **Camera test starts**: User clicks "Begin Camera Test"
+2. **Camera permission**: Browser requests camera access
+3. **Stream obtained**: Video stream is captured
+4. **Video displays**: User sees themselves in the video (mirrored)
+5. **Face detection runs**: face-api.js detects faces in the video
+6. **Result shown**: 
+   - "No face detected" if face not in frame
+   - "1 face detected" with green checkmark if face is centered
+   - "Multiple faces detected" with red warning if more than one person
+7. **Continue enabled**: Button becomes clickable when exactly 1 face is detected
 
 ---
 
-## Files to Create/Modify
+## Files to Modify
 
-### New Files:
-1. **`supabase/functions/analyze-interview-answer/index.ts`**
-   - AI-powered answer analysis
-   - Uses Lovable AI gateway (Gemini)
-   - Returns structured feedback
-
-### Modified Files:
 1. **`src/hooks/useFaceDetection.ts`**
-   - Add video ready state checking
-   - Improve detection reliability
-   - Add debug logging
+   - Add muted/playsInline attributes
+   - Improve play() error handling
+   - Add stream health monitoring
+   - Add video re-attachment logic
 
 2. **`src/pages/MockInterview.tsx`**
-   - Add live transcription display
-   - Call new AI analysis function
-   - Display detailed feedback after each answer
-   - Update interviewer speech with AI-generated feedback
+   - Add explicit width/height to video element
+   - Add onLoadedData event handler
+   - Improve loading state display
 
 ---
 
-## Expected User Experience
+## Testing Steps
 
-### Camera Test:
-1. Click "BEGIN CAMERA TEST"
-2. Camera starts, face detection models load
-3. Video displays clearly with your face
-4. Badge shows "1 face detected" when face is visible
-5. Green message: "Face detected! You're ready for the interview."
-6. Continue button enables
-
-### During Interview:
-1. Interviewer asks question (with speech)
-2. Click "Start Recording"
-3. **Live text appears as you speak** (real-time transcription)
-4. Click "Stop Recording"
-5. "Analyzing..." appears briefly
-6. Interviewer speaks: "That was an excellent answer, {name}. You covered the key concepts of {topic}. I particularly liked how you explained {specific point}. To improve, you could also mention {suggestion}."
-7. Detailed feedback panel shows:
-   - Score: 85/100
-   - Level: Excellent
-   - Strengths: [list]
-   - Areas to Improve: [list]
-
----
-
-## Technical Details
-
-### ElevenLabs STT vs OpenAI Whisper
-
-| Feature | ElevenLabs Scribe | OpenAI Whisper |
-|---------|------------------|----------------|
-| Real-time | Yes (streaming) | No (batch) |
-| Latency | Very low | Higher |
-| Cost | Uses existing API key | Uses existing API key |
-| Implementation | WebSocket streaming | REST API after recording |
-
-**Recommendation:** Start with OpenAI Whisper (already working) + add AI analysis. Add ElevenLabs real-time STT as an enhancement if needed.
-
-### AI Model for Analysis
-Use `google/gemini-2.5-flash` via Lovable AI gateway for:
-- Fast response times
-- Good reasoning for feedback generation
-- No additional API key needed
-
----
-
-## Implementation Order
-
-1. **Fix face detection** - Add video ready state checks and logging
-2. **Create analyze-interview-answer function** - AI-powered analysis
-3. **Update MockInterview.tsx** - Integrate AI analysis into the flow
-4. **Add live transcription display** - Show text updating while speaking
-5. **Enhanced feedback UI** - Rich feedback display after each answer
-
-This will transform the interview from basic word-counting to intelligent AI-powered analysis with meaningful, personalized feedback.
+After implementation:
+1. Go to Mock Interview page
+2. Click "Begin Camera Test"
+3. Allow camera permission when prompted
+4. Verify video shows your face (not a placeholder icon)
+5. Verify face detection badge appears showing "1 face detected"
+6. Verify green checkmark and success message appears
+7. Verify "Continue to Audio Test" button becomes enabled
+8. Test with multiple people in frame to verify warning appears
 
