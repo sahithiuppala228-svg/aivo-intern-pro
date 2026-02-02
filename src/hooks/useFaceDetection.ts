@@ -56,15 +56,27 @@ export const useFaceDetection = () => {
 
   // Start face detection loop using face-api.js
   const startFaceDetection = useCallback(() => {
+    console.log("Starting face detection loop...");
+    
     const detectFace = async () => {
       if (!videoRef.current || !modelsLoadedRef.current) {
+        console.log("Detection skipped: video or models not ready", {
+          hasVideo: !!videoRef.current,
+          modelsLoaded: modelsLoadedRef.current
+        });
         animationFrameRef.current = requestAnimationFrame(detectFace);
         return;
       }
 
       const video = videoRef.current;
       
-      if (video.readyState < 2 || video.videoWidth === 0) {
+      // Wait for video to have actual dimensions
+      if (video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) {
+        console.log("Waiting for video dimensions...", {
+          readyState: video.readyState,
+          width: video.videoWidth,
+          height: video.videoHeight
+        });
         animationFrameRef.current = requestAnimationFrame(detectFace);
         return;
       }
@@ -83,6 +95,8 @@ export const useFaceDetection = () => {
         const highestConfidence = faceCount > 0 
           ? Math.max(...detections.map(d => d.score)) * 100 
           : 0;
+
+        console.log("Face detection result:", { faceCount, highestConfidence: Math.round(highestConfidence) });
 
         let message = "";
         let faceDetected = false;
@@ -156,6 +170,7 @@ export const useFaceDetection = () => {
   const startCamera = useCallback(async () => {
     try {
       setCameraError(null);
+      console.log("Starting camera...");
       setFaceResult({ 
         faceDetected: false, 
         faceCount: 0,
@@ -166,6 +181,7 @@ export const useFaceDetection = () => {
       
       // Load models first
       const modelsReady = await loadModels();
+      console.log("Models ready:", modelsReady);
       
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
@@ -180,12 +196,30 @@ export const useFaceDetection = () => {
         audio: false
       });
 
+      console.log("Camera stream obtained");
       streamRef.current = stream;
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        
+        // Wait for video to be ready before starting detection
+        videoRef.current.onloadedmetadata = () => {
+          console.log("Video metadata loaded:", {
+            width: videoRef.current?.videoWidth,
+            height: videoRef.current?.videoHeight
+          });
+        };
+        
+        videoRef.current.onloadeddata = () => {
+          console.log("Video data loaded, starting face detection...");
+          if (modelsReady) {
+            startFaceDetection();
+          }
+        };
+        
         try {
           await videoRef.current.play();
+          console.log("Video playing");
         } catch (playError) {
           console.log("Video play error, will retry:", playError);
         }
@@ -201,7 +235,6 @@ export const useFaceDetection = () => {
           message: "Camera active. Looking for face...",
           singlePersonValidated: false
         });
-        startFaceDetection();
       } else {
         // Fallback message if models didn't load
         setFaceResult({ 

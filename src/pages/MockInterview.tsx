@@ -36,6 +36,14 @@ interface InterviewQuestion {
   expectedPoints: string[];
 }
 
+interface AIAnalysis {
+  score: number;
+  level: "Excellent" | "Good" | "Satisfactory" | "Needs Improvement";
+  strengths: string[];
+  improvements: string[];
+  verbalFeedback: string;
+}
+
 interface FeedbackData {
   overallScore: number;
   level: "Beginner" | "Intermediate" | "Advanced" | "Expert";
@@ -97,6 +105,8 @@ const MockInterview = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [questions, setQuestions] = useState<InterviewQuestion[]>([]);
   const [isLoadingQuestions, setIsLoadingQuestions] = useState(true);
+  const [currentTranscription, setCurrentTranscription] = useState("");
+  const [lastAIAnalysis, setLastAIAnalysis] = useState<AIAnalysis | null>(null);
   
   // Audio recording
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -432,7 +442,7 @@ const MockInterview = () => {
           const base64Audio = (reader.result as string).split(',')[1];
           
           setIsAnalyzing(true);
-          speakText("Thank you. Let me analyze your answer.");
+          setCurrentTranscription("Transcribing your answer...");
           
           try {
             // Call speech-to-text edge function
@@ -443,36 +453,48 @@ const MockInterview = () => {
             if (sttError) throw sttError;
             
             const transcribedText = transcription?.text || "";
+            setCurrentTranscription(transcribedText);
             setCurrentAnswer(transcribedText);
             
-            // Analyze the answer
-            const evaluation = evaluateAnswer(transcribedText, currentQuestion);
+            // Call AI analysis edge function
+            setCurrentTranscription(transcribedText + "\n\nAnalyzing your answer...");
             
-            // Give personalized feedback
-            setTimeout(() => {
-              let feedbackMessage = "";
-              if (evaluation.score >= 80) {
-                feedbackMessage = `Excellent answer, ${userName}! You covered the key concepts very well. ${evaluation.feedback}`;
-              } else if (evaluation.score >= 60) {
-                feedbackMessage = `Good answer, ${userName}. You addressed the main points. ${evaluation.feedback}`;
-              } else if (evaluation.score >= 40) {
-                feedbackMessage = `${userName}, that was a moderate answer. ${evaluation.feedback}`;
-              } else {
-                feedbackMessage = `${userName}, your answer needs more depth. ${evaluation.feedback}`;
+            const { data: analysis, error: analysisError } = await supabase.functions.invoke('analyze-interview-answer', {
+              body: {
+                answer: transcribedText,
+                question: currentQuestion.question,
+                expectedPoints: currentQuestion.expectedPoints,
+                domain: domain,
+                candidateName: userName
               }
-              
-              speakText(feedbackMessage);
+            });
+            
+            if (analysisError) {
+              console.error("AI analysis error:", analysisError);
+              // Fallback to basic evaluation
+              const evaluation = evaluateAnswer(transcribedText, currentQuestion);
+              speakText(`Thank you, ${userName}. ${evaluation.feedback}`);
               setIsAnalyzing(false);
-            }, 2000);
+              setLastAIAnalysis(null);
+              return;
+            }
+            
+            // Store the AI analysis
+            setLastAIAnalysis(analysis);
+            
+            // Speak the AI-generated feedback
+            speakText(analysis.verbalFeedback);
+            setIsAnalyzing(false);
             
           } catch (error) {
-            console.error("Transcription error:", error);
+            console.error("Transcription/Analysis error:", error);
             toast({
               variant: "destructive",
-              title: "Transcription Error",
-              description: "Could not transcribe your answer. Please type it instead.",
+              title: "Analysis Error",
+              description: "Could not analyze your answer. Please try again.",
             });
             setIsAnalyzing(false);
+            setCurrentTranscription("");
           }
         };
         reader.readAsDataURL(audioBlob);
@@ -537,6 +559,10 @@ const MockInterview = () => {
     if (currentAnswer.trim()) {
       setAnswers(prev => ({ ...prev, [currentQuestionIndex]: currentAnswer }));
     }
+    
+    // Clear state for next question
+    setCurrentTranscription("");
+    setLastAIAnalysis(null);
     
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
@@ -1199,11 +1225,71 @@ const MockInterview = () => {
                   )}
                 </div>
                 
+                {/* Live Transcription Display */}
+                {(isRecording || currentTranscription) && (
+                  <div className="bg-muted/50 border border-primary/20 rounded-lg p-4">
+                    <p className="text-sm text-muted-foreground mb-1 flex items-center gap-2">
+                      {isRecording && <div className="w-2 h-2 bg-destructive rounded-full animate-pulse" />}
+                      {isRecording ? "Listening..." : "Your Answer:"}
+                    </p>
+                    <p className="text-foreground">
+                      {currentTranscription || currentAnswer || "Start speaking..."}
+                    </p>
+                  </div>
+                )}
+                
                 {/* Transcribed Answer Display */}
-                {currentAnswer && (
+                {!isRecording && currentAnswer && !currentTranscription && (
                   <div className="bg-muted rounded-lg p-4">
                     <p className="text-sm text-muted-foreground mb-1">Your Answer:</p>
                     <p className="text-foreground">{currentAnswer}</p>
+                  </div>
+                )}
+                
+                {/* AI Analysis Feedback Display */}
+                {lastAIAnalysis && !isRecording && !isAnalyzing && (
+                  <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Badge variant={
+                          lastAIAnalysis.level === "Excellent" ? "default" :
+                          lastAIAnalysis.level === "Good" ? "secondary" :
+                          lastAIAnalysis.level === "Satisfactory" ? "outline" : "destructive"
+                        }>
+                          {lastAIAnalysis.level}
+                        </Badge>
+                        <span className="text-lg font-semibold text-primary">{lastAIAnalysis.score}/100</span>
+                      </div>
+                      <Progress value={lastAIAnalysis.score} className="w-24 h-2" />
+                    </div>
+                    
+                    {lastAIAnalysis.strengths.length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium text-primary mb-1">Strengths:</p>
+                        <ul className="text-sm text-muted-foreground space-y-1">
+                          {lastAIAnalysis.strengths.map((s, i) => (
+                            <li key={i} className="flex items-start gap-2">
+                              <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                              {s}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    
+                    {lastAIAnalysis.improvements.length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground mb-1">Areas to Improve:</p>
+                        <ul className="text-sm text-muted-foreground space-y-1">
+                          {lastAIAnalysis.improvements.map((s, i) => (
+                            <li key={i} className="flex items-start gap-2">
+                              <Lightbulb className="w-4 h-4 shrink-0 mt-0.5" />
+                              {s}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 )}
                 

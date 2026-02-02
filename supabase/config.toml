@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.get-random-interview-questions]
 verify_jwt = false
+
+[functions.analyze-interview-answer]
+verify_jwt = false
