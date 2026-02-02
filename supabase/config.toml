@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.get-random-coding-problems]
 verify_jwt = false
+
+[functions.get-random-interview-questions]
+verify_jwt = false

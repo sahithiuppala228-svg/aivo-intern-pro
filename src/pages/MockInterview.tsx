@@ -27,66 +27,12 @@ import { supabase } from "@/integrations/supabase/client";
 const INTERVIEW_TIME_LIMIT = 20 * 60; // 20 minutes in seconds
 
 interface InterviewQuestion {
-  id: number;
+  id: string;
   question: string;
   category: "technical" | "behavioral" | "problem-solving";
   difficulty: "easy" | "medium" | "hard";
   expectedPoints: string[];
 }
-
-const getInterviewQuestions = (domain: string): InterviewQuestion[] => {
-  const technicalQuestions: Record<string, InterviewQuestion[]> = {
-    "Web Development": [
-      { id: 1, question: "Explain the difference between var, let, and const in JavaScript. When would you use each?", category: "technical", difficulty: "easy", expectedPoints: ["scope differences", "hoisting", "mutability"] },
-      { id: 2, question: "What is the Virtual DOM and how does React use it to optimize performance?", category: "technical", difficulty: "medium", expectedPoints: ["reconciliation", "diffing algorithm", "batch updates"] },
-      { id: 3, question: "Describe the event loop in JavaScript. How does it handle asynchronous operations?", category: "technical", difficulty: "hard", expectedPoints: ["call stack", "callback queue", "microtasks"] },
-      { id: 4, question: "What are closures in JavaScript? Give a practical example of when you'd use one.", category: "technical", difficulty: "medium", expectedPoints: ["lexical scope", "data privacy", "state preservation"] },
-      { id: 5, question: "Explain CSS specificity and how the cascade works. How do you resolve conflicts?", category: "technical", difficulty: "medium", expectedPoints: ["selector weights", "!important", "inheritance"] },
-    ],
-    "Data Science": [
-      { id: 1, question: "Explain the bias-variance tradeoff. How do you balance it in your models?", category: "technical", difficulty: "medium", expectedPoints: ["underfitting", "overfitting", "regularization"] },
-      { id: 2, question: "What is cross-validation and why is it important? Describe k-fold cross-validation.", category: "technical", difficulty: "easy", expectedPoints: ["model evaluation", "data splitting", "generalization"] },
-      { id: 3, question: "How would you handle missing data in a dataset? What are the pros and cons of different approaches?", category: "technical", difficulty: "medium", expectedPoints: ["imputation", "deletion", "prediction"] },
-      { id: 4, question: "Explain the difference between L1 and L2 regularization. When would you use each?", category: "technical", difficulty: "hard", expectedPoints: ["sparsity", "weight shrinkage", "feature selection"] },
-      { id: 5, question: "What is feature engineering? Describe techniques you've used to improve model performance.", category: "technical", difficulty: "medium", expectedPoints: ["transformation", "creation", "selection"] },
-    ],
-    "Machine Learning": [
-      { id: 1, question: "Explain the difference between supervised and unsupervised learning with examples.", category: "technical", difficulty: "easy", expectedPoints: ["labeled data", "clustering", "classification"] },
-      { id: 2, question: "What is gradient descent? Explain different variants like SGD, Adam.", category: "technical", difficulty: "medium", expectedPoints: ["optimization", "learning rate", "convergence"] },
-      { id: 3, question: "How do you prevent overfitting in neural networks? Explain at least three techniques.", category: "technical", difficulty: "hard", expectedPoints: ["dropout", "regularization", "early stopping"] },
-      { id: 4, question: "What are attention mechanisms? How do transformers use them?", category: "technical", difficulty: "hard", expectedPoints: ["query-key-value", "self-attention", "parallel processing"] },
-      { id: 5, question: "Explain the trade-offs between precision and recall. When would you prioritize one over the other?", category: "technical", difficulty: "medium", expectedPoints: ["F1 score", "use cases", "threshold tuning"] },
-    ],
-    "Cloud Computing": [
-      { id: 1, question: "Explain the differences between IaaS, PaaS, and SaaS with examples.", category: "technical", difficulty: "easy", expectedPoints: ["control levels", "use cases", "provider examples"] },
-      { id: 2, question: "What is containerization? How does Docker differ from virtual machines?", category: "technical", difficulty: "medium", expectedPoints: ["isolation", "resource efficiency", "portability"] },
-      { id: 3, question: "Describe a microservices architecture. What are its advantages and challenges?", category: "technical", difficulty: "hard", expectedPoints: ["scalability", "complexity", "communication"] },
-      { id: 4, question: "How would you design a highly available and fault-tolerant system in the cloud?", category: "technical", difficulty: "hard", expectedPoints: ["redundancy", "load balancing", "failover"] },
-      { id: 5, question: "Explain Kubernetes and its key components. When would you use it?", category: "technical", difficulty: "medium", expectedPoints: ["pods", "services", "orchestration"] },
-    ],
-    "Cybersecurity": [
-      { id: 1, question: "Explain the CIA triad and its importance in information security.", category: "technical", difficulty: "easy", expectedPoints: ["confidentiality", "integrity", "availability"] },
-      { id: 2, question: "What is SQL injection? How do you prevent it?", category: "technical", difficulty: "medium", expectedPoints: ["parameterized queries", "input validation", "escaping"] },
-      { id: 3, question: "Describe the OWASP Top 10. Which vulnerability do you consider most critical and why?", category: "technical", difficulty: "hard", expectedPoints: ["common vulnerabilities", "mitigation", "risk assessment"] },
-      { id: 4, question: "Explain the difference between symmetric and asymmetric encryption.", category: "technical", difficulty: "medium", expectedPoints: ["key management", "performance", "use cases"] },
-      { id: 5, question: "How would you respond to a security incident? Walk me through your process.", category: "technical", difficulty: "hard", expectedPoints: ["detection", "containment", "recovery"] },
-    ],
-  };
-
-  const behavioralQuestions: InterviewQuestion[] = [
-    { id: 6, question: "Tell me about a challenging project you worked on. How did you overcome the obstacles?", category: "behavioral", difficulty: "medium", expectedPoints: ["problem description", "approach", "outcome"] },
-    { id: 7, question: "Describe a situation where you had to learn a new technology quickly. How did you approach it?", category: "behavioral", difficulty: "easy", expectedPoints: ["learning strategy", "resources", "application"] },
-    { id: 8, question: "How do you handle disagreements with team members about technical decisions?", category: "behavioral", difficulty: "medium", expectedPoints: ["communication", "compromise", "data-driven"] },
-  ];
-
-  const problemSolvingQuestions: InterviewQuestion[] = [
-    { id: 9, question: "If you had to improve the performance of a slow application, what steps would you take?", category: "problem-solving", difficulty: "hard", expectedPoints: ["profiling", "optimization", "monitoring"] },
-    { id: 10, question: "How would you design a system that handles millions of requests per second?", category: "problem-solving", difficulty: "hard", expectedPoints: ["scalability", "caching", "load distribution"] },
-  ];
-
-  const domainQuestions = technicalQuestions[domain] || technicalQuestions["Web Development"];
-  return [...domainQuestions, ...behavioralQuestions, ...problemSolvingQuestions];
-};
 
 interface FeedbackData {
   overallScore: number;
@@ -146,6 +92,8 @@ const MockInterview = () => {
   const [cameraTestPassed, setCameraTestPassed] = useState(false);
   const [noAudioTimer, setNoAudioTimer] = useState<number | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [questions, setQuestions] = useState<InterviewQuestion[]>([]);
+  const [isLoadingQuestions, setIsLoadingQuestions] = useState(true);
   
   // Audio recording
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -154,8 +102,59 @@ const MockInterview = () => {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const audioStreamRef = useRef<MediaStream | null>(null);
   
-  const questions = getInterviewQuestions(domain);
   const currentQuestion = questions[currentQuestionIndex];
+  
+  // Fetch interview questions from database
+  useEffect(() => {
+    const fetchQuestions = async () => {
+      setIsLoadingQuestions(true);
+      try {
+        const { data, error } = await supabase.functions.invoke('get-random-interview-questions', {
+          body: { domain }
+        });
+        
+        if (error) {
+          console.error('Error fetching questions:', error);
+          toast({
+            variant: "destructive",
+            title: "Error Loading Questions",
+            description: "Failed to load interview questions. Please try again.",
+          });
+          return;
+        }
+        
+        if (data?.questions && data.questions.length > 0) {
+          // Transform to match expected format
+          const formattedQuestions: InterviewQuestion[] = data.questions.map((q: any) => ({
+            id: q.id,
+            question: q.question,
+            category: q.category,
+            difficulty: q.difficulty,
+            expectedPoints: q.expected_points || q.expectedPoints || []
+          }));
+          setQuestions(formattedQuestions);
+          
+          if (data.generated) {
+            toast({
+              title: "Questions Generated",
+              description: `Custom interview questions generated for ${domain}.`,
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching interview questions:', error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Could not load interview questions.",
+        });
+      } finally {
+        setIsLoadingQuestions(false);
+      }
+    };
+    
+    fetchQuestions();
+  }, [domain, toast]);
   
   // Face detection
   const { 
@@ -907,57 +906,73 @@ const MockInterview = () => {
               </div>
             </div>
 
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-xl font-semibold mb-4">Interview Guidelines:</h2>
-                <div className="space-y-4 text-muted-foreground">
-                  <div className="flex gap-3">
-                    <span className="font-semibold text-foreground min-w-[24px]">1.</span>
-                    <p><span className="font-semibold text-foreground">Time Limit:</span> 20 minutes to complete the interview</p>
-                  </div>
-                  <div className="flex gap-3">
-                    <span className="font-semibold text-foreground min-w-[24px]">2.</span>
-                    <p><span className="font-semibold text-foreground">Questions:</span> {questions.length} questions covering technical, behavioral, and problem-solving</p>
-                  </div>
-                  <div className="flex gap-3">
-                    <span className="font-semibold text-foreground min-w-[24px]">3.</span>
-                    <p><span className="font-semibold text-foreground">Camera & Audio:</span> Both will be tested before the interview starts</p>
-                  </div>
-                  <div className="flex gap-3">
-                    <span className="font-semibold text-foreground min-w-[24px]">4.</span>
-                    <p><span className="font-semibold text-foreground">Voice Recording:</span> Click the mic button to record your answer, click again to stop</p>
-                  </div>
-                  <div className="flex gap-3">
-                    <span className="font-semibold text-foreground min-w-[24px]">5.</span>
-                    <p><span className="font-semibold text-foreground">AI Feedback:</span> The interviewer will analyze and give feedback on each answer</p>
-                  </div>
-                </div>
+            {isLoadingQuestions ? (
+              <div className="text-center py-12">
+                <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Loading interview questions for {domain}...</p>
+                <p className="text-sm text-muted-foreground mt-2">This may take a moment for new domains</p>
               </div>
-
-              <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle className="w-5 h-5 text-destructive mt-0.5" />
-                  <div>
-                    <h3 className="font-semibold text-destructive mb-1">Strict Interview Mode</h3>
-                    <p className="text-sm text-muted-foreground">
-                      This is a professional technical interview simulation. Answer thoroughly and professionally. 
-                      Incomplete or vague answers will significantly impact your score.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-6 flex justify-center">
-                <Button 
-                  onClick={handleStartCameraTest}
-                  size="lg"
-                  className="px-8"
-                  variant="hero"
-                >
-                  BEGIN CAMERA TEST →
+            ) : questions.length === 0 ? (
+              <div className="text-center py-12">
+                <AlertTriangle className="w-12 h-12 text-destructive mx-auto mb-4" />
+                <p className="text-muted-foreground mb-4">Failed to load interview questions</p>
+                <Button onClick={() => window.location.reload()}>
+                  Try Again
                 </Button>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-xl font-semibold mb-4">Interview Guidelines:</h2>
+                  <div className="space-y-4 text-muted-foreground">
+                    <div className="flex gap-3">
+                      <span className="font-semibold text-foreground min-w-[24px]">1.</span>
+                      <p><span className="font-semibold text-foreground">Time Limit:</span> 20 minutes to complete the interview</p>
+                    </div>
+                    <div className="flex gap-3">
+                      <span className="font-semibold text-foreground min-w-[24px]">2.</span>
+                      <p><span className="font-semibold text-foreground">Questions:</span> {questions.length} questions covering technical, behavioral, and problem-solving</p>
+                    </div>
+                    <div className="flex gap-3">
+                      <span className="font-semibold text-foreground min-w-[24px]">3.</span>
+                      <p><span className="font-semibold text-foreground">Camera & Audio:</span> Both will be tested before the interview starts</p>
+                    </div>
+                    <div className="flex gap-3">
+                      <span className="font-semibold text-foreground min-w-[24px]">4.</span>
+                      <p><span className="font-semibold text-foreground">Voice Recording:</span> Click the mic button to record your answer, click again to stop</p>
+                    </div>
+                    <div className="flex gap-3">
+                      <span className="font-semibold text-foreground min-w-[24px]">5.</span>
+                      <p><span className="font-semibold text-foreground">AI Feedback:</span> The interviewer will analyze and give feedback on each answer</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-5 h-5 text-destructive mt-0.5" />
+                    <div>
+                      <h3 className="font-semibold text-destructive mb-1">Strict Interview Mode</h3>
+                      <p className="text-sm text-muted-foreground">
+                        This is a professional technical interview simulation. Answer thoroughly and professionally. 
+                        Incomplete or vague answers will significantly impact your score.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-6 flex justify-center">
+                  <Button 
+                    onClick={handleStartCameraTest}
+                    size="lg"
+                    className="px-8"
+                    variant="hero"
+                  >
+                    BEGIN CAMERA TEST →
+                  </Button>
+                </div>
+              </div>
+            )}
           </Card>
         </div>
       </div>

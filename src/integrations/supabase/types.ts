@@ -59,6 +59,36 @@ export type Database = {
         }
         Relationships: []
       }
+      interview_questions: {
+        Row: {
+          category: string
+          created_at: string | null
+          difficulty: string
+          domain: string
+          expected_points: Json | null
+          id: string
+          question: string
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          difficulty: string
+          domain: string
+          expected_points?: Json | null
+          id?: string
+          question: string
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          difficulty?: string
+          domain?: string
+          expected_points?: Json | null
+          id?: string
+          question?: string
+        }
+        Relationships: []
+      }
       mcq_questions: {
         Row: {
           correct_answer: string
