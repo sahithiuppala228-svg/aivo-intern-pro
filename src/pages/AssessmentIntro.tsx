@@ -6,12 +6,14 @@ import { CheckCircle, Clock, FileText, Code, AlertCircle, ArrowLeft } from "luci
 import assessmentIcon from "@/assets/assessment-icon.jpg";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { getDomainContext } from "@/lib/domainContext";
 
 const AssessmentIntro = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
   const domain = location.state?.domain || "Web Development";
+  const domainContext = getDomainContext(domain);
   
   const [showWhyTest, setShowWhyTest] = useState(false);
 
@@ -55,9 +57,12 @@ const AssessmentIntro = () => {
           <div className="flex justify-center mb-4">
             <img src={assessmentIcon} alt="Assessment" className="w-24 h-24 rounded-2xl shadow-soft" />
           </div>
-          <h1 className="text-4xl font-bold">Ready for Your Assessment?</h1>
+          <Badge variant="secondary" className="text-sm px-4 py-1 mb-2">
+            {domain}
+          </Badge>
+          <h1 className="text-4xl font-bold">Ready for Your {domain} Assessment?</h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Complete our two-part assessment to verify your skills and unlock personalized learning
+            {domainContext.description}. Complete the assessment to verify your skills and unlock personalized learning.
           </p>
         </div>
 
@@ -235,14 +240,17 @@ const AssessmentIntro = () => {
         )}
 
         {/* Action Button */}
-        <div className="flex justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Badge variant="outline" className="text-xs px-3 py-1">
+            Topics: {domainContext.codingTopics.slice(0, 3).join(", ")}...
+          </Badge>
           <Button 
             size="lg" 
             className="min-w-[200px] bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl transition-all"
             onClick={() => navigate("/mcq-test", { state: { domain } })}
           >
             <FileText className="w-4 h-4 mr-2" />
-            Start MCQ Test
+            Start {domain} MCQ Test
           </Button>
         </div>
 
