@@ -1,136 +1,133 @@
 
-## MCQ Questions: Domain-Specific Loading with Custom Domain Support
+
+## Remove Practice Page & Add Domain-Based Interview Questions
 
 ### Summary
-Implement a system where MCQ questions are loaded based on the domain selected in the profile page:
-- **Pre-seeded domains** (Web Development, Data Science, Mobile Development, etc.): Fetch 50 questions from the database
-- **Custom domains** (user-created): Generate 50 questions on-the-fly using AI
+This plan covers three main changes:
+1. **Remove Practice Mode page** - The page is no longer needed in the assessment flow
+2. **Pre-seed coding problems** - Complete seeding for all 10 domains (currently partially seeded)
+3. **Create domain-based interview questions system** - Store and fetch interview questions from database based on domain, with AI generation for custom domains
 
 ---
 
-### Current State Analysis
+### Current State
 
-| Aspect | Current Behavior |
-|--------|------------------|
-| Database | 50 questions for Web Development, 10 each for Data Science and Mobile Development |
-| Domain source | Passed from ProfileSetup → AssessmentIntro → MCQTest via navigation state |
-| Pre-defined domains | 10 domains defined in ProfileSetup.tsx |
-| Custom domains | Users can add custom domains via input field |
-| Question fetching | `get-random-mcq-questions` only fetches from DB, returns error if < 50 available |
+| Component | Status |
+|-----------|--------|
+| Practice Mode | Exists but uses dummy data, not integrated into main flow |
+| Coding Problems | 5 domains partially seeded (Web Dev: 10, others: 4 each) |
+| Interview Questions | Hardcoded in `getInterviewQuestions()` function in MockInterview.tsx |
 
 ---
 
-### Changes Required
+### Changes Overview
 
-#### 1. Update `get-random-mcq-questions` Edge Function
-**Purpose:** Handle both pre-seeded and custom domains intelligently
+#### Part 1: Remove Practice Mode Page
 
-**Logic:**
+**Files to modify:**
+- `src/App.tsx` - Remove route and import
+- `src/pages/Analytics.tsx` - Remove link to practice mode
+- `src/pages/PracticeMode.tsx` - Delete file
+
+**Changes:**
+- Remove `/practice-mode` route from App.tsx
+- Remove the "Practice Mode" button from Analytics.tsx
+- Delete the PracticeMode.tsx file
+
+---
+
+#### Part 2: Seed Coding Problems for All Domains
+
+The coding problem infrastructure is already in place. Currently:
+- Web Development: 10 problems (complete)
+- Data Science, ML, Mobile Dev, UI/UX: 4 each (incomplete)
+- DevOps, Cloud Computing, Cybersecurity, Blockchain, Game Development: 0 problems
+
+**Action:** Use the existing `get-random-coding-problems` edge function to trigger generation for remaining domains. This will happen automatically when users access those domains, or can be triggered manually.
+
+---
+
+#### Part 3: Interview Questions Database System
+
+Create a similar pattern to MCQ and coding questions for interview questions.
+
+**Database Changes:**
+Create new `interview_questions` table:
+```sql
+CREATE TABLE public.interview_questions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  domain TEXT NOT NULL,
+  question TEXT NOT NULL,
+  category TEXT NOT NULL CHECK (category IN ('technical', 'behavioral', 'problem-solving')),
+  difficulty TEXT NOT NULL CHECK (difficulty IN ('easy', 'medium', 'hard')),
+  expected_points JSONB DEFAULT '[]'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+CREATE INDEX idx_interview_questions_domain ON public.interview_questions(domain);
+```
+
+**New Edge Function: `get-random-interview-questions`**
+- Similar to get-random-mcq-questions
+- Fetches 10 interview questions per domain
+- Distribution: 5 technical, 3 behavioral, 2 problem-solving
+- Falls back to AI generation for custom domains
+
+**Frontend Changes: `MockInterview.tsx`**
+- Replace hardcoded `getInterviewQuestions()` function with database fetch
+- Add loading state for fetching/generating questions
+- Pass domain to edge function
+
+---
+
+### Technical Implementation Details
+
+#### Interview Questions Edge Function Logic
+
 ```text
-+-------------------+
-|  Receive domain   |
-+---------+---------+
-          |
-          v
-+-------------------+
-| Check if domain   |
-| has >= 50 questions|
-| in database       |
-+---------+---------+
-          |
-    +-----+-----+
-    |           |
-    v           v
-  >= 50       < 50
-    |           |
-    v           v
-Fetch from   Generate 50
-database     via AI
-    |           |
-    +-----+-----+
-          |
-          v
-   Return questions
+Request with domain
+       ↓
+Check database for interview questions
+       ↓
+Found >= 10 questions? → Return random selection
+       ↓ No
+Generate via Gemini AI
+       ↓
+Save to database
+       ↓
+Return questions
 ```
 
-**Changes:**
-- Add a list of "pre-seeded domains" that must have questions in DB
-- If domain is pre-seeded and has < 50 questions, return an error (admin must seed)
-- If domain is NOT pre-seeded (custom), generate questions using AI on-the-fly
-- For custom domains, use the existing `seed-mcq-questions` AI generation logic inline
+**Question Distribution:**
+- 5 Technical questions (domain-specific)
+- 3 Behavioral questions
+- 2 Problem-solving questions
 
-#### 2. Update `MCQTest.tsx`
-**Purpose:** Better handle custom domain generation with appropriate loading messages
-
-**Changes:**
-- Detect if the domain is a "custom domain" vs "pre-seeded domain"
-- Show different loading messages:
-  - Pre-seeded: "Loading questions..."
-  - Custom: "Generating questions for [domain]... This may take a moment."
-- Handle the `isCustomDomain` flag in the response
-
-#### 3. Add Pre-seeded Domain Constants
-**Purpose:** Create a shared list of domains that should have pre-seeded questions
-
-**New constant in edge function:**
-```typescript
-const PRESEEDED_DOMAINS = [
-  "Web Development",
-  "Data Science",
-  "Machine Learning",
-  "Mobile Development",
-  "UI/UX Design",
-  "DevOps",
-  "Cloud Computing",
-  "Cybersecurity",
-  "Blockchain",
-  "Game Development"
-];
-```
-
----
-
-### Technical Implementation
-
-#### Edge Function Changes (`get-random-mcq-questions/index.ts`)
-
-1. Define `PRESEEDED_DOMAINS` array
-2. Check if incoming domain is in the pre-seeded list
-3. If pre-seeded domain:
-   - Fetch from database
-   - Return error if insufficient questions
-4. If custom domain:
-   - Check database first (in case it was previously generated)
-   - If < 50 available, generate using Lovable AI API
-   - Save generated questions to database for future use
-   - Return the questions
-
-#### Frontend Changes (`MCQTest.tsx`)
-
-1. Add `isCustomDomain` check based on `availableDomains` constant
-2. Update loading message based on domain type
-3. Handle longer generation times for custom domains gracefully
-
----
-
-### Database Impact
-
-- **Pre-seeded domains**: No change, questions fetched from existing pool
-- **Custom domains**: Questions are generated and stored for reuse
-- New questions for custom domains will be saved with the custom domain name
+**AI Generation Prompt Structure:**
+- Generate domain-specific technical questions
+- Include expected points for evaluation
+- Mix difficulty levels (easy, medium, hard)
 
 ---
 
 ### Files to Modify
 
-1. **`supabase/functions/get-random-mcq-questions/index.ts`**
-   - Add PRESEEDED_DOMAINS constant
-   - Add AI generation logic for custom domains
-   - Save generated questions to database
+1. **`src/App.tsx`** - Remove PracticeMode import and route
 
-2. **`src/pages/MCQTest.tsx`**
-   - Add availableDomains constant (or import from shared location)
-   - Update loading messages for custom domains
+2. **`src/pages/Analytics.tsx`** - Remove practice mode button
+
+3. **`src/pages/PracticeMode.tsx`** - Delete file
+
+4. **New: `supabase/functions/get-random-interview-questions/index.ts`**
+   - Create edge function for fetching/generating interview questions
+   - Include AI generation logic for custom domains
+
+5. **`supabase/config.toml`** - Add new edge function config
+
+6. **`src/pages/MockInterview.tsx`**
+   - Replace `getInterviewQuestions()` with database fetch
+   - Add loading state during question fetch
+   - Update question interface to match database schema
 
 ---
 
@@ -138,7 +135,13 @@ const PRESEEDED_DOMAINS = [
 
 | Scenario | User Action | System Response |
 |----------|-------------|-----------------|
-| Pre-seeded domain with 50+ questions | Select "Web Development" | Fetch 50 random questions from DB instantly |
-| Pre-seeded domain with < 50 questions | Select "Machine Learning" | Show error: "Please contact admin to seed questions" |
-| Custom domain (first time) | Add "Artificial Intelligence" | Generate 50 questions via AI (~30-60 seconds), save to DB |
-| Custom domain (repeat) | Select "Artificial Intelligence" again | Fetch from DB (already generated) |
+| Standard domain interview | Start "Web Development" interview | Fetch 10 questions from DB instantly |
+| Custom domain interview | Start "Quantum Computing" interview | Generate 10 questions via AI (~10-20 sec), save to DB |
+| Repeat custom domain | Start same custom domain again | Fetch from DB (previously generated) |
+
+---
+
+### Migration Script for Seeding Standard Domains
+
+After table creation, seed interview questions for all 10 standard domains using the existing pattern from MCQ seeding.
+
