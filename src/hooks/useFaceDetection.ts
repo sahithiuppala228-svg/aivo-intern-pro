@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import * as faceapi from "face-api.js";
 
 interface FaceDetectionResult {
   faceDetected: boolean;
+  faceCount: number;
   faceConfidence: number;
   message: string;
+  singlePersonValidated: boolean;
 }
 
 export const useFaceDetection = () => {
@@ -11,88 +14,115 @@ export const useFaceDetection = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const modelsLoadedRef = useRef(false);
   
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [modelsLoading, setModelsLoading] = useState(false);
+  const [modelsLoaded, setModelsLoaded] = useState(false);
   const [faceResult, setFaceResult] = useState<FaceDetectionResult>({
     faceDetected: false,
+    faceCount: 0,
     faceConfidence: 0,
-    message: "Initializing camera..."
+    message: "Initializing camera...",
+    singlePersonValidated: false
   });
 
+  // Load face-api.js models
+  const loadModels = useCallback(async () => {
+    if (modelsLoadedRef.current) return true;
+    
+    setModelsLoading(true);
+    setFaceResult(prev => ({ ...prev, message: "Loading face detection models..." }));
+    
+    try {
+      const MODEL_URL = "/models";
+      await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+      modelsLoadedRef.current = true;
+      setModelsLoaded(true);
+      setModelsLoading(false);
+      console.log("Face detection models loaded successfully");
+      return true;
+    } catch (error) {
+      console.error("Error loading face detection models:", error);
+      setModelsLoading(false);
+      setFaceResult(prev => ({ 
+        ...prev, 
+        message: "Failed to load face detection. Using fallback detection." 
+      }));
+      return false;
+    }
+  }, []);
+
+  // Start face detection loop using face-api.js
   const startFaceDetection = useCallback(() => {
-    const detectFace = () => {
-      if (!videoRef.current || !canvasRef.current) {
+    const detectFace = async () => {
+      if (!videoRef.current || !modelsLoadedRef.current) {
         animationFrameRef.current = requestAnimationFrame(detectFace);
         return;
       }
 
       const video = videoRef.current;
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext("2d");
       
-      if (!ctx || video.videoWidth === 0 || video.readyState < 2) {
+      if (video.readyState < 2 || video.videoWidth === 0) {
         animationFrameRef.current = requestAnimationFrame(detectFace);
         return;
       }
 
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      ctx.drawImage(video, 0, 0);
-      
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
-      
-      let skinPixels = 0;
-      let totalPixels = 0;
-      
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-      const regionWidth = canvas.width * 0.5;
-      const regionHeight = canvas.height * 0.6;
-      
-      for (let y = Math.floor(centerY - regionHeight / 2); y < centerY + regionHeight / 2; y++) {
-        for (let x = Math.floor(centerX - regionWidth / 2); x < centerX + regionWidth / 2; x++) {
-          const i = (y * canvas.width + x) * 4;
-          const r = data[i];
-          const g = data[i + 1];
-          const b = data[i + 2];
-          
-          const isSkinColor = 
-            r > 60 && r < 255 &&
-            g > 40 && g < 220 &&
-            b > 20 && b < 180 &&
-            r > g && r > b &&
-            Math.abs(r - g) > 15 &&
-            r - b > 15;
-          
-          if (isSkinColor) skinPixels++;
-          totalPixels++;
+      try {
+        // Detect all faces in the frame
+        const detections = await faceapi.detectAllFaces(
+          video,
+          new faceapi.TinyFaceDetectorOptions({
+            inputSize: 320,
+            scoreThreshold: 0.5
+          })
+        );
+
+        const faceCount = detections.length;
+        const highestConfidence = faceCount > 0 
+          ? Math.max(...detections.map(d => d.score)) * 100 
+          : 0;
+
+        let message = "";
+        let faceDetected = false;
+        let singlePersonValidated = false;
+
+        if (faceCount === 0) {
+          message = "No face detected. Please position your face in the center.";
+          faceDetected = false;
+          singlePersonValidated = false;
+        } else if (faceCount === 1) {
+          faceDetected = true;
+          singlePersonValidated = true;
+          if (highestConfidence >= 70) {
+            message = "Face detected! You're ready for the interview.";
+          } else {
+            message = "Face detected but unclear. Try better lighting.";
+          }
+        } else {
+          // Multiple faces detected
+          faceDetected = true;
+          singlePersonValidated = false;
+          message = `Multiple people detected (${faceCount})! Only you should be visible for the interview.`;
         }
+
+        setFaceResult({
+          faceDetected,
+          faceCount,
+          faceConfidence: Math.round(highestConfidence),
+          message,
+          singlePersonValidated
+        });
+
+      } catch (error) {
+        console.error("Face detection error:", error);
       }
-      
-      const skinRatio = skinPixels / totalPixels;
-      const faceDetected = skinRatio > 0.15 && skinRatio < 0.7;
-      const confidence = Math.min(skinRatio / 0.4, 1) * 100;
-      
-      let message = "";
-      if (!faceDetected && skinRatio < 0.15) {
-        message = "No face detected. Please position your face in the center.";
-      } else if (!faceDetected && skinRatio >= 0.7) {
-        message = "Too close to camera. Please move back slightly.";
-      } else if (faceDetected && confidence < 50) {
-        message = "Face detected but unclear. Improve lighting.";
-      } else if (faceDetected) {
-        message = "Face detected! You're ready for the interview.";
-      }
-      
-      setFaceResult({
-        faceDetected,
-        faceConfidence: Math.round(confidence),
-        message
-      });
-      
-      animationFrameRef.current = requestAnimationFrame(detectFace);
+
+      // Run detection at ~10 FPS for performance
+      setTimeout(() => {
+        animationFrameRef.current = requestAnimationFrame(detectFace);
+      }, 100);
     };
 
     animationFrameRef.current = requestAnimationFrame(detectFace);
@@ -114,13 +144,28 @@ export const useFaceDetection = () => {
     }
     
     setCameraActive(false);
-    setFaceResult({ faceDetected: false, faceConfidence: 0, message: "Camera stopped" });
+    setFaceResult({ 
+      faceDetected: false, 
+      faceCount: 0,
+      faceConfidence: 0, 
+      message: "Camera stopped",
+      singlePersonValidated: false
+    });
   }, []);
 
   const startCamera = useCallback(async () => {
     try {
       setCameraError(null);
-      setFaceResult({ faceDetected: false, faceConfidence: 0, message: "Requesting camera access..." });
+      setFaceResult({ 
+        faceDetected: false, 
+        faceCount: 0,
+        faceConfidence: 0, 
+        message: "Requesting camera access...",
+        singlePersonValidated: false
+      });
+      
+      // Load models first
+      const modelsReady = await loadModels();
       
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
@@ -147,15 +192,39 @@ export const useFaceDetection = () => {
       }
       
       setCameraActive(true);
-      setFaceResult({ faceDetected: false, faceConfidence: 0, message: "Camera active. Looking for face..." });
-      startFaceDetection();
+      
+      if (modelsReady) {
+        setFaceResult({ 
+          faceDetected: false, 
+          faceCount: 0,
+          faceConfidence: 0, 
+          message: "Camera active. Looking for face...",
+          singlePersonValidated: false
+        });
+        startFaceDetection();
+      } else {
+        // Fallback message if models didn't load
+        setFaceResult({ 
+          faceDetected: false, 
+          faceCount: 0,
+          faceConfidence: 0, 
+          message: "Camera active. Face detection unavailable.",
+          singlePersonValidated: false
+        });
+      }
     } catch (error) {
       console.error("Camera error:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to access camera";
       setCameraError(errorMessage);
-      setFaceResult({ faceDetected: false, faceConfidence: 0, message: `Camera error: ${errorMessage}` });
+      setFaceResult({ 
+        faceDetected: false, 
+        faceCount: 0,
+        faceConfidence: 0, 
+        message: `Camera error: ${errorMessage}`,
+        singlePersonValidated: false
+      });
     }
-  }, [startFaceDetection]);
+  }, [loadModels, startFaceDetection]);
 
   // Re-attach stream to video on re-renders
   useEffect(() => {
@@ -190,6 +259,8 @@ export const useFaceDetection = () => {
     cameraActive,
     cameraError,
     faceResult,
+    modelsLoading,
+    modelsLoaded,
     startCamera,
     stopCamera
   };
