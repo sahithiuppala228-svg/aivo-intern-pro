@@ -166,6 +166,8 @@ const MockInterview = () => {
     cameraActive, 
     cameraError, 
     faceResult, 
+    modelsLoading,
+    modelsLoaded,
     startCamera, 
     stopCamera 
   } = useFaceDetection();
@@ -709,7 +711,7 @@ const MockInterview = () => {
           <Card className="p-8 shadow-sm border">
             <div className="text-center mb-6">
               <h1 className="text-2xl font-bold mb-2">Camera Test</h1>
-              <p className="text-muted-foreground">Please ensure your face is clearly visible</p>
+              <p className="text-muted-foreground">Please ensure your face is clearly visible and you are alone</p>
             </div>
 
             <div className="relative aspect-video bg-muted rounded-lg overflow-hidden mb-6">
@@ -723,7 +725,17 @@ const MockInterview = () => {
               />
               <canvas ref={canvasRef} className="hidden" />
               
-              {!cameraActive && !cameraError && (
+              {/* Loading models overlay */}
+              {modelsLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-background/80">
+                  <div className="text-center">
+                    <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                    <p className="text-muted-foreground">Loading face detection...</p>
+                  </div>
+                </div>
+              )}
+              
+              {!cameraActive && !cameraError && !modelsLoading && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="text-center">
                     <Video className="w-12 h-12 text-muted-foreground mx-auto mb-2 animate-pulse" />
@@ -743,30 +755,63 @@ const MockInterview = () => {
                   </div>
                 </div>
               )}
+              
+              {/* Face count badge */}
+              {cameraActive && modelsLoaded && faceResult.faceCount > 0 && (
+                <div className="absolute top-4 right-4">
+                  <Badge 
+                    variant={faceResult.singlePersonValidated ? "default" : "destructive"}
+                    className="text-sm"
+                  >
+                    {faceResult.faceCount} {faceResult.faceCount === 1 ? "face" : "faces"} detected
+                  </Badge>
+                </div>
+              )}
             </div>
 
+            {/* Status message with proper styling */}
             <div className="flex items-center justify-center gap-2 mb-6">
-              {faceResult.faceDetected ? (
+              {faceResult.singlePersonValidated ? (
                 <>
-                  <CheckCircle2 className="w-5 h-5 text-green-500" />
-                  <span className="text-green-600 font-medium">{faceResult.message}</span>
+                  <CheckCircle2 className="w-5 h-5 text-primary" />
+                  <span className="text-primary font-medium">{faceResult.message}</span>
+                </>
+              ) : faceResult.faceCount > 1 ? (
+                <>
+                  <AlertTriangle className="w-5 h-5 text-destructive" />
+                  <span className="text-destructive font-medium">{faceResult.message}</span>
                 </>
               ) : (
                 <>
-                  <AlertTriangle className="w-5 h-5 text-yellow-500" />
-                  <span className="text-yellow-600">{faceResult.message}</span>
+                  <AlertTriangle className="w-5 h-5 text-muted-foreground" />
+                  <span className="text-muted-foreground">{faceResult.message}</span>
                 </>
               )}
             </div>
+            
+            {/* Confidence indicator */}
+            {cameraActive && modelsLoaded && faceResult.faceCount > 0 && (
+              <div className="mb-6">
+                <div className="flex justify-between text-sm text-muted-foreground mb-1">
+                  <span>Detection Confidence</span>
+                  <span>{faceResult.faceConfidence}%</span>
+                </div>
+                <Progress value={faceResult.faceConfidence} className="h-2" />
+              </div>
+            )}
 
             <div className="flex justify-center">
               <Button 
                 onClick={handleCameraTestPassed}
-                disabled={!cameraActive}
+                disabled={!cameraActive || !faceResult.singlePersonValidated}
                 variant="hero"
                 size="lg"
               >
-                Continue to Audio Test →
+                {faceResult.singlePersonValidated 
+                  ? "Continue to Audio Test →" 
+                  : faceResult.faceCount > 1 
+                    ? "Only one person allowed" 
+                    : "Waiting for face detection..."}
               </Button>
             </div>
           </Card>
