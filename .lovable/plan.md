@@ -1,115 +1,139 @@
 
-# Fix Domain-Based Question Fetching + Pre-Seed All Domains
 
-## Problem Identified
+# Fix Camera Face Detection - Implement Proper Face Detection with face-api.js
 
-The navigation flow correctly passes the domain from Profile → MCQ → Coding → Interview. However, the database is missing questions for most domains:
+## Problem Summary
 
-| Domain | MCQ Questions | Coding Problems | Interview Questions |
-|--------|---------------|-----------------|---------------------|
-| Web Development | 30+ | 10 | 20 |
-| Data Science | 30+ | 4 | 0 |
-| Machine Learning | 30+ | 4 | 0 |
-| Mobile Development | 30+ | 4 | 0 |
-| UI/UX Design | 30+ | 4 | 0 |
-| DevOps | 30+ | 0 | 0 |
-| Cloud Computing | 30+ | 0 | 0 |
-| Cybersecurity | 30+ | 0 | 0 |
-| Blockchain | 30+ | 0 | 0 |
-| Game Development | 30+ | 0 | 0 |
+The current face detection system uses a basic **skin color detection algorithm** that:
+- Only counts skin-colored pixels in the center of the frame
+- Cannot actually detect faces - it just looks for skin tones
+- Cannot count how many faces are present
+- Cannot validate if only one person is in the camera frame
 
-When you select a domain like "Cloud Computing", the system tries to fetch questions but finds none, causing delays or failures.
+This is why your face is not being detected properly, even though you can see yourself clearly on camera.
 
 ---
 
 ## Solution
 
-### Part 1: Pre-Seed All 10 Standard Domains
-
-Trigger the edge functions to generate and store questions for all domains:
-
-**Coding Problems (need 10 per domain):**
-- DevOps: Generate 10 problems
-- Cloud Computing: Generate 10 problems
-- Cybersecurity: Generate 10 problems
-- Blockchain: Generate 10 problems
-- Game Development: Generate 10 problems
-- Data Science: Generate 6 more problems (currently has 4)
-- Machine Learning: Generate 6 more problems (currently has 4)
-- Mobile Development: Generate 6 more problems (currently has 4)
-- UI/UX Design: Generate 6 more problems (currently has 4)
-
-**Interview Questions (need 10 per domain):**
-- Data Science: Generate 10 questions
-- Machine Learning: Generate 10 questions
-- Mobile Development: Generate 10 questions
-- UI/UX Design: Generate 10 questions
-- DevOps: Generate 10 questions
-- Cloud Computing: Generate 10 questions
-- Cybersecurity: Generate 10 questions
-- Blockchain: Generate 10 questions
-- Game Development: Generate 10 questions
+Replace the current skin color detection with **face-api.js** - a proper face detection library that uses neural networks to:
+- Actually detect faces (not just skin colors)
+- Count exactly how many faces are in the frame
+- Validate that only **ONE person** is present
+- Show warning if multiple people are detected
 
 ---
 
-### Part 2: Improve Edge Function Error Handling
+## What Will Change
 
-Update `get-random-coding-problems` and `get-random-interview-questions` to:
-1. Show clearer loading messages ("Generating Cloud Computing challenges...")
-2. Handle generation failures gracefully
-3. Ensure domain parameter is used correctly
+| Current Behavior | New Behavior |
+|------------------|--------------|
+| Detects skin color pixels | Detects actual human faces |
+| Says "No face detected" even when face is visible | Accurately detects face position |
+| Cannot count number of people | Counts exactly how many faces are present |
+| No validation for single person | Shows warning if more than 1 person detected |
+| Works poorly with different skin tones | Works for all skin tones and lighting |
 
 ---
 
 ## Implementation Steps
 
-1. **Deploy updated edge functions** (if needed)
-2. **Seed Interview Questions** - Call `get-random-interview-questions` for each of the 9 missing domains
-3. **Seed Coding Problems** - Call `get-random-coding-problems` for each of the 9 incomplete domains
-4. **Verify** - Check database to confirm all domains have sufficient questions
+### Step 1: Install face-api.js Library
+Add the `face-api.js` package to the project dependencies.
+
+### Step 2: Download Face Detection Models
+Download the required neural network model files (TinyFaceDetector - small and fast) and place them in the `public/models` folder.
+
+### Step 3: Update useFaceDetection.ts Hook
+
+Replace the skin color algorithm with face-api.js detection:
+
+**New Detection Logic:**
+1. Load the TinyFaceDetector model on startup
+2. Run face detection on each video frame
+3. Count the number of faces detected
+4. Return appropriate messages:
+   - **0 faces**: "No face detected. Please position your face in the center."
+   - **1 face**: "Face detected! You're ready for the interview." (success)
+   - **2+ faces**: "Multiple people detected! Only one person should be visible." (error)
+
+### Step 4: Update MockInterview.tsx Camera Test
+
+Enhance the camera test to:
+- Show loading state while models are loading
+- Block "Continue" button if 0 or 2+ faces detected
+- Show specific error message for multiple people
+- Green checkmark only when exactly 1 face is detected
 
 ---
 
-## Seeding Process
+## Technical Details
 
-Due to API rate limits, seeding will be done in batches:
+### New Face Detection Hook Structure
 
-**Batch 1: Interview Questions (9 domains)**
-- Call edge function for: Data Science, Machine Learning, Mobile Development, UI/UX Design, DevOps
+```typescript
+interface FaceDetectionResult {
+  faceDetected: boolean;
+  faceCount: number;         // NEW: Number of faces detected
+  faceConfidence: number;
+  message: string;
+  singlePersonValidated: boolean;  // NEW: True only if exactly 1 face
+}
+```
 
-**Batch 2: Interview Questions (continued)**
-- Call edge function for: Cloud Computing, Cybersecurity, Blockchain, Game Development
+### Detection Messages
 
-**Batch 3: Coding Problems (5 domains with 0 problems)**
-- Call edge function for: DevOps, Cloud Computing, Cybersecurity, Blockchain, Game Development
+| Faces Detected | faceDetected | singlePersonValidated | Message |
+|----------------|--------------|----------------------|---------|
+| 0 | false | false | "No face detected. Position your face in the center." |
+| 1 | true | true | "Face detected! You're ready for the interview." |
+| 2+ | true | false | "Multiple people detected! Only you should be visible." |
 
-**Batch 4: Coding Problems (4 domains needing 6 more each)**
-- Call edge function for: Data Science, Machine Learning, Mobile Development, UI/UX Design
+### Model Files Required
 
----
+The TinyFaceDetector model files (about 190KB total):
+- `tiny_face_detector_model-weights_manifest.json`
+- `tiny_face_detector_model-shard1`
 
-## Expected Result After Implementation
-
-| Domain | MCQ Questions | Coding Problems | Interview Questions |
-|--------|---------------|-----------------|---------------------|
-| Web Development | 30+ | 10 | 20 |
-| Data Science | 30+ | 10 | 10 |
-| Machine Learning | 30+ | 10 | 10 |
-| Mobile Development | 30+ | 10 | 10 |
-| UI/UX Design | 30+ | 10 | 10 |
-| DevOps | 30+ | 10 | 10 |
-| Cloud Computing | 30+ | 10 | 10 |
-| Cybersecurity | 30+ | 10 | 10 |
-| Blockchain | 30+ | 10 | 10 |
-| Game Development | 30+ | 10 | 10 |
-
-All domains will load questions instantly from the database without AI generation delays.
+These will be placed in `/public/models/` folder.
 
 ---
 
-## Technical Notes
+## Files to Modify
 
-- The existing edge functions (`get-random-coding-problems`, `get-random-interview-questions`) already support domain-based fetching and AI generation fallback
-- Seeding is done by calling these functions with each domain name
-- Generated questions are automatically stored in the database for future use
-- Rate limiting between API calls prevents Gemini API throttling
+1. **package.json** - Add `face-api.js` dependency
+
+2. **public/models/** - Add model files for face detection
+
+3. **src/hooks/useFaceDetection.ts** - Complete rewrite with face-api.js:
+   - Load face detection models
+   - Detect faces using TinyFaceDetector
+   - Count faces and validate single person
+   - Return enhanced detection results
+
+4. **src/pages/MockInterview.tsx** - Update camera test UI:
+   - Show model loading state
+   - Display face count
+   - Block continue if multiple people detected
+   - Show specific warning for multiple faces
+
+---
+
+## Expected User Experience After Fix
+
+1. **Open Camera Test** → Shows "Loading face detection..." briefly
+2. **No face visible** → Yellow warning: "No face detected. Please position your face in the center."
+3. **One face visible** → Green checkmark: "Face detected! You're ready for the interview."
+4. **Multiple faces visible** → Red warning: "Multiple people detected! Only you should be visible for the interview."
+5. **Continue button** → Only enabled when exactly 1 face is detected
+
+---
+
+## Why face-api.js?
+
+- **Accurate**: Uses neural networks trained on millions of faces
+- **Fast**: TinyFaceDetector runs at 30+ FPS on most devices
+- **Reliable**: Works with all skin tones and lighting conditions
+- **Proven**: Widely used library with good browser support
+- **Small**: Only ~190KB for the model files
+
