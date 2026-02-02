@@ -17,12 +17,14 @@ import {
   CheckCircle2,
   Volume2,
   VolumeX,
-  Square
+  Square,
+  Lightbulb
 } from "lucide-react";
 import AnimatedInterviewer from "@/components/AnimatedInterviewer";
 import InterviewFeedback from "@/components/InterviewFeedback";
 import { useFaceDetection } from "@/hooks/useFaceDetection";
 import { supabase } from "@/integrations/supabase/client";
+import { getDomainContext } from "@/lib/domainContext";
 
 const INTERVIEW_TIME_LIMIT = 20 * 60; // 20 minutes in seconds
 
@@ -58,6 +60,7 @@ const MockInterview = () => {
   const location = useLocation();
   const { toast } = useToast();
   const domain = location.state?.domain || "Web Development";
+  const domainContext = getDomainContext(domain);
   
   // Get user name from localStorage
   const [userName, setUserName] = useState("Candidate");
@@ -922,12 +925,30 @@ const MockInterview = () => {
               </div>
             ) : (
               <div className="space-y-6">
+                {/* Interview Topics Section */}
+                <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Lightbulb className="w-5 h-5 text-primary" />
+                    <h3 className="font-semibold text-primary">Interview Topics for {domain}</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Be prepared to discuss these key areas:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {domainContext.interviewTopics.map((topic, idx) => (
+                      <Badge key={idx} variant="secondary" className="text-xs">
+                        {topic}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+
                 <div>
                   <h2 className="text-xl font-semibold mb-4">Interview Guidelines:</h2>
                   <div className="space-y-4 text-muted-foreground">
                     <div className="flex gap-3">
                       <span className="font-semibold text-foreground min-w-[24px]">1.</span>
-                      <p><span className="font-semibold text-foreground">Time Limit:</span> 20 minutes to complete the interview</p>
+                      <p><span className="font-semibold text-foreground">Time Limit:</span> 20 minutes to complete the {domain} interview</p>
                     </div>
                     <div className="flex gap-3">
                       <span className="font-semibold text-foreground min-w-[24px]">2.</span>
