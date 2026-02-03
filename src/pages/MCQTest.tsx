@@ -686,36 +686,8 @@ const MCQTest = () => {
                 <p>
                   {passed
                     ? "You've passed the MCQ test! You can now proceed to the coding test."
-                    : `You need at least ${PASSING_PERCENTAGE}% to pass. Review your wrong answers below and retry.`}
+                    : `You need at least ${PASSING_PERCENTAGE}% to pass.`}
                 </p>
-
-                {!passed && wrongAnswers.length > 0 && (
-                  <div className="text-left space-y-4 max-h-96 overflow-y-auto mt-4">
-                    <h3 className="font-semibold text-foreground text-lg">
-                      Questions You Got Wrong ({wrongAnswers.length}):
-                    </h3>
-                    {wrongAnswers.map((wa, index) => (
-                      <div key={index} className="p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
-                        <p className="font-semibold text-sm mb-2">{wa.question}</p>
-                        <div className="flex flex-col gap-2 text-sm">
-                          <div className="flex gap-4">
-                            <p className="text-destructive">
-                              <span className="font-medium">Your Answer:</span> {wa.yourAnswer}
-                            </p>
-                            <p className="text-success">
-                              <span className="font-medium">Correct:</span> {wa.correctAnswer}
-                            </p>
-                          </div>
-                          {wa.explanation && (
-                            <p className="text-muted-foreground bg-muted/50 p-2 rounded text-xs">
-                              <span className="font-medium text-foreground">Explanation:</span> {wa.explanation}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
 
                 <Button variant="hero" onClick={handleResultsClose} className="w-full mt-4" size="lg">
                   {passed ? "Continue to Coding Test →" : "Retry Test"}
