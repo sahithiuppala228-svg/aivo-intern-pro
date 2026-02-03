@@ -15,6 +15,7 @@ import Internships from "./pages/Internships";
 import Analytics from "./pages/Analytics";
 import NotFound from "./pages/NotFound";
 import GlobalAIMentor from "./components/GlobalAIMentor";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -27,14 +28,14 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
-          <Route path="/profile-setup" element={<ProfileSetup />} />
-          <Route path="/assessment-intro" element={<AssessmentIntro />} />
-          <Route path="/mcq-test" element={<MCQTest />} />
-          <Route path="/coding-test" element={<CodingTest />} />
-          <Route path="/mock-interview" element={<MockInterview />} />
-          <Route path="/certificate" element={<Certificate />} />
-          <Route path="/internships" element={<Internships />} />
-          <Route path="/analytics" element={<Analytics />} />
+          <Route path="/profile-setup" element={<ProtectedRoute><ProfileSetup /></ProtectedRoute>} />
+          <Route path="/assessment-intro" element={<ProtectedRoute><AssessmentIntro /></ProtectedRoute>} />
+          <Route path="/mcq-test" element={<ProtectedRoute><MCQTest /></ProtectedRoute>} />
+          <Route path="/coding-test" element={<ProtectedRoute><CodingTest /></ProtectedRoute>} />
+          <Route path="/mock-interview" element={<ProtectedRoute><MockInterview /></ProtectedRoute>} />
+          <Route path="/certificate" element={<ProtectedRoute><Certificate /></ProtectedRoute>} />
+          <Route path="/internships" element={<ProtectedRoute><Internships /></ProtectedRoute>} />
+          <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
