@@ -107,6 +107,7 @@ const MockInterview = () => {
   const [isLoadingQuestions, setIsLoadingQuestions] = useState(true);
   const [currentTranscription, setCurrentTranscription] = useState("");
   const [lastAIAnalysis, setLastAIAnalysis] = useState<AIAnalysis | null>(null);
+  const [questionAnalyses, setQuestionAnalyses] = useState<Record<number, AIAnalysis>>({});
   
   // Audio recording
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -479,8 +480,12 @@ const MockInterview = () => {
               return;
             }
             
-            // Store the AI analysis
+            // Store the AI analysis for current question
             setLastAIAnalysis(analysis);
+            setQuestionAnalyses(prev => ({
+              ...prev,
+              [currentQuestionIndex]: analysis
+            }));
             
             // Speak the AI-generated feedback
             speakText(analysis.verbalFeedback);
@@ -560,17 +565,24 @@ const MockInterview = () => {
       setAnswers(prev => ({ ...prev, [currentQuestionIndex]: currentAnswer }));
     }
     
-    // Clear state for next question
+    // Clear transcription but preserve AI analysis in questionAnalyses
     setCurrentTranscription("");
     setLastAIAnalysis(null);
     
     if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
-      setCurrentAnswer(answers[currentQuestionIndex + 1] || "");
+      const nextIndex = currentQuestionIndex + 1;
+      setCurrentQuestionIndex(nextIndex);
+      setCurrentAnswer(answers[nextIndex] || "");
+      
+      // Restore previous AI analysis if going to an already-answered question
+      if (questionAnalyses[nextIndex]) {
+        setLastAIAnalysis(questionAnalyses[nextIndex]);
+        setCurrentTranscription(answers[nextIndex] || "");
+      }
       
       // Speak next question
       setTimeout(() => {
-        const nextQ = questions[currentQuestionIndex + 1];
+        const nextQ = questions[nextIndex];
         speakText(`${userName}, here's your next question. ${nextQ.question}`);
       }, 1000);
     } else {
@@ -584,8 +596,18 @@ const MockInterview = () => {
     }
     
     if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(prev => prev - 1);
-      setCurrentAnswer(answers[currentQuestionIndex - 1] || "");
+      const prevIndex = currentQuestionIndex - 1;
+      setCurrentQuestionIndex(prevIndex);
+      setCurrentAnswer(answers[prevIndex] || "");
+      
+      // Restore previous AI analysis if exists
+      if (questionAnalyses[prevIndex]) {
+        setLastAIAnalysis(questionAnalyses[prevIndex]);
+        setCurrentTranscription(answers[prevIndex] || "");
+      } else {
+        setLastAIAnalysis(null);
+        setCurrentTranscription("");
+      }
     }
   };
 
@@ -600,68 +622,95 @@ const MockInterview = () => {
       finalAnswers[currentQuestionIndex] = currentAnswer;
     }
     
-    // Evaluate all answers
+    // Build question results using AI analyses where available
     const questionResults = questions.map((q, index) => {
       const answer = finalAnswers[index] || "";
-      const evaluation = evaluateAnswer(answer, q);
-      return {
-        question: q.question,
-        answer,
-        score: evaluation.score,
-        feedback: evaluation.feedback
-      };
+      const aiAnalysis = questionAnalyses[index];
+      
+      if (aiAnalysis) {
+        // Use AI analysis score and feedback
+        return {
+          question: q.question,
+          answer,
+          score: aiAnalysis.score,
+          feedback: aiAnalysis.verbalFeedback || `Level: ${aiAnalysis.level}. ${aiAnalysis.strengths.join(', ')}`
+        };
+      } else {
+        // Fallback to basic evaluation if no AI analysis
+        const evaluation = evaluateAnswer(answer, q);
+        return {
+          question: q.question,
+          answer,
+          score: evaluation.score,
+          feedback: evaluation.feedback
+        };
+      }
     });
     
-    // Calculate scores
-    const technicalQuestions = questionResults.filter((_, i) => questions[i].category === "technical");
-    const behavioralQuestions = questionResults.filter((_, i) => questions[i].category === "behavioral");
-    const problemQuestions = questionResults.filter((_, i) => questions[i].category === "problem-solving");
+    // Calculate category scores using AI analyses
+    const technicalQuestions = questions.map((q, i) => ({ ...q, index: i })).filter(q => q.category === "technical");
+    const behavioralQuestions = questions.map((q, i) => ({ ...q, index: i })).filter(q => q.category === "behavioral");
+    const problemQuestions = questions.map((q, i) => ({ ...q, index: i })).filter(q => q.category === "problem-solving");
     
-    const technicalScore = technicalQuestions.length > 0 
-      ? Math.round(technicalQuestions.reduce((sum, q) => sum + q.score, 0) / technicalQuestions.length)
-      : 0;
+    const getAverageScore = (qs: typeof technicalQuestions) => {
+      if (qs.length === 0) return 0;
+      const scores = qs.map(q => {
+        const aiAnalysis = questionAnalyses[q.index];
+        return aiAnalysis ? aiAnalysis.score : questionResults[q.index].score;
+      });
+      return Math.round(scores.reduce((sum, s) => sum + s, 0) / scores.length);
+    };
     
-    const problemSolvingScore = problemQuestions.length > 0
-      ? Math.round(problemQuestions.reduce((sum, q) => sum + q.score, 0) / problemQuestions.length)
-      : 0;
+    const technicalScore = getAverageScore(technicalQuestions);
+    const problemSolvingScore = getAverageScore(problemQuestions);
     
-    // Communication score based on answer length and clarity
-    const avgWordCount = questionResults.reduce((sum, q) => sum + q.answer.split(/\s+/).length, 0) / questions.length;
-    const communicationScore = Math.min(Math.round(avgWordCount * 1.5), 100);
+    // Communication score - use behavioral questions if available, otherwise estimate from answer length
+    let communicationScore: number;
+    if (behavioralQuestions.length > 0) {
+      communicationScore = getAverageScore(behavioralQuestions);
+    } else {
+      const avgWordCount = questionResults.reduce((sum, q) => sum + q.answer.split(/\s+/).length, 0) / questions.length;
+      communicationScore = Math.min(Math.round(avgWordCount * 1.5), 100);
+    }
     
-    // Confidence score based on completeness and word variety
-    const completedQuestions = questionResults.filter(q => q.answer.length > 20).length;
-    const confidenceScore = Math.round((completedQuestions / questions.length) * 100);
+    // Confidence score based on completeness and having AI-analyzed answers
+    const answeredQuestions = questionResults.filter(q => q.answer.length > 20).length;
+    const analyzedQuestions = Object.keys(questionAnalyses).length;
+    const confidenceScore = Math.round(((answeredQuestions + analyzedQuestions) / (questions.length * 2)) * 100);
     
-    const overallScore = Math.round(
-      (technicalScore * 0.4) + 
-      (communicationScore * 0.25) + 
-      (confidenceScore * 0.15) + 
-      (problemSolvingScore * 0.2)
-    );
+    // Calculate overall score as weighted average of AI scores
+    const allScores = questionResults.map(q => q.score);
+    const overallScore = Math.round(allScores.reduce((sum, s) => sum + s, 0) / allScores.length);
     
-    // Determine level
+    // Determine level based on overall score
     let level: "Beginner" | "Intermediate" | "Advanced" | "Expert" = "Beginner";
     if (overallScore >= 85) level = "Expert";
     else if (overallScore >= 70) level = "Advanced";
     else if (overallScore >= 50) level = "Intermediate";
     
-    // Generate strengths and improvements
-    const strengths: string[] = [];
-    const improvements: string[] = [];
+    // Aggregate strengths and improvements from all AI analyses
+    const allStrengths = new Set<string>();
+    const allImprovements = new Set<string>();
     
-    if (technicalScore >= 70) strengths.push("Strong technical knowledge in " + domain);
-    else improvements.push("Deepen your understanding of " + domain + " fundamentals");
+    Object.values(questionAnalyses).forEach(analysis => {
+      analysis.strengths.forEach(s => allStrengths.add(s));
+      analysis.improvements.forEach(i => allImprovements.add(i));
+    });
     
-    if (communicationScore >= 70) strengths.push("Clear and articulate communication");
-    else improvements.push("Practice explaining technical concepts more clearly");
+    // Add category-based strengths/improvements
+    if (technicalScore >= 70) allStrengths.add("Strong technical knowledge in " + domain);
+    else if (technicalScore < 50) allImprovements.add("Deepen your understanding of " + domain + " fundamentals");
     
-    if (confidenceScore >= 70) strengths.push("Confident approach to answering questions");
-    else improvements.push("Build confidence by practicing more mock interviews");
+    if (communicationScore >= 70) allStrengths.add("Clear and articulate communication");
+    else if (communicationScore < 50) allImprovements.add("Practice explaining technical concepts more clearly");
     
-    if (problemSolvingScore >= 70) strengths.push("Excellent problem-solving approach");
-    else improvements.push("Work on structured problem-solving techniques");
+    if (problemSolvingScore >= 70) allStrengths.add("Excellent problem-solving approach");
+    else if (problemSolvingScore < 50) allImprovements.add("Work on structured problem-solving techniques");
     
+    const strengths = Array.from(allStrengths).slice(0, 5);
+    const improvements = Array.from(allImprovements).slice(0, 5);
+    
+    // Ensure at least one item in each
     if (strengths.length === 0) strengths.push("Completed the interview - good effort!");
     if (improvements.length === 0) improvements.push("Continue practicing to maintain your skills");
     
@@ -702,6 +751,8 @@ const MockInterview = () => {
     setFeedback(null);
     setCameraTestPassed(false);
     setAudioTestPassed(false);
+    setQuestionAnalyses({});
+    setLastAIAnalysis(null);
   };
 
   // Show feedback
