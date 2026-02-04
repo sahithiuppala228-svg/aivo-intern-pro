@@ -251,15 +251,15 @@ const Analytics = () => {
 
         {/* Overview Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card>
+          <Card className="card-hover animate-slide-up">
             <CardHeader className="pb-2">
               <CardDescription>Pass Rate</CardDescription>
               <CardTitle className="text-3xl flex items-center gap-2">
                 {Math.round((overallStats.passedAttempts / overallStats.totalAttempts) * 100)}%
                 {(overallStats.passedAttempts / overallStats.totalAttempts) >= 0.7 ? (
-                  <TrendingUp className="w-6 h-6 text-success" />
+                  <TrendingUp className="w-6 h-6 text-success icon-hover" />
                 ) : (
-                  <TrendingDown className="w-6 h-6 text-destructive" />
+                  <TrendingDown className="w-6 h-6 text-destructive icon-hover" />
                 )}
               </CardTitle>
             </CardHeader>
@@ -270,12 +270,12 @@ const Analytics = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="card-hover animate-slide-up stagger-1">
             <CardHeader className="pb-2">
               <CardDescription>Average Score</CardDescription>
               <CardTitle className="text-3xl flex items-center gap-2">
                 {Math.round(overallStats.avgScore)}%
-                <Target className="w-6 h-6 text-primary" />
+                <Target className="w-6 h-6 text-primary icon-hover" />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -283,11 +283,11 @@ const Analytics = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="card-hover animate-slide-up stagger-2">
             <CardHeader className="pb-2">
               <CardDescription>Strongest Domain</CardDescription>
               <CardTitle className="text-xl flex items-center gap-2">
-                <Trophy className="w-6 h-6 text-warning" />
+                <Trophy className="w-6 h-6 text-warning icon-hover" />
                 {overallStats.bestDomain || "N/A"}
               </CardTitle>
             </CardHeader>
@@ -298,11 +298,11 @@ const Analytics = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="card-hover animate-slide-up stagger-3">
             <CardHeader className="pb-2">
               <CardDescription>Needs Improvement</CardDescription>
               <CardTitle className="text-xl flex items-center gap-2">
-                <AlertTriangle className="w-6 h-6 text-destructive" />
+                <AlertTriangle className="w-6 h-6 text-destructive icon-hover" />
                 {overallStats.weakestDomain || "N/A"}
               </CardTitle>
             </CardHeader>
@@ -429,8 +429,8 @@ const Analytics = () => {
         {/* Domain Cards */}
         <h2 className="text-2xl font-bold mb-4">Domain Details</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {domainStats.map((stat) => (
-            <Card key={stat.domain} className="hover:shadow-lg transition-shadow">
+          {domainStats.map((stat, idx) => (
+            <Card key={stat.domain} className="hover:shadow-lg transition-shadow card-hover animate-slide-up" style={{ animationDelay: `${idx * 0.1}s` }}>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg">{stat.domain}</CardTitle>

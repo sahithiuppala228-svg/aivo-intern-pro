@@ -68,9 +68,9 @@ const Index = () => {
             <p className="text-xl text-muted-foreground leading-relaxed">
               Transform your journey from student to professional with AI-powered skill verification, personalized learning, and smart internship matching.
             </p>
-            <Button variant="hero" size="lg" asChild>
+            <Button variant="hero" size="lg" asChild className="btn-shine">
               <Link to="/auth">
-                Start Your Journey <ArrowRight className="w-5 h-5" />
+                Start Your Journey <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Link>
             </Button>
             <div className="flex items-center gap-6 pt-4">
@@ -89,7 +89,7 @@ const Index = () => {
             <img 
               src={heroImage} 
               alt="Students learning with AI technology" 
-              className="relative rounded-2xl shadow-hover w-full"
+              className="relative rounded-2xl shadow-hover w-full animate-float hover:shadow-glow transition-shadow duration-300"
             />
           </div>
         </div>
@@ -106,9 +106,9 @@ const Index = () => {
           </div>
           <div className="grid md:grid-cols-3 gap-8">
             {features.map((feature, idx) => (
-              <div key={idx} className="group">
-                <div className="bg-card rounded-xl p-8 shadow-soft hover:shadow-hover transition-all duration-300 border border-border h-full">
-                  <div className="mb-4">{feature.icon}</div>
+              <div key={idx} className="group animate-slide-up" style={{ animationDelay: `${idx * 0.1}s` }}>
+                <div className="bg-card rounded-xl p-8 shadow-soft hover:shadow-hover transition-all duration-300 border border-border h-full card-hover group-hover:border-primary/30">
+                  <div className="mb-4 icon-hover inline-block">{feature.icon}</div>
                   <h3 className="text-xl font-semibold mb-3">{feature.title}</h3>
                   <p className="text-muted-foreground leading-relaxed">{feature.description}</p>
                 </div>
@@ -127,9 +127,9 @@ const Index = () => {
           </div>
           <div className="grid md:grid-cols-4 gap-8">
             {steps.map((step, idx) => (
-              <div key={idx} className="relative">
-                <div className="bg-card rounded-xl p-6 shadow-soft border border-border h-full">
-                  <div className="text-4xl font-bold text-primary mb-4 opacity-30">{step.number}</div>
+              <div key={idx} className="relative animate-slide-up" style={{ animationDelay: `${idx * 0.15}s` }}>
+                <div className="bg-card rounded-xl p-6 shadow-soft border border-border h-full card-hover hover:border-primary/30 group">
+                  <div className="text-4xl font-bold text-primary mb-4 opacity-30 group-hover:opacity-50 transition-opacity">{step.number}</div>
                   <h3 className="text-lg font-semibold mb-2">{step.title}</h3>
                   <p className="text-sm text-muted-foreground">{step.description}</p>
                 </div>

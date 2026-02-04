@@ -42,14 +42,14 @@ const Certificate = () => {
           Back to Assessments
         </Button>
 
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center p-4 bg-gradient-to-r from-blue-700 via-blue-600 to-blue-800 rounded-full mb-4">
+        <div className="text-center mb-8 animate-fade-in">
+          <div className="inline-flex items-center justify-center p-4 bg-gradient-to-r from-blue-700 via-blue-600 to-blue-800 rounded-full mb-4 animate-pulse-glow">
             <Award className="w-12 h-12 text-yellow-400" />
           </div>
-          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-blue-800 via-blue-600 to-blue-800 bg-clip-text text-transparent">
+          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-blue-800 via-blue-600 to-blue-800 bg-clip-text text-transparent animate-slide-up">
             Congratulations!
           </h1>
-          <p className="text-blue-700">
+          <p className="text-blue-700 animate-slide-up stagger-2">
             You have successfully completed the {domain} Internship Assessment
           </p>
         </div>
@@ -203,9 +203,9 @@ const Certificate = () => {
 
         {/* Action Buttons */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          <Card className="p-6 border-2 border-blue-200 hover:border-blue-400 transition-all cursor-pointer group hover:shadow-lg bg-white">
+          <Card className="p-6 border-2 border-blue-200 hover:border-blue-400 transition-all cursor-pointer group hover:shadow-lg bg-white card-hover animate-slide-up">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
+              <div className="p-3 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors icon-hover">
                 <Download className="w-6 h-6 text-blue-700" />
               </div>
               <div className="flex-1">
@@ -216,16 +216,16 @@ const Certificate = () => {
                 variant="outline" 
                 size="sm" 
                 onClick={() => window.print()}
-                className="border-blue-600 text-blue-700 hover:bg-blue-50"
+                className="border-blue-600 text-blue-700 hover:bg-blue-50 btn-shine"
               >
                 Download
               </Button>
             </div>
           </Card>
 
-          <Card className="p-6 border-2 border-yellow-300 hover:border-yellow-500 transition-all cursor-pointer group hover:shadow-lg bg-white">
+          <Card className="p-6 border-2 border-yellow-300 hover:border-yellow-500 transition-all cursor-pointer group hover:shadow-lg bg-white card-hover animate-slide-up stagger-2">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-yellow-100 rounded-lg group-hover:bg-yellow-200 transition-colors">
+              <div className="p-3 bg-yellow-100 rounded-lg group-hover:bg-yellow-200 transition-colors icon-hover">
                 <FileText className="w-6 h-6 text-yellow-700" />
               </div>
               <div className="flex-1">
@@ -237,7 +237,7 @@ const Certificate = () => {
                 size="sm"
                 onClick={() => setShowResume(true)}
                 disabled={!profile}
-                className="border-yellow-600 text-yellow-700 hover:bg-yellow-50"
+                className="border-yellow-600 text-yellow-700 hover:bg-yellow-50 btn-shine"
               >
                 Generate
               </Button>

@@ -71,16 +71,17 @@ const AssessmentIntro = () => {
           {assessmentFlow.map((step, idx) => (
             <Card 
               key={idx} 
-              className={`shadow-soft border-2 hover:shadow-hover transition-all ${
+              className={`shadow-soft border-2 hover:shadow-hover transition-all duration-300 card-hover animate-slide-up ${
                 idx === 0 
                   ? 'bg-primary/5 border-primary/30 hover:border-primary' 
                   : 'bg-secondary/5 border-secondary/30 hover:border-secondary'
               }`}
+              style={{ animationDelay: `${idx * 0.15}s` }}
             >
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className={`p-3 rounded-lg ${idx === 0 ? 'bg-primary/10' : 'bg-secondary/10'}`}>
+                    <div className={`p-3 rounded-lg icon-hover ${idx === 0 ? 'bg-primary/10' : 'bg-secondary/10'}`}>
                       {step.icon}
                     </div>
                     <div>
@@ -90,7 +91,7 @@ const AssessmentIntro = () => {
                   </div>
                   <Badge 
                     variant="outline" 
-                    className={`text-xs ${
+                    className={`text-xs animate-pulse ${
                       idx === 0 
                         ? 'border-primary text-primary bg-primary/10' 
                         : 'border-secondary text-secondary bg-secondary/10'
@@ -126,7 +127,7 @@ const AssessmentIntro = () => {
           <CardContent>
             <div className="grid sm:grid-cols-2 gap-3">
               {requirements.map((req, idx) => (
-                <div key={idx} className="flex items-center gap-2 text-sm">
+                <div key={idx} className="flex items-center gap-2 text-sm animate-slide-up" style={{ animationDelay: `${idx * 0.1}s` }}>
                   <div className="w-5 h-5 rounded-full bg-success/20 flex items-center justify-center flex-shrink-0">
                     <CheckCircle className="w-3 h-3 text-success" />
                   </div>
@@ -246,7 +247,7 @@ const AssessmentIntro = () => {
           </Badge>
           <Button 
             size="lg" 
-            className="min-w-[200px] bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl transition-all"
+            className="min-w-[200px] bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl transition-all btn-shine animate-pulse-glow"
             onClick={() => navigate("/mcq-test", { state: { domain } })}
           >
             <FileText className="w-4 h-4 mr-2" />
