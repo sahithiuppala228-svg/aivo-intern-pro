@@ -289,17 +289,17 @@ const ProfileSetup = () => {
           </div>
 
         {/* AI Mentor Card */}
-        <Card className="border-primary/20 bg-gradient-card shadow-soft">
+        <Card className="border-primary/20 bg-gradient-card shadow-soft card-hover animate-slide-up">
           <CardContent className="p-6">
             <div className="flex items-start gap-4">
-              <Avatar className="w-16 h-16 border-2 border-primary/20">
+              <Avatar className="w-16 h-16 border-2 border-primary/20 animate-float">
                 <AvatarImage src={aiMentorIcon} alt="Aivo" />
                 <AvatarFallback>AI</AvatarFallback>
               </Avatar>
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">
                   <h3 className="font-semibold text-lg">Meet Aivo — Your AI Mentor</h3>
-                  <Sparkles className="w-5 h-5 text-primary" />
+                  <Sparkles className="w-5 h-5 text-primary animate-pulse" />
                 </div>
                 <p className="text-sm text-muted-foreground">
                   💡 <strong>Pro tip:</strong> Link your LinkedIn or GitHub for better internship matches and personalized insights!
@@ -311,7 +311,7 @@ const ProfileSetup = () => {
 
         {/* Main Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
-          <Card className="shadow-soft">
+          <Card className="shadow-soft card-hover animate-slide-up">
             <CardHeader>
               <CardTitle>Basic Information</CardTitle>
               <CardDescription>Tell us about yourself</CardDescription>
@@ -408,7 +408,7 @@ const ProfileSetup = () => {
             </CardContent>
           </Card>
 
-          <Card className="shadow-soft">
+          <Card className="shadow-soft card-hover animate-slide-up stagger-1">
             <CardHeader>
               <CardTitle>Domains of Interest *</CardTitle>
               <CardDescription>Select the areas where you want to intern (select at least one)</CardDescription>
@@ -420,7 +420,7 @@ const ProfileSetup = () => {
                   <Badge
                     key={domain}
                     variant={selectedDomains.includes(domain) ? "default" : "outline"}
-                    className="cursor-pointer px-4 py-2 text-sm"
+                    className="cursor-pointer px-4 py-2 text-sm badge-pop transition-all duration-200 hover:scale-105"
                     onClick={() => handleDomainToggle(domain)}
                   >
                     {domain}
@@ -434,7 +434,7 @@ const ProfileSetup = () => {
                   <Badge
                     key={domain}
                     variant={selectedDomains.includes(domain) ? "default" : "outline"}
-                    className="cursor-pointer px-4 py-2 text-sm bg-secondary"
+                    className="cursor-pointer px-4 py-2 text-sm bg-secondary badge-pop transition-all duration-200 hover:scale-105"
                     onClick={() => handleDomainToggle(domain)}
                   >
                     {domain}
@@ -483,7 +483,7 @@ const ProfileSetup = () => {
             </CardContent>
           </Card>
 
-          <Card className="shadow-soft">
+          <Card className="shadow-soft card-hover animate-slide-up stagger-2">
             <CardHeader>
               <CardTitle>Internship Preferences</CardTitle>
               <CardDescription>Help us find the perfect match</CardDescription>

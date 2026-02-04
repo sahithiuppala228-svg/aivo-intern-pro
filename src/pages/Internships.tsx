@@ -111,11 +111,12 @@ const Internships = () => {
           {internships.map((internship, index) => (
             <Card 
               key={index} 
-              className="p-6 border-2 border-green-100 hover:border-green-300 hover:shadow-lg transition-all bg-white group"
+              className="p-6 border-2 border-green-100 hover:border-green-300 hover:shadow-lg transition-all bg-white group card-hover animate-slide-up"
+              style={{ animationDelay: `${index * 0.1}s` }}
             >
               <div className="flex flex-col md:flex-row items-start gap-5">
                 {/* Rank Badge */}
-                <div className="absolute -top-3 -left-3 w-8 h-8 bg-gradient-to-br from-green-600 to-emerald-700 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md">
+                <div className="absolute -top-3 -left-3 w-8 h-8 bg-gradient-to-br from-green-600 to-emerald-700 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md animate-bounce-subtle">
                   #{index + 1}
                 </div>
 
@@ -158,7 +159,7 @@ const Internships = () => {
 
                   <div className="flex flex-wrap gap-2 mt-4">
                     {internship.skills.map((skill, skillIndex) => (
-                      <Badge key={skillIndex} variant="secondary" className="text-xs bg-gray-100 text-gray-700 hover:bg-gray-200">
+                      <Badge key={skillIndex} variant="secondary" className="text-xs bg-gray-100 text-gray-700 hover:bg-gray-200 badge-pop">
                         {skill}
                       </Badge>
                     ))}
@@ -169,9 +170,9 @@ const Internships = () => {
                 <Button
                   size="lg"
                   onClick={() => handleApply(internship.applyLink)}
-                  className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-md hover:shadow-lg transition-all w-full md:w-auto"
+                  className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-md hover:shadow-lg transition-all w-full md:w-auto btn-shine group"
                 >
-                  <ExternalLink className="w-4 h-4 mr-2" />
+                  <ExternalLink className="w-4 h-4 mr-2 group-hover:rotate-12 transition-transform" />
                   Apply Now
                 </Button>
               </div>
