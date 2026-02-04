@@ -1,82 +1,140 @@
 
-# Simplify MCQ Test Results - Show Only Score Summary
+# Mock Interview Voice Recording & AI Analysis - Current State & Improvements
 
-## Current Behavior
+## Current Implementation Status
 
-After completing the MCQ test, the results dialog shows:
-1. Pass/Fail icon and message
-2. Score (e.g., "35/50")
-3. Percentage scored
-4. Required percentage to pass
-5. **List of all wrong questions with explanations** (this will be removed)
-6. Continue/Retry button
+The system is already fully implemented with the following flow:
 
-## Requested Change
+### Current Flow (Already Working)
+1. **Interviewer asks question** - Uses browser speech synthesis
+2. **User clicks "Start Recording"** - Starts MediaRecorder to capture audio
+3. **User speaks** - Audio is recorded
+4. **User clicks "Stop Recording"** - Recording stops, audio is sent for processing
+5. **Speech-to-Text** - Audio is sent to `speech-to-text` edge function (uses OpenAI Whisper)
+6. **Transcription displayed** - Text appears in the "Your Answer" section
+7. **AI Analysis** - Transcription sent to `analyze-interview-answer` edge function (uses Gemini)
+8. **Feedback displayed** - Score (0-100), level, strengths, improvements shown inline
+9. **Verbal feedback** - Interviewer speaks the AI-generated feedback
 
-Remove the "Questions You Got Wrong" section entirely and show only the results summary.
+### Final Feedback Page
+When interview ends, the `InterviewFeedback` component shows:
+- Overall score as percentage
+- Skill breakdown (Technical, Problem Solving, Communication, Confidence)
+- Strengths and improvements lists
+- Question-by-question analysis with individual scores
 
 ---
 
-## What Will Be Removed
+## Identified Issues to Fix
 
-The following content will be removed from the results dialog:
-- "Questions You Got Wrong (X):" heading
-- List of wrong questions with:
-  - Question text
-  - Your answer
-  - Correct answer
-  - Explanation
+### Issue 1: AI Analysis Scores Not Being Used in Final Feedback
+The current `handleEndInterview()` function uses the basic `evaluateAnswer()` function for final scoring instead of the stored AI analysis from each question. The `lastAIAnalysis` state is cleared when moving to the next question, losing valuable per-question AI feedback.
+
+### Issue 2: No Storage of Per-Question AI Analysis
+When the user answers a question and moves to the next, the AI analysis is lost. This means the final feedback page doesn't show the AI-generated scores.
+
+### Issue 3: Current Transcription Shows "Transcribing..." Message
+The transcription display shows a status message instead of updating in real-time. Since we're using batch transcription (not streaming), this is expected but could be improved with better UX.
+
+---
+
+## Proposed Improvements
+
+### 1. Store AI Analysis for Each Question
+Create a new state to store AI analysis results for each question:
+
+```typescript
+const [questionAnalyses, setQuestionAnalyses] = useState<Record<number, AIAnalysis>>({});
+```
+
+When AI analysis returns, save it:
+```typescript
+setQuestionAnalyses(prev => ({
+  ...prev,
+  [currentQuestionIndex]: analysis
+}));
+```
+
+### 2. Use AI Analysis in Final Feedback Calculation
+Update `handleEndInterview()` to use stored AI analyses:
+- Use AI scores instead of basic word-count evaluation
+- Calculate category scores based on AI feedback per question
+- Generate overall strengths/improvements from AI analysis
+
+### 3. Enhanced Final Feedback Display
+The `InterviewFeedback` component already shows question-by-question breakdown with scores. We need to ensure it receives AI-generated feedback instead of basic evaluation.
 
 ---
 
 ## Files to Modify
 
-**`src/pages/MCQTest.tsx`**
+### `src/pages/MockInterview.tsx`
 
-Remove lines 692-718 which contain the wrong answers display section:
+**Changes:**
 
-```tsx
-// This entire block will be removed:
-{!passed && wrongAnswers.length > 0 && (
-  <div className="text-left space-y-4 max-h-96 overflow-y-auto mt-4">
-    <h3 className="font-semibold text-foreground text-lg">
-      Questions You Got Wrong ({wrongAnswers.length}):
-    </h3>
-    {wrongAnswers.map((wa, index) => (
-      <div key={index} className="p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
-        ...
-      </div>
-    ))}
-  </div>
-)}
-```
+1. **Add new state for storing analyses:**
+   ```typescript
+   const [questionAnalyses, setQuestionAnalyses] = useState<Record<number, AIAnalysis>>({});
+   ```
 
----
+2. **Update `stopRecording()` to store AI analysis:**
+   ```typescript
+   // After getting AI analysis
+   setQuestionAnalyses(prev => ({
+     ...prev,
+     [currentQuestionIndex]: analysis
+   }));
+   ```
 
-## Result After Change
+3. **Update `handleEndInterview()` to use AI analyses:**
+   - Loop through `questionAnalyses` for scoring
+   - Calculate weighted average of AI scores
+   - Aggregate strengths and improvements from all AI analyses
+   - Pass AI feedback to `questionResults`
 
-### Pass Scenario:
-- Success icon
-- "Congratulations! 🎉"
-- Score: 42/50
-- "You scored 84%"
-- "Required: 80% (40 correct answers)"
-- "You've passed the MCQ test! You can now proceed to the coding test."
-- [Continue to Coding Test →] button
-
-### Fail Scenario:
-- Failure icon
-- "Test Not Passed"
-- Score: 35/50
-- "You scored 70%"
-- "Required: 80% (40 correct answers)"
-- "You need at least 80% to pass."
-- [Retry Test] button
-
-No wrong questions will be displayed in either case.
+4. **Update navigation to preserve analyses:**
+   - Don't clear `lastAIAnalysis` when moving between questions
+   - Show previous AI analysis when going back to a question
 
 ---
 
-## Technical Change
+## Expected Result After Implementation
 
-A single edit to remove the conditional block that displays wrong answers (approximately 26 lines removed).
+### During Interview:
+1. User clicks "Start Recording"
+2. Recording indicator shows (red pulsing dot)
+3. User speaks their answer
+4. User clicks "Stop Recording"
+5. "Transcribing your answer..." appears
+6. Transcribed text replaces the status message
+7. "Analyzing..." appears briefly
+8. AI analysis panel shows:
+   - Score: 78/100
+   - Level: "Good"
+   - Strengths: ["Covered core concepts", "Clear explanation"]
+   - Improvements: ["Add specific examples"]
+9. Interviewer speaks: "That was a good answer, [Name]. You covered the key concepts well..."
+
+### Final Feedback Page:
+- **Overall Score**: Weighted average from all AI scores (e.g., 75%)
+- **Level**: Based on overall score (Beginner/Intermediate/Advanced/Expert)
+- **Skill Breakdown**: 
+  - Technical: Average of technical question AI scores
+  - Problem Solving: Average of problem-solving question AI scores
+  - Communication: Based on answer length and clarity
+  - Confidence: Based on completion rate
+- **Question-by-Question**: Each shows AI-generated score and feedback
+- **Aggregated Strengths/Improvements**: Combined from all AI analyses
+
+---
+
+## Technical Implementation Order
+
+1. Add `questionAnalyses` state to store per-question AI results
+2. Update `stopRecording()` to save analysis to new state
+3. Update `handleNextQuestion()` to preserve analyses when navigating
+4. Rewrite `handleEndInterview()` to use AI scores for final calculation
+5. Update the feedback generation to aggregate AI-generated content
+6. Test the complete flow from recording to final feedback
+
+This will ensure that the percentage scores shown in the feedback page are derived from the actual AI analysis of the candidate's spoken answers, not just word counts.
