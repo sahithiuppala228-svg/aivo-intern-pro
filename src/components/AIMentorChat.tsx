@@ -4,8 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { X, Send, Mic, MicOff, Volume2, Sparkles, MessageSquare, Target, TrendingUp, Download, Copy, Check, Languages } from "lucide-react";
+import { X, Send, Mic, MicOff, Volume2, Sparkles, MessageSquare, Target, TrendingUp, Download, Copy, Check } from "lucide-react";
 import aiMentorIcon from "@/assets/ai-mentor-icon.jpg";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -23,21 +22,6 @@ interface AIMentorChatProps {
   onClose: () => void;
 }
 
-const INDIAN_LANGUAGES = [
-  { code: "en-IN", name: "English" },
-  { code: "hi-IN", name: "Hindi (हिन्दी)" },
-  { code: "bn-IN", name: "Bengali (বাংলা)" },
-  { code: "te-IN", name: "Telugu (తెలుగు)" },
-  { code: "mr-IN", name: "Marathi (मराठी)" },
-  { code: "ta-IN", name: "Tamil (தமிழ்)" },
-  { code: "gu-IN", name: "Gujarati (ગુજરાતી)" },
-  { code: "kn-IN", name: "Kannada (ಕನ್ನಡ)" },
-  { code: "ml-IN", name: "Malayalam (മലയാളം)" },
-  { code: "pa-IN", name: "Punjabi (ਪੰਜਾਬੀ)" },
-  { code: "or-IN", name: "Odia (ଓଡ଼ିଆ)" },
-  { code: "as-IN", name: "Assamese (অসমীয়া)" },
-];
-
 const AIMentorChat = ({ isOpen, onClose }: AIMentorChatProps) => {
   const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([
@@ -53,7 +37,6 @@ const AIMentorChat = ({ isOpen, onClose }: AIMentorChatProps) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
-  const [selectedLanguage, setSelectedLanguage] = useState("en-IN");
   const [voiceMode, setVoiceMode] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -360,34 +343,37 @@ const AIMentorChat = ({ isOpen, onClose }: AIMentorChatProps) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-y-0 right-0 w-full sm:w-96 bg-background border-l border-border shadow-2xl z-50 flex flex-col">
+    <div className="fixed inset-y-0 right-0 w-full sm:w-96 bg-background/95 backdrop-blur-xl border-l border-border/50 shadow-2xl z-50 flex flex-col animate-slide-in-right">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border bg-gradient-card">
+      <div className="flex items-center justify-between p-4 border-b border-border/50 bg-gradient-card/80 backdrop-blur-sm">
         <div className="flex items-center gap-3">
-          <Avatar className="w-10 h-10 border-2 border-primary/20">
+          <Avatar className="w-10 h-10 border-2 border-primary/30 ring-2 ring-primary/20 ring-offset-2 ring-offset-background transition-all duration-300 hover:ring-primary/40">
             <AvatarImage src={aiMentorIcon} alt="Aivo" />
             <AvatarFallback>AI</AvatarFallback>
           </Avatar>
           <div>
-            <h3 className="font-semibold text-sm">Aivo — Your Mentor</h3>
+            <h3 className="font-semibold text-sm bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text">Aivo — Your Mentor</h3>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-success"></span>
+              </span>
               Always here to help
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={downloadConversation} title="Download conversation">
+          <Button variant="ghost" size="icon" onClick={downloadConversation} title="Download conversation" className="hover:scale-110 transition-transform duration-200">
             <Download className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={onClose}>
+          <Button variant="ghost" size="icon" onClick={onClose} className="hover:scale-110 hover:rotate-90 transition-all duration-200">
             <X className="w-5 h-5" />
           </Button>
         </div>
       </div>
 
       {/* Quick Actions */}
-      <div className="p-3 border-b border-border bg-muted/30">
+      <div className="p-3 border-b border-border/50 bg-muted/20 backdrop-blur-sm">
         <p className="text-xs text-muted-foreground mb-2">Quick Actions</p>
         <div className="flex flex-wrap gap-2">
           {quickActions.map((action, idx) => (
@@ -396,9 +382,9 @@ const AIMentorChat = ({ isOpen, onClose }: AIMentorChatProps) => {
               variant="outline"
               size="sm"
               onClick={() => handleQuickAction(action.label)}
-              className="text-xs"
+              className="text-xs group hover:scale-105 hover:shadow-md transition-all duration-200 hover:border-primary/50"
             >
-              {action.icon}
+              <span className="group-hover:animate-bounce-subtle">{action.icon}</span>
               {action.label}
             </Button>
           ))}
@@ -412,12 +398,12 @@ const AIMentorChat = ({ isOpen, onClose }: AIMentorChatProps) => {
             <div
               key={message.id}
               className={cn(
-                "flex gap-3",
+                "flex gap-3 message-fade-in",
                 message.role === "user" ? "flex-row-reverse" : "flex-row"
               )}
             >
               {message.role === "assistant" && (
-                <Avatar className="w-8 h-8 flex-shrink-0">
+                <Avatar className="w-8 h-8 flex-shrink-0 ring-1 ring-primary/20">
                   <AvatarImage src={aiMentorIcon} alt="Aivo" />
                   <AvatarFallback>AI</AvatarFallback>
                 </Avatar>
@@ -425,10 +411,10 @@ const AIMentorChat = ({ isOpen, onClose }: AIMentorChatProps) => {
               <div className="flex flex-col max-w-[80%]">
                 <Card
                   className={cn(
-                    "p-3",
+                    "p-3 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
                     message.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-card"
+                      ? "bg-gradient-to-br from-primary to-primary/90 text-primary-foreground shadow-primary/20"
+                      : "bg-card/80 backdrop-blur-sm border-border/50"
                   )}
                 >
                   <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
@@ -468,15 +454,15 @@ const AIMentorChat = ({ isOpen, onClose }: AIMentorChatProps) => {
           ))}
           {isTyping && (
             <div className="flex gap-3">
-              <Avatar className="w-8 h-8">
+              <Avatar className="w-8 h-8 ring-1 ring-primary/20">
                 <AvatarImage src={aiMentorIcon} alt="Aivo" />
                 <AvatarFallback>AI</AvatarFallback>
               </Avatar>
-              <Card className="p-3">
+              <Card className="p-3 bg-card/80 backdrop-blur-sm">
                 <div className="flex gap-1">
-                  <div className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce" />
-                  <div className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce delay-100" />
-                  <div className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce delay-200" />
+                  <div className="w-2 h-2 rounded-full bg-primary/60 typing-dot" style={{ animationDelay: '0ms' }} />
+                  <div className="w-2 h-2 rounded-full bg-primary/60 typing-dot" style={{ animationDelay: '150ms' }} />
+                  <div className="w-2 h-2 rounded-full bg-primary/60 typing-dot" style={{ animationDelay: '300ms' }} />
                 </div>
               </Card>
             </div>
@@ -485,42 +471,31 @@ const AIMentorChat = ({ isOpen, onClose }: AIMentorChatProps) => {
       </ScrollArea>
 
       {/* Input */}
-      <div className="p-4 border-t border-border bg-card space-y-3">
-        <div className="flex items-center gap-2">
-          <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-            <SelectTrigger className="w-full h-9">
-              <Languages className="w-4 h-4 mr-2" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {INDIAN_LANGUAGES.map((lang) => (
-                <SelectItem key={lang.code} value={lang.code}>
-                  {lang.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="p-4 border-t border-border/50 bg-card/80 backdrop-blur-sm space-y-3">
         <div className="flex gap-2">
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !isTyping && handleSend()}
-            placeholder={`Ask Aivo in ${INDIAN_LANGUAGES.find(l => l.code === selectedLanguage)?.name}...`}
-            className="flex-1"
+            placeholder="Ask Aivo anything..."
+            className="flex-1 input-glow transition-all duration-200 focus:ring-2 focus:ring-primary/30"
             disabled={isTyping || isRecording}
           />
           <Button 
             variant="ghost" 
             size="icon"
             onClick={isRecording ? stopRecording : startRecording}
-            className={cn(isRecording && "text-destructive animate-pulse")}
+            className={cn(
+              "transition-all duration-200 hover:scale-110",
+              isRecording && "text-destructive animate-pulse ring-2 ring-destructive/50"
+            )}
           >
             {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
           </Button>
           <Button 
             onClick={handleSend} 
             disabled={!input.trim() || isTyping || isRecording}
+            className="btn-shine hover:scale-105 transition-all duration-200"
           >
             <Send className="w-4 h-4" />
           </Button>
