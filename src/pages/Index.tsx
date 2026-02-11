@@ -89,7 +89,7 @@ const Index = () => {
             <img 
               src={heroImage} 
               alt="Students learning with AI technology" 
-              className="relative rounded-2xl shadow-hover w-full animate-float hover:shadow-glow transition-shadow duration-300"
+              className="relative rounded-2xl shadow-hover w-full hover:shadow-glow transition-shadow duration-300"
             />
           </div>
         </div>
