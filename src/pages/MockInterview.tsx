@@ -110,11 +110,12 @@ const MockInterview = () => {
   const [questionAnalyses, setQuestionAnalyses] = useState<Record<number, AIAnalysis>>({});
   
   // Audio recording
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const audioStreamRef = useRef<MediaStream | null>(null);
+  const speechRecognitionRef = useRef<any>(null);
+  const finalTranscriptRef = useRef<string>("");
+  const isRecordingRef = useRef(false);
   
   const currentQuestion = questions[currentQuestionIndex];
   
@@ -339,7 +340,7 @@ const MockInterview = () => {
     }
   };
   
-  // Cleanup audio test on unmount
+  // Cleanup audio test and speech recognition on unmount
   useEffect(() => {
     return () => {
       if (audioTestIntervalRef.current) {
@@ -347,6 +348,12 @@ const MockInterview = () => {
       }
       if (audioTestTimeout) {
         clearTimeout(audioTestTimeout);
+      }
+      // Stop speech recognition if active
+      if (speechRecognitionRef.current) {
+        isRecordingRef.current = false;
+        speechRecognitionRef.current.stop();
+        speechRecognitionRef.current = null;
       }
     };
   }, [audioTestTimeout]);
@@ -371,28 +378,76 @@ const MockInterview = () => {
     }, 8000);
   };
 
-  // Start recording answer
+  // Start recording answer with browser Speech Recognition
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioStreamRef.current = stream;
       
+      // Set up audio analyser for silence detection
       audioContextRef.current = new AudioContext();
       analyserRef.current = audioContextRef.current.createAnalyser();
       const source = audioContextRef.current.createMediaStreamSource(stream);
       source.connect(analyserRef.current);
       
-      mediaRecorderRef.current = new MediaRecorder(stream);
-      audioChunksRef.current = [];
+      // Initialize browser Speech Recognition
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        toast({
+          variant: "destructive",
+          title: "Not Supported",
+          description: "Speech recognition is not supported in this browser. Please use Chrome or Edge.",
+        });
+        return;
+      }
       
-      mediaRecorderRef.current.ondataavailable = (event) => {
-        audioChunksRef.current.push(event.data);
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+      
+      finalTranscriptRef.current = "";
+      isRecordingRef.current = true;
+      
+      recognition.onresult = (event: any) => {
+        let interim = "";
+        let final = "";
+        for (let i = 0; i < event.results.length; i++) {
+          const result = event.results[i];
+          if (result.isFinal) {
+            final += result[0].transcript + " ";
+          } else {
+            interim += result[0].transcript;
+          }
+        }
+        finalTranscriptRef.current = final.trim();
+        const displayText = (final + interim).trim();
+        setCurrentTranscription(displayText);
+        setCurrentAnswer(displayText);
       };
       
-      mediaRecorderRef.current.start();
+      recognition.onend = () => {
+        // Auto-restart if still recording (browser stops after silence)
+        if (isRecordingRef.current) {
+          try {
+            recognition.start();
+          } catch (e) {
+            // ignore - may already be started
+          }
+        }
+      };
+      
+      recognition.onerror = (event: any) => {
+        if (event.error !== 'no-speech' && event.error !== 'aborted') {
+          console.error('Speech recognition error:', event.error);
+        }
+      };
+      
+      recognition.start();
+      speechRecognitionRef.current = recognition;
       setIsRecording(true);
       
-      // Start no-audio detection timer
+      // Silence detection timer
       let silenceCounter = 0;
       const checkAudio = setInterval(() => {
         if (analyserRef.current) {
@@ -402,7 +457,7 @@ const MockInterview = () => {
           
           if (average < 5) {
             silenceCounter++;
-            if (silenceCounter >= 10) { // 10 seconds of silence
+            if (silenceCounter >= 10) {
               speakText(`${userName}, I didn't detect any audio. Please make sure your microphone is working and try speaking again.`);
               silenceCounter = 0;
             }
@@ -423,92 +478,81 @@ const MockInterview = () => {
     }
   };
 
-  // Stop recording and transcribe
+  // Stop recording and analyze answer
   const stopRecording = async () => {
     if (noAudioTimer) {
       clearInterval(noAudioTimer);
       setNoAudioTimer(null);
     }
     
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      
-      mediaRecorderRef.current.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        
-        // Convert to base64 for speech-to-text
-        const reader = new FileReader();
-        reader.onloadend = async () => {
-          const base64Audio = (reader.result as string).split(',')[1];
-          
-          setIsAnalyzing(true);
-          setCurrentTranscription("Transcribing your answer...");
-          
-          try {
-            // Call speech-to-text edge function
-            const { data: transcription, error: sttError } = await supabase.functions.invoke('speech-to-text', {
-              body: { audio: base64Audio }
-            });
-            
-            if (sttError) throw sttError;
-            
-            const transcribedText = transcription?.text || "";
-            setCurrentTranscription(transcribedText);
-            setCurrentAnswer(transcribedText);
-            
-            // Call AI analysis edge function
-            setCurrentTranscription(transcribedText + "\n\nAnalyzing your answer...");
-            
-            const { data: analysis, error: analysisError } = await supabase.functions.invoke('analyze-interview-answer', {
-              body: {
-                answer: transcribedText,
-                question: currentQuestion.question,
-                expectedPoints: currentQuestion.expectedPoints,
-                domain: domain,
-                candidateName: userName
-              }
-            });
-            
-            if (analysisError) {
-              console.error("AI analysis error:", analysisError);
-              // Fallback to basic evaluation
-              const evaluation = evaluateAnswer(transcribedText, currentQuestion);
-              speakText(`Thank you, ${userName}. ${evaluation.feedback}`);
-              setIsAnalyzing(false);
-              setLastAIAnalysis(null);
-              return;
-            }
-            
-            // Store the AI analysis for current question
-            setLastAIAnalysis(analysis);
-            setQuestionAnalyses(prev => ({
-              ...prev,
-              [currentQuestionIndex]: analysis
-            }));
-            
-            // Speak the AI-generated feedback
-            speakText(analysis.verbalFeedback);
-            setIsAnalyzing(false);
-            
-          } catch (error) {
-            console.error("Transcription/Analysis error:", error);
-            toast({
-              variant: "destructive",
-              title: "Analysis Error",
-              description: "Could not analyze your answer. Please try again.",
-            });
-            setIsAnalyzing(false);
-            setCurrentTranscription("");
-          }
-        };
-        reader.readAsDataURL(audioBlob);
-        
-        // Stop audio stream
-        if (audioStreamRef.current) {
-          audioStreamRef.current.getTracks().forEach(track => track.stop());
+    isRecordingRef.current = false;
+    setIsRecording(false);
+    
+    // Stop speech recognition
+    if (speechRecognitionRef.current) {
+      speechRecognitionRef.current.stop();
+      speechRecognitionRef.current = null;
+    }
+    
+    // Stop audio stream
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach(track => track.stop());
+    }
+    
+    // Get the transcribed text
+    const transcribedText = finalTranscriptRef.current || currentAnswer;
+    
+    if (!transcribedText.trim()) {
+      toast({
+        variant: "destructive",
+        title: "No Speech Detected",
+        description: "We couldn't detect any speech. Please try again.",
+      });
+      return;
+    }
+    
+    // Analyze the answer
+    setIsAnalyzing(true);
+    setCurrentTranscription(transcribedText + "\n\nAnalyzing your answer...");
+    
+    try {
+      const { data: analysis, error: analysisError } = await supabase.functions.invoke('analyze-interview-answer', {
+        body: {
+          answer: transcribedText,
+          question: currentQuestion.question,
+          expectedPoints: currentQuestion.expectedPoints,
+          domain: domain,
+          candidateName: userName
         }
-      };
+      });
+      
+      if (analysisError) {
+        console.error("AI analysis error:", analysisError);
+        const evaluation = evaluateAnswer(transcribedText, currentQuestion);
+        speakText(`Thank you, ${userName}. ${evaluation.feedback}`);
+        setIsAnalyzing(false);
+        setLastAIAnalysis(null);
+        return;
+      }
+      
+      setLastAIAnalysis(analysis);
+      setQuestionAnalyses(prev => ({
+        ...prev,
+        [currentQuestionIndex]: analysis
+      }));
+      
+      speakText(analysis.verbalFeedback);
+      setIsAnalyzing(false);
+      
+    } catch (error) {
+      console.error("Analysis error:", error);
+      toast({
+        variant: "destructive",
+        title: "Analysis Error",
+        description: "Could not analyze your answer. Please try again.",
+      });
+      setIsAnalyzing(false);
+      setCurrentTranscription(transcribedText);
     }
   };
 
