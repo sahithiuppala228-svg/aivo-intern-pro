@@ -1,83 +1,101 @@
 
+# Fix Security Issues and Add Anti-Cheating Measures
 
-# Fix Security Issues (Errors + Warnings)
+## Part 1: Fix Security Scan Errors
 
-## Issues to Fix
+### 1A. MCQ Test Answers Accessible via Direct Query
+The `mcq_questions` table already has `USING (false)` RLS policy from a previous fix. The security finding is stale and needs to be deleted.
 
-### 1. ERROR: MCQ Generation Endpoint Lacks Authentication
-The `generate-mcq-questions` edge function has `verify_jwt=false` and no auth checks, allowing anyone to trigger expensive AI question generation.
+### 1B. Coding Test Cases Fully Exposed - Students Can Hardcode Solutions
+The `coding_problems` table has `USING (true)` RLS policy, exposing ALL test cases (including hidden ones with expected outputs) to any authenticated user. Students can query the table directly and get all answers.
 
-**Fix:** Add authentication check at the top of the function using the Authorization header and Supabase client to verify the user. This is the same pattern used in other secured functions like `speech-to-text`.
+**Fix:**
+- Change `coding_problems` RLS SELECT policy to `USING (false)` (block direct access)
+- Create a `coding_problems_public` view that excludes `test_cases` (hidden answers) and `sample_output`
+- Update the `get-random-coding-problems` edge function to only send visible test cases to the client (strip hidden test case expected outputs)
+- Create a new edge function `validate-coding-solution` that evaluates code server-side against hidden test cases
 
-**File:** `supabase/functions/generate-mcq-questions/index.ts`
-- Import `createClient` from Supabase
-- Extract and validate the Authorization header
-- Verify the user with `supabaseClient.auth.getUser()`
-- Return 401 if unauthorized
+### 1C. Test Answers Exposed - Students Can Cheat on Assessments
+This is about the overall pattern. The practice_questions and interview_questions tables are already locked down. The remaining exposure is in coding_problems (addressed above).
 
-### 2. ERROR: Interview Questions and Expected Answers Are Publicly Accessible
-The `interview_questions` table has a SELECT policy with `USING (true)`, meaning anyone can read all questions and their `expected_points` (correct answer criteria). This allows candidates to study exact answers before interviews.
+## Part 2: Anti-Cheating Proctoring for MCQ and Coding Tests
 
-**Fix:** Two-part approach:
-- **Database migration:** Create a secure view `interview_questions_public` that exposes only `id`, `domain`, `question`, `category`, `difficulty` (excludes `expected_points`). Change the base table's SELECT policy to `USING (false)` to block direct access.
-- **Edge function update:** The `get-random-interview-questions` function already uses the service role key, so it can still read `expected_points` from the base table. The client-side code in `MockInterview.tsx` receives `expected_points` via the edge function response (not direct table access), so no frontend changes are needed.
+### 2A. Create a Reusable Proctoring Hook
+Build a `useProctoring` hook that handles:
+- **Camera monitoring**: Uses the existing `useFaceDetection` hook to continuously monitor the camera during tests
+- **Camera off detection**: If the camera stream stops or is denied, show a warning toast and a persistent warning banner
+- **Multiple faces detection**: Warn if more than one person is detected
+- **No face detection**: Warn if the student leaves the camera view
+- **Warning counter**: Track warnings; after 3 warnings, auto-submit the test
 
-### 3. WARNING: Leaked Password Protection Disabled
-This is a platform-level setting, not a code change.
+### 2B. Add Proctoring to MCQ Test Page
+- Require camera permission before starting the test
+- Show a small camera preview in the corner during the test
+- Display warning banners when violations are detected
+- Auto-submit after repeated violations
 
-**How to enable:** Go to your project Settings, then Cloud tab, then Users, then Auth settings (gear icon). Under Email settings, enable the "Password HIBP Check" option.
+### 2C. Add Proctoring to Coding Test Page
+- Same camera monitoring as MCQ test
+- Show camera preview and warning system
+- Auto-submit on repeated violations
 
-### 4. WARNING: User Identity and Performance Data Could Be Exposed
-The `user_test_attempts` table has RLS policies that already restrict users to viewing only their own data (`auth.uid() = user_id`). The warning is about theoretical user_id enumeration, but since users can only see their own rows, this is not exploitable. 
-
-**Fix:** Mark this as ignored/acceptable since RLS already prevents cross-user access.
-
----
+### 2D. Voice/Audio Monitoring
+- Use the existing audio detection pattern (from MockInterview) to monitor for suspicious audio during MCQ and coding tests
+- Detect if the student is talking to someone (potential cheating)
+- Warn on sustained voice detection during written tests
 
 ## Technical Details
 
-### Database Migration (SQL)
+### Database Migration
 ```sql
--- Create a public view for interview questions WITHOUT expected_points
-CREATE VIEW public.interview_questions_public
-WITH (security_invoker = on) AS
-SELECT id, domain, question, category, difficulty, created_at
-FROM public.interview_questions;
-
--- Block direct SELECT on base table (service role bypasses RLS)
-DROP POLICY IF EXISTS "Anyone can read interview questions" ON public.interview_questions;
-CREATE POLICY "Block direct select on interview questions"
-  ON public.interview_questions FOR SELECT
+-- Block direct access to coding_problems
+DROP POLICY IF EXISTS "Anyone can read coding problems" ON public.coding_problems;
+CREATE POLICY "Block direct select on coding_problems"
+  ON public.coding_problems FOR SELECT
   USING (false);
+
+-- Create public view without hidden test case data
+CREATE VIEW public.coding_problems_public
+WITH (security_invoker = on) AS
+SELECT id, domain, title, description, difficulty,
+       input_format, output_format, constraints,
+       sample_input, sample_output, created_at
+FROM public.coding_problems;
 ```
 
-### Edge Function: `generate-mcq-questions/index.ts`
-Add authentication block after CORS check:
+### Edge Function Changes (`get-random-coding-problems`)
+- Strip `test_cases` from the response sent to client
+- Only include visible test cases (first 2) with their expected outputs
+- Hidden test cases: send input only (no expected output) so UI can show "Hidden Test Case" labels
+
+### New Edge Function (`validate-coding-solution`)
+- Accepts: problem_id, user_code
+- Server-side: fetches full test cases from DB (using service role)
+- Evaluates code against all test cases (visible + hidden)
+- Returns: pass/fail results per test case (without exposing expected outputs for hidden cases)
+
+### New Hook: `useProctoring`
 ```typescript
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+interface ProctoringConfig {
+  requireCamera: boolean;
+  requireAudio: boolean;
+  maxWarnings: number;
+  onMaxWarningsReached: () => void;
+}
 
-// After OPTIONS check, before processing:
-const authHeader = req.headers.get('Authorization');
-if (!authHeader) {
-  return new Response(JSON.stringify({ error: 'Unauthorized' }),
-    { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-}
-const supabaseClient = createClient(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_ANON_KEY')!
-);
-const { data: { user }, error: authError } = await supabaseClient.auth.getUser(
-  authHeader.replace('Bearer ', '')
-);
-if (authError || !user) {
-  return new Response(JSON.stringify({ error: 'Unauthorized' }),
-    { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-}
+// Returns: warningCount, violations[], cameraPreview component, isProctoring
 ```
+
+### Files to Create
+- `src/hooks/useProctoring.ts` - Reusable proctoring hook
+- `supabase/functions/validate-coding-solution/index.ts` - Server-side code validation
+
+### Files to Modify
+- `src/pages/MCQTest.tsx` - Add proctoring (camera + audio monitoring)
+- `src/pages/CodingTest.tsx` - Add proctoring + use server-side validation
+- `supabase/functions/get-random-coding-problems/index.ts` - Strip hidden test case answers
 
 ### Security Finding Updates
-- Delete `generate_mcq_no_auth` finding (fixed)
-- Delete `interview_questions_public_access` finding (fixed)
-- Ignore `user_test_attempts_user_id_exposure` (RLS already prevents cross-user access)
-- Note about `SUPA_auth_leaked_password_protection` (manual platform setting)
-
+- Delete stale `mcq_correct_answers_exposed` finding
+- Delete `coding_test_cases_exposed` finding after fix
+- Delete `test_answers_exposed` finding after fix
