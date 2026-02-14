@@ -257,6 +257,33 @@ export type Database = {
       }
     }
     Views: {
+      interview_questions_public: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          difficulty: string | null
+          domain: string | null
+          id: string | null
+          question: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          difficulty?: string | null
+          domain?: string | null
+          id?: string | null
+          question?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          difficulty?: string | null
+          domain?: string | null
+          id?: string | null
+          question?: string | null
+        }
+        Relationships: []
+      }
       mcq_questions_public: {
         Row: {
           created_at: string | null
