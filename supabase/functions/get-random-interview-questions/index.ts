@@ -28,14 +28,13 @@ serve(async (req) => {
   }
 
   try {
-    const { domain } = await req.json();
-    
-    if (!domain) {
-      return new Response(
-        JSON.stringify({ error: "Domain is required" }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const body = await req.json();
+
+    // Validate inputs
+    const { validateDomain, validationError: valErr } = await import("../_shared/validation.ts");
+    const domainCheck = validateDomain(body.domain);
+    if (!domainCheck.valid) return valErr(domainCheck.error!, corsHeaders);
+    const domain = domainCheck.value!;
 
     console.log(`Fetching interview questions for domain: ${domain}`);
 

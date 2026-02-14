@@ -61,14 +61,14 @@ serve(async (req) => {
     // Use service key for database operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { domain, count = TOTAL_PROBLEMS } = await req.json();
+    const body = await req.json();
 
-    if (!domain) {
-      return new Response(JSON.stringify({ error: 'Domain is required' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    // Validate inputs
+    const { validateDomain, validateCount, validationError: valErr } = await import("../_shared/validation.ts");
+    const domainCheck = validateDomain(body.domain);
+    if (!domainCheck.valid) return valErr(domainCheck.error!, corsHeaders);
+    const domain = domainCheck.value!;
+    const count = validateCount(body.count, TOTAL_PROBLEMS, 20);
 
     const isPreseededDomain = PRESEEDED_DOMAINS.includes(domain);
     console.log(`Domain: ${domain}, isPreseeded: ${isPreseededDomain}, requesting ${count} problems`);

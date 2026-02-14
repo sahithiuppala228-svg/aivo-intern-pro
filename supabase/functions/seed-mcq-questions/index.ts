@@ -15,14 +15,14 @@ serve(async (req) => {
   }
 
   try {
-    const { domain, targetCount = 50 } = await req.json();
+    const body = await req.json();
 
-    if (!domain) {
-      return new Response(JSON.stringify({ error: 'Domain is required' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    // Validate inputs
+    const { validateDomain, validateCount, validationError: valErr } = await import("../_shared/validation.ts");
+    const domainCheck = validateDomain(body.domain);
+    if (!domainCheck.valid) return valErr(domainCheck.error!, corsHeaders);
+    const domain = domainCheck.value!;
+    const targetCount = validateCount(body.targetCount, 50, 100);
 
     console.log(`Starting seed for domain: ${domain}, target: ${targetCount} questions`);
 

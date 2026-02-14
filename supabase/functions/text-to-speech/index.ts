@@ -37,11 +37,16 @@ serve(async (req) => {
       });
     }
 
-    const { text, voice } = await req.json();
+    const body = await req.json();
 
-    if (!text) {
-      throw new Error('Text is required');
-    }
+    // Validate inputs
+    const { validateString, validationError: valErr, MAX_TEXT_LENGTH } = await import("../_shared/validation.ts");
+    const textCheck = validateString(body.text, 'text', MAX_TEXT_LENGTH);
+    if (!textCheck.valid) return valErr(textCheck.error!, corsHeaders);
+    const text = textCheck.value!;
+
+    const allowedVoices = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
+    const voice = allowedVoices.includes(body.voice) ? body.voice : 'alloy';
 
     const response = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST',

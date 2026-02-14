@@ -37,7 +37,27 @@ serve(async (req) => {
       });
     }
 
-    const { failedQuestions } = await req.json();
+    const body = await req.json();
+
+    // Validate inputs
+    if (!Array.isArray(body.failedQuestions) || body.failedQuestions.length === 0 || body.failedQuestions.length > 50) {
+      return new Response(JSON.stringify({ error: 'failedQuestions must be an array with 1-50 items' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Sanitize each question object
+    const failedQuestions = body.failedQuestions.map((q: any) => ({
+      question: String(q.question ?? '').slice(0, 2000),
+      correct_answer: String(q.correct_answer ?? '').slice(0, 10),
+      user_answer: String(q.user_answer ?? '').slice(0, 10),
+      option_a: String(q.option_a ?? '').slice(0, 500),
+      option_b: String(q.option_b ?? '').slice(0, 500),
+      option_c: String(q.option_c ?? '').slice(0, 500),
+      option_d: String(q.option_d ?? '').slice(0, 500),
+    }));
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
