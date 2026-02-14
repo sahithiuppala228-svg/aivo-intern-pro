@@ -1,17 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { validateDomain, validateString, validationError, MAX_ANSWER_LENGTH, MAX_QUESTION_LENGTH, MAX_NAME_LENGTH } from "../_shared/validation.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
-
-interface AnalysisRequest {
-  answer: string;
-  question: string;
-  expectedPoints: string[];
-  domain: string;
-  candidateName: string;
-}
 
 interface AnalysisResponse {
   score: number;
@@ -27,7 +20,29 @@ serve(async (req) => {
   }
 
   try {
-    const { answer, question, expectedPoints, domain, candidateName } = await req.json() as AnalysisRequest;
+    const body = await req.json();
+
+    // Validate inputs
+    const domainCheck = validateDomain(body.domain);
+    if (!domainCheck.valid) return validationError(domainCheck.error!, corsHeaders);
+
+    const questionCheck = validateString(body.question, 'question', MAX_QUESTION_LENGTH);
+    if (!questionCheck.valid) return validationError(questionCheck.error!, corsHeaders);
+
+    const nameCheck = validateString(body.candidateName, 'candidateName', MAX_NAME_LENGTH);
+    if (!nameCheck.valid) return validationError(nameCheck.error!, corsHeaders);
+
+    const answerCheck = validateString(body.answer, 'answer', MAX_ANSWER_LENGTH, false);
+
+    if (!Array.isArray(body.expectedPoints) || body.expectedPoints.length > 20) {
+      return validationError('expectedPoints must be an array with at most 20 items', corsHeaders);
+    }
+
+    const domain = domainCheck.value!;
+    const question = questionCheck.value!;
+    const candidateName = nameCheck.value!;
+    const answer = answerCheck.value || '';
+    const expectedPoints: string[] = body.expectedPoints.map((p: unknown) => String(p).slice(0, 500));
 
     console.log("Analyzing answer for:", candidateName);
     console.log("Question:", question);

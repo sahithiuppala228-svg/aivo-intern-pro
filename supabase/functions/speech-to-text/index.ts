@@ -71,10 +71,22 @@ serve(async (req) => {
 
     console.log("Authenticated user:", user.id);
 
-    const { audio } = await req.json();
+    const body = await req.json();
+    const audio = body.audio;
     
-    if (!audio) {
-      throw new Error('No audio data provided');
+    if (!audio || typeof audio !== 'string') {
+      return new Response(JSON.stringify({ error: 'Audio data is required and must be a string' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Limit audio size (base64 ~10MB max)
+    if (audio.length > 14_000_000) {
+      return new Response(JSON.stringify({ error: 'Audio data too large (max ~10MB)' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     console.log('Received audio data, processing...');

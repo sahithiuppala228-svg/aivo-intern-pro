@@ -37,7 +37,22 @@ serve(async (req) => {
 
     console.log("AI Mentor chat request from user:", user.id);
 
-    const { messages } = await req.json();
+    const body = await req.json();
+
+    // Validate messages input
+    if (!Array.isArray(body.messages) || body.messages.length === 0 || body.messages.length > 50) {
+      return new Response(JSON.stringify({ error: 'messages must be an array with 1-50 items' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Sanitize messages - enforce length limits
+    const messages = body.messages.map((m: any) => ({
+      role: ['user', 'assistant'].includes(m.role) ? m.role : 'user',
+      content: String(m.content ?? '').slice(0, 5000),
+    }));
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 

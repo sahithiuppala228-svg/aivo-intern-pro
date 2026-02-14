@@ -38,8 +38,14 @@ serve(async (req) => {
       });
     }
 
-    const { domain, count } = await req.json();
-    const total = typeof count === 'number' && count > 0 ? count : 25;
+    const body = await req.json();
+
+    // Validate inputs
+    const { validateDomain, validateCount, validationError: valErr } = await import("../_shared/validation.ts");
+    const domainCheck = validateDomain(body.domain);
+    if (!domainCheck.valid) return valErr(domainCheck.error!, corsHeaders);
+    const domain = domainCheck.value!;
+    const total = validateCount(body.count, 25, 50);
 
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");

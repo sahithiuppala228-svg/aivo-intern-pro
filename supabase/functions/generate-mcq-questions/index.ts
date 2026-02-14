@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { validateDomain, validateCount, validationError } from "../_shared/validation.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,8 +12,13 @@ serve(async (req) => {
   }
 
   try {
-    const { domain, count } = await req.json();
-    const total = typeof count === 'number' && count > 0 ? count : 50;
+    const body = await req.json();
+
+    const domainCheck = validateDomain(body.domain);
+    if (!domainCheck.valid) return validationError(domainCheck.error!, corsHeaders);
+
+    const domain = domainCheck.value!;
+    const total = validateCount(body.count, 50, 50);
 
     console.log(`Generating ${total} MCQ questions for domain: ${domain}`);
 

@@ -37,7 +37,14 @@ serve(async (req) => {
       });
     }
 
-    const { domain } = await req.json();
+    const body = await req.json();
+
+    // Validate inputs
+    const { validateDomain, validationError: valErr } = await import("../_shared/validation.ts");
+    const domainCheck = validateDomain(body.domain);
+    if (!domainCheck.valid) return valErr(domainCheck.error!, corsHeaders);
+    const domain = domainCheck.value!;
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
