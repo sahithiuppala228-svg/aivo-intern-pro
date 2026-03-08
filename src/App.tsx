@@ -13,6 +13,7 @@ import MockInterview from "./pages/MockInterview";
 import Certificate from "./pages/Certificate";
 import Internships from "./pages/Internships";
 import Analytics from "./pages/Analytics";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import GlobalAIMentor from "./components/GlobalAIMentor";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -28,6 +29,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/profile-setup" element={<ProtectedRoute><ProfileSetup /></ProtectedRoute>} />
           <Route path="/assessment-intro" element={<ProtectedRoute><AssessmentIntro /></ProtectedRoute>} />
           <Route path="/mcq-test" element={<ProtectedRoute><MCQTest /></ProtectedRoute>} />
