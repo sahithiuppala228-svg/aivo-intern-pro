@@ -18,11 +18,14 @@ import {
   Volume2,
   VolumeX,
   Square,
-  Lightbulb
+  Lightbulb,
+  Monitor,
+  MonitorOff
 } from "lucide-react";
 import AnimatedInterviewer from "@/components/AnimatedInterviewer";
 import InterviewFeedback from "@/components/InterviewFeedback";
 import { useFaceDetection } from "@/hooks/useFaceDetection";
+import { useScreenShare } from "@/hooks/useScreenShare";
 import { supabase } from "@/integrations/supabase/client";
 import { getDomainContext } from "@/lib/domainContext";
 
