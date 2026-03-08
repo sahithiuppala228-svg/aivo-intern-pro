@@ -520,6 +520,9 @@ const CodingTest = () => {
       setChallengeScores([]);
       setChallenges([]);
       setScreenShareReady(false);
+      setCameraReady(false);
+      setCameraWarnings(0);
+      stopCamera();
     }
   };
 
