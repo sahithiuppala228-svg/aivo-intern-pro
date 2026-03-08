@@ -554,14 +554,52 @@ const CodingTest = () => {
                 </div>
               </div>
 
+              {/* Screen Share Section */}
+              <div className="border border-border rounded-lg p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    screenShareReady ? 'bg-green-100' : 'bg-muted'
+                  }`}>
+                    {screenShareReady ? (
+                      <Monitor className="w-5 h-5 text-green-500" />
+                    ) : (
+                      <MonitorOff className="w-5 h-5 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Screen Share Required</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {screenShareReady ? "Screen sharing active ✓" : "Share your screen to start the test"}
+                    </p>
+                  </div>
+                </div>
+                {!screenShareReady ? (
+                  <Button onClick={handleStartScreenShare} className="w-full">
+                    <Monitor className="w-4 h-4 mr-2" />
+                    Start Screen Share
+                  </Button>
+                ) : (
+                  <div className="rounded-lg overflow-hidden border border-border w-full h-32 bg-muted">
+                    <video
+                      ref={screenShareVideoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                )}
+              </div>
+
               <div className="pt-6 flex justify-center">
                 <Button 
                   onClick={handleStartTest}
                   size="lg"
                   className="px-8"
                   variant="hero"
+                  disabled={!screenShareReady}
                 >
-                  START CODING TEST →
+                  {screenShareReady ? "START CODING TEST →" : "Share Screen to Start"}
                 </Button>
               </div>
             </div>
