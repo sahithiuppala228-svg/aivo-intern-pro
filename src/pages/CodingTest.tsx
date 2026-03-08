@@ -145,6 +145,22 @@ const CodingTest = () => {
   const [totalScore, setTotalScore] = useState({ passed: 0, total: 0 });
   const [passed, setPassed] = useState(false);
 
+  const [screenShareReady, setScreenShareReady] = useState(false);
+
+  const {
+    isSharing: isScreenSharing,
+    warningCount: screenShareWarnings,
+    maxWarnings: screenShareMaxWarnings,
+    videoRef: screenShareVideoRef,
+    startScreenShare,
+    stopScreenShare,
+  } = useScreenShare({
+    maxWarnings: 3,
+    onMaxWarningsReached: () => {
+      handleSubmitAllChallenges();
+    },
+  });
+
   const currentChallenge = challenges[currentQuestionIndex];
   const completedChallenges = new Set(challengeScores.map(s => s.questionIndex));
   const allChallengesCompleted = challengeScores.length === challenges.length;
