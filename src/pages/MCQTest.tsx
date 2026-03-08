@@ -967,7 +967,7 @@ const MCQTest = () => {
           </AlertDialogHeader>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   );
 };
 
