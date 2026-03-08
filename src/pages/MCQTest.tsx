@@ -68,6 +68,21 @@ const MCQTest = () => {
   const [testStarted, setTestStarted] = useState(false);
   const [generatingQuestions, setGeneratingQuestions] = useState(false);
   const [isCustomDomain, setIsCustomDomain] = useState(!PRESEEDED_DOMAINS.includes(domain));
+  const [screenShareReady, setScreenShareReady] = useState(false);
+
+  const {
+    isSharing: isScreenSharing,
+    warningCount: screenShareWarnings,
+    maxWarnings: screenShareMaxWarnings,
+    videoRef: screenShareVideoRef,
+    startScreenShare,
+    stopScreenShare,
+  } = useScreenShare({
+    maxWarnings: 3,
+    onMaxWarningsReached: () => {
+      handleSubmitTest();
+    },
+  });
 
   // Generate questions - get from database only (no fallback to mock/AI)
   const generateQuestions = useCallback(async () => {
