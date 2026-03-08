@@ -503,6 +503,7 @@ const CodingTest = () => {
     setPassed(testPassed);
     setShowResults(true);
     stopScreenShare();
+    stopCamera();
   };
 
   const handleResultsClose = () => {
