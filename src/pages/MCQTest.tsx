@@ -527,6 +527,7 @@ const MCQTest = () => {
                       <li>• You can mark questions to review later</li>
                       <li>• Use the Preview button to see all questions status</li>
                       <li>• <strong>Screen sharing is mandatory</strong> — stopping it triggers warnings</li>
+                      <li>• <strong>Camera is mandatory</strong> — looking away or multiple faces trigger warnings</li>
                     </ul>
                   </div>
                 </div>
