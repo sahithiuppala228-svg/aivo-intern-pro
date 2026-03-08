@@ -290,6 +290,24 @@ const MockInterview = () => {
     setShowAudioTest(true);
   };
 
+  // Screen share
+  const [showScreenShareTest, setShowScreenShareTest] = useState(false);
+  const [screenShareTestPassed, setScreenShareTestPassed] = useState(false);
+
+  const {
+    isSharing: isScreenSharing,
+    warningCount: screenShareWarnings,
+    maxWarnings: screenShareMaxWarnings,
+    videoRef: screenShareVideoRef,
+    startScreenShare,
+    stopScreenShare,
+  } = useScreenShare({
+    maxWarnings: 3,
+    onMaxWarningsReached: () => {
+      handleEndInterview();
+    },
+  });
+
   // Audio test state
   const [isTestingAudio, setIsTestingAudio] = useState(false);
   const [audioDetected, setAudioDetected] = useState(false);
