@@ -742,7 +742,7 @@ const MCQTest = () => {
   }
 
   return (
-    <>
+    <div className="min-h-screen bg-background py-8 relative">
       <div className="container mx-auto px-6 max-w-4xl">
         {/* Screen Share Warning Banner */}
         {!isScreenSharing && screenShareReady && testStarted && (
