@@ -759,6 +759,25 @@ const MCQTest = () => {
           </div>
         )}
 
+        {/* Camera Warning Banner */}
+        {testStarted && cameraActive && !faceResult.singlePersonValidated && (
+          <div className="mb-4 bg-warning/10 border border-warning/30 rounded-lg p-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {faceResult.faceCount > 1 ? (
+                <Users className="w-4 h-4 text-destructive" />
+              ) : (
+                <Eye className="w-4 h-4 text-warning" />
+              )}
+              <span className="text-sm font-medium text-warning">
+                {faceResult.faceCount > 1 
+                  ? `Multiple faces detected (${faceResult.faceCount})! Only you should be visible.`
+                  : "Face not detected — please look at the screen"}
+                {cameraWarnings > 0 && ` (${cameraWarnings}/${MAX_CAMERA_WARNINGS} warnings)`}
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
