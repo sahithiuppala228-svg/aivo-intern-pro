@@ -7,7 +7,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Clock, CheckCircle, XCircle, List, Bookmark, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Clock, CheckCircle, XCircle, List, Bookmark, AlertTriangle, Monitor, MonitorOff } from "lucide-react";
+import { useScreenShare } from "@/hooks/useScreenShare";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -67,6 +68,21 @@ const MCQTest = () => {
   const [testStarted, setTestStarted] = useState(false);
   const [generatingQuestions, setGeneratingQuestions] = useState(false);
   const [isCustomDomain, setIsCustomDomain] = useState(!PRESEEDED_DOMAINS.includes(domain));
+  const [screenShareReady, setScreenShareReady] = useState(false);
+
+  const {
+    isSharing: isScreenSharing,
+    warningCount: screenShareWarnings,
+    maxWarnings: screenShareMaxWarnings,
+    videoRef: screenShareVideoRef,
+    startScreenShare,
+    stopScreenShare,
+  } = useScreenShare({
+    maxWarnings: 3,
+    onMaxWarningsReached: () => {
+      handleSubmitTest();
+    },
+  });
 
   // Generate questions - get from database only (no fallback to mock/AI)
   const generateQuestions = useCallback(async () => {
@@ -180,7 +196,22 @@ const MCQTest = () => {
     }
   };
 
+  const handleStartScreenShare = async () => {
+    const success = await startScreenShare();
+    if (success) {
+      setScreenShareReady(true);
+    }
+  };
+
   const handleStartTest = async () => {
+    if (!screenShareReady) {
+      toast({
+        variant: "destructive",
+        title: "Screen Share Required",
+        description: "Please share your screen before starting the test.",
+      });
+      return;
+    }
     setShowInstructions(false);
     await generateQuestions();
     setTestStarted(true);
@@ -257,6 +288,7 @@ const MCQTest = () => {
       setWrongAnswers(incorrectAnswers);
       setShowResults(true);
       setTestStarted(false);
+      stopScreenShare();
 
       if (testPassed) {
         toast({
@@ -307,6 +339,7 @@ const MCQTest = () => {
       setWrongAnswers([]);
       setQuestions([]);
       setMarkedQuestions(new Set());
+      setScreenShareReady(false);
     }
   };
 
@@ -404,9 +437,47 @@ const MCQTest = () => {
                       <li>• Do not refresh or close the browser during the test</li>
                       <li>• You can mark questions to review later</li>
                       <li>• Use the Preview button to see all questions status</li>
+                      <li>• <strong>Screen sharing is mandatory</strong> — stopping it triggers warnings</li>
                     </ul>
                   </div>
                 </div>
+              </div>
+
+              {/* Screen Share Section */}
+              <div className="border border-border rounded-lg p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    screenShareReady ? 'bg-green-100' : 'bg-muted'
+                  }`}>
+                    {screenShareReady ? (
+                      <Monitor className="w-5 h-5 text-green-500" />
+                    ) : (
+                      <MonitorOff className="w-5 h-5 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Screen Share</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {screenShareReady ? "Screen sharing active ✓" : "Share your screen to continue"}
+                    </p>
+                  </div>
+                </div>
+                {!screenShareReady ? (
+                  <Button onClick={handleStartScreenShare} className="w-full">
+                    <Monitor className="w-4 h-4 mr-2" />
+                    Start Screen Share
+                  </Button>
+                ) : (
+                  <div className="rounded-lg overflow-hidden border border-border w-full h-32 bg-muted">
+                    <video
+                      ref={screenShareVideoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="pt-6 flex justify-center">
@@ -415,8 +486,9 @@ const MCQTest = () => {
                   size="lg"
                   className="px-8"
                   variant="hero"
+                  disabled={!screenShareReady}
                 >
-                  START TEST →
+                  {screenShareReady ? "START TEST →" : "Share Screen to Start"}
                 </Button>
               </div>
             </div>
@@ -529,6 +601,21 @@ const MCQTest = () => {
   return (
     <div className="min-h-screen bg-background py-8">
       <div className="container mx-auto px-6 max-w-4xl">
+        {/* Screen Share Warning Banner */}
+        {!isScreenSharing && screenShareReady && testStarted && (
+          <div className="mb-4 bg-destructive/10 border border-destructive/30 rounded-lg p-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MonitorOff className="w-4 h-4 text-destructive" />
+              <span className="text-sm text-destructive font-medium">
+                Screen share stopped! Warning {screenShareWarnings}/{screenShareMaxWarnings}
+              </span>
+            </div>
+            <Button size="sm" variant="destructive" onClick={startScreenShare}>
+              Resume Sharing
+            </Button>
+          </div>
+        )}
+
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">

@@ -18,11 +18,14 @@ import {
   Volume2,
   VolumeX,
   Square,
-  Lightbulb
+  Lightbulb,
+  Monitor,
+  MonitorOff
 } from "lucide-react";
 import AnimatedInterviewer from "@/components/AnimatedInterviewer";
 import InterviewFeedback from "@/components/InterviewFeedback";
 import { useFaceDetection } from "@/hooks/useFaceDetection";
+import { useScreenShare } from "@/hooks/useScreenShare";
 import { supabase } from "@/integrations/supabase/client";
 import { getDomainContext } from "@/lib/domainContext";
 
@@ -284,8 +287,33 @@ const MockInterview = () => {
   const handleCameraTestPassed = () => {
     setCameraTestPassed(true);
     setShowCameraTest(false);
+    setShowScreenShareTest(true);
+  };
+
+  // Screen share test passed
+  const handleScreenShareTestPassed = () => {
+    setScreenShareTestPassed(true);
+    setShowScreenShareTest(false);
     setShowAudioTest(true);
   };
+
+  // Screen share
+  const [showScreenShareTest, setShowScreenShareTest] = useState(false);
+  const [screenShareTestPassed, setScreenShareTestPassed] = useState(false);
+
+  const {
+    isSharing: isScreenSharing,
+    warningCount: screenShareWarnings,
+    maxWarnings: screenShareMaxWarnings,
+    videoRef: screenShareVideoRef,
+    startScreenShare,
+    stopScreenShare,
+  } = useScreenShare({
+    maxWarnings: 3,
+    onMaxWarningsReached: () => {
+      handleEndInterview();
+    },
+  });
 
   // Audio test state
   const [isTestingAudio, setIsTestingAudio] = useState(false);
@@ -695,6 +723,7 @@ const MockInterview = () => {
     }
     window.speechSynthesis.cancel();
     stopCamera();
+    stopScreenShare();
     
     // Save final answer
     const finalAnswers = { ...answers };
@@ -831,6 +860,8 @@ const MockInterview = () => {
     setFeedback(null);
     setCameraTestPassed(false);
     setAudioTestPassed(false);
+    setScreenShareTestPassed(false);
+    setShowScreenShareTest(false);
     setQuestionAnalyses({});
     setLastAIAnalysis(null);
   };
@@ -969,6 +1000,100 @@ const MockInterview = () => {
                   : faceResult.faceCount > 1 
                     ? "Only one person allowed" 
                     : "Waiting for face detection..."}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Screen Share Test Screen
+  if (showScreenShareTest) {
+    return (
+      <div className="min-h-screen bg-background py-8">
+        <div className="container mx-auto px-6 max-w-3xl">
+          <Button
+            variant="ghost"
+            onClick={() => {
+              stopScreenShare();
+              setShowScreenShareTest(false);
+              setShowCameraTest(true);
+            }}
+            className="mb-6"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+
+          <Card className="p-8 shadow-sm border">
+            <div className="text-center mb-6">
+              <h1 className="text-2xl font-bold mb-2">Screen Share Test</h1>
+              <p className="text-muted-foreground">You must share your entire screen during the interview</p>
+            </div>
+
+            <div className="flex flex-col items-center gap-6 mb-8">
+              <div className={`w-32 h-32 rounded-full flex items-center justify-center transition-all ${
+                isScreenSharing ? 'bg-green-100' : 'bg-muted'
+              }`}>
+                {isScreenSharing ? (
+                  <Monitor className="w-16 h-16 text-green-500" />
+                ) : (
+                  <MonitorOff className="w-16 h-16 text-muted-foreground" />
+                )}
+              </div>
+
+              {isScreenSharing ? (
+                <div className="text-center">
+                  <p className="text-green-600 font-medium">✓ Screen sharing is active!</p>
+                  <div className="mt-4 rounded-lg overflow-hidden border border-border w-64 h-36 mx-auto bg-muted">
+                    <video
+                      ref={screenShareVideoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <Button
+                  onClick={async () => {
+                    const success = await startScreenShare();
+                    if (success) {
+                      setScreenShareTestPassed(true);
+                    }
+                  }}
+                  size="lg"
+                >
+                  <Monitor className="w-4 h-4 mr-2" />
+                  Start Screen Share
+                </Button>
+              )}
+            </div>
+
+            <div className="bg-warning/10 border border-warning/30 rounded-lg p-4 mb-6">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-5 h-5 text-warning mt-0.5" />
+                <div>
+                  <h3 className="font-semibold text-warning mb-1">Important</h3>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    <li>• Share your <strong>entire screen</strong>, not just a tab</li>
+                    <li>• Stopping screen share will trigger a warning</li>
+                    <li>• After 3 warnings, the interview will auto-end</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-center">
+              <Button
+                onClick={handleScreenShareTestPassed}
+                disabled={!screenShareTestPassed || !isScreenSharing}
+                variant="hero"
+                size="lg"
+              >
+                Continue to Audio Test →
               </Button>
             </div>
           </Card>
@@ -1158,7 +1283,7 @@ const MockInterview = () => {
                     </div>
                     <div className="flex gap-3">
                       <span className="font-semibold text-foreground min-w-[24px]">3.</span>
-                      <p><span className="font-semibold text-foreground">Camera & Audio:</span> Both will be tested before the interview starts</p>
+                      <p><span className="font-semibold text-foreground">Camera, Screen Share & Audio:</span> All will be tested before the interview starts</p>
                     </div>
                     <div className="flex gap-3">
                       <span className="font-semibold text-foreground min-w-[24px]">4.</span>
@@ -1256,6 +1381,21 @@ const MockInterview = () => {
 
           {/* Right: Question & Answer */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Screen Share Warning Banner */}
+            {!isScreenSharing && screenShareTestPassed && (
+              <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <MonitorOff className="w-4 h-4 text-destructive" />
+                  <span className="text-sm text-destructive font-medium">
+                    Screen share stopped! Warning {screenShareWarnings}/{screenShareMaxWarnings}
+                  </span>
+                </div>
+                <Button size="sm" variant="destructive" onClick={startScreenShare}>
+                  Resume Sharing
+                </Button>
+              </div>
+            )}
+
             {/* Camera Feed */}
             <Card className="p-4">
               <div className="flex items-center justify-between mb-3">
@@ -1266,6 +1406,12 @@ const MockInterview = () => {
                     <VideoOff className="w-4 h-4 text-destructive" />
                   )}
                   <span className="text-sm font-medium">Your Camera</span>
+                  {isScreenSharing && (
+                    <Badge variant="outline" className="text-xs border-green-500 text-green-600">
+                      <Monitor className="w-3 h-3 mr-1" />
+                      Screen Shared
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   {faceResult.faceDetected ? (

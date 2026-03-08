@@ -3,7 +3,8 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, CheckCircle2, XCircle, Code2, Play, Trophy, Mic, ExternalLink, Clock, AlertTriangle, Lightbulb } from "lucide-react";
+import { ArrowLeft, CheckCircle2, XCircle, Code2, Play, Trophy, Mic, ExternalLink, Clock, AlertTriangle, Lightbulb, Monitor, MonitorOff } from "lucide-react";
+import { useScreenShare } from "@/hooks/useScreenShare";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -144,6 +145,22 @@ const CodingTest = () => {
   const [totalScore, setTotalScore] = useState({ passed: 0, total: 0 });
   const [passed, setPassed] = useState(false);
 
+  const [screenShareReady, setScreenShareReady] = useState(false);
+
+  const {
+    isSharing: isScreenSharing,
+    warningCount: screenShareWarnings,
+    maxWarnings: screenShareMaxWarnings,
+    videoRef: screenShareVideoRef,
+    startScreenShare,
+    stopScreenShare,
+  } = useScreenShare({
+    maxWarnings: 3,
+    onMaxWarningsReached: () => {
+      handleSubmitAllChallenges();
+    },
+  });
+
   const currentChallenge = challenges[currentQuestionIndex];
   const completedChallenges = new Set(challengeScores.map(s => s.questionIndex));
   const allChallengesCompleted = challengeScores.length === challenges.length;
@@ -259,7 +276,22 @@ const CodingTest = () => {
     };
   };
 
+  const handleStartScreenShare = async () => {
+    const success = await startScreenShare();
+    if (success) {
+      setScreenShareReady(true);
+    }
+  };
+
   const handleStartTest = async () => {
+    if (!screenShareReady) {
+      toast({
+        variant: "destructive",
+        title: "Screen Share Required",
+        description: "Please share your screen before starting the test.",
+      });
+      return;
+    }
     setShowInstructions(false);
     await fetchChallenges();
   };
@@ -385,6 +417,7 @@ const CodingTest = () => {
     setTotalScore({ passed: totalPassedTests, total: totalTests });
     setPassed(testPassed);
     setShowResults(true);
+    stopScreenShare();
   };
 
   const handleResultsClose = () => {
@@ -400,6 +433,7 @@ const CodingTest = () => {
       setAllTestsPassed(false);
       setChallengeScores([]);
       setChallenges([]);
+      setScreenShareReady(false);
     }
   };
 
@@ -520,14 +554,52 @@ const CodingTest = () => {
                 </div>
               </div>
 
+              {/* Screen Share Section */}
+              <div className="border border-border rounded-lg p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    screenShareReady ? 'bg-green-100' : 'bg-muted'
+                  }`}>
+                    {screenShareReady ? (
+                      <Monitor className="w-5 h-5 text-green-500" />
+                    ) : (
+                      <MonitorOff className="w-5 h-5 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Screen Share Required</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {screenShareReady ? "Screen sharing active ✓" : "Share your screen to start the test"}
+                    </p>
+                  </div>
+                </div>
+                {!screenShareReady ? (
+                  <Button onClick={handleStartScreenShare} className="w-full">
+                    <Monitor className="w-4 h-4 mr-2" />
+                    Start Screen Share
+                  </Button>
+                ) : (
+                  <div className="rounded-lg overflow-hidden border border-border w-full h-32 bg-muted">
+                    <video
+                      ref={screenShareVideoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                )}
+              </div>
+
               <div className="pt-6 flex justify-center">
                 <Button 
                   onClick={handleStartTest}
                   size="lg"
                   className="px-8"
                   variant="hero"
+                  disabled={!screenShareReady}
                 >
-                  START CODING TEST →
+                  {screenShareReady ? "START CODING TEST →" : "Share Screen to Start"}
                 </Button>
               </div>
             </div>
@@ -552,6 +624,19 @@ const CodingTest = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background">
+      {/* Screen Share Warning Banner */}
+      {!isScreenSharing && screenShareReady && (
+        <div className="sticky top-0 z-20 bg-destructive/10 border-b border-destructive/30 p-3 flex items-center justify-center gap-4">
+          <MonitorOff className="w-4 h-4 text-destructive" />
+          <span className="text-sm text-destructive font-medium">
+            Screen share stopped! Warning {screenShareWarnings}/{screenShareMaxWarnings}
+          </span>
+          <Button size="sm" variant="destructive" onClick={startScreenShare}>
+            Resume Sharing
+          </Button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="border-b border-border/50 bg-background/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-6 py-4">
