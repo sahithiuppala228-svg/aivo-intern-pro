@@ -287,6 +287,13 @@ const MockInterview = () => {
   const handleCameraTestPassed = () => {
     setCameraTestPassed(true);
     setShowCameraTest(false);
+    setShowScreenShareTest(true);
+  };
+
+  // Screen share test passed
+  const handleScreenShareTestPassed = () => {
+    setScreenShareTestPassed(true);
+    setShowScreenShareTest(false);
     setShowAudioTest(true);
   };
 
