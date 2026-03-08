@@ -14,6 +14,7 @@ import Certificate from "./pages/Certificate";
 import Internships from "./pages/Internships";
 import Analytics from "./pages/Analytics";
 import ResetPassword from "./pages/ResetPassword";
+import ResumeCanvas from "./pages/ResumeCanvas";
 import NotFound from "./pages/NotFound";
 import GlobalAIMentor from "./components/GlobalAIMentor";
 import ProtectedRoute from "./components/ProtectedRoute";
