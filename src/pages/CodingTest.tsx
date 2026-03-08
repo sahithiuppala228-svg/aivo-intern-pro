@@ -355,12 +355,25 @@ const CodingTest = () => {
     }
   };
 
+  const handleStartCamera = async () => {
+    await startCamera();
+    setCameraReady(true);
+  };
+
   const handleStartTest = async () => {
     if (!screenShareReady) {
       toast({
         variant: "destructive",
         title: "Screen Share Required",
         description: "Please share your screen before starting the test.",
+      });
+      return;
+    }
+    if (!cameraReady) {
+      toast({
+        variant: "destructive",
+        title: "Camera Required",
+        description: "Please enable your camera before starting the test.",
       });
       return;
     }
