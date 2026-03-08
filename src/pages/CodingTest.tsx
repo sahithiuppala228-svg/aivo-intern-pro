@@ -433,6 +433,7 @@ const CodingTest = () => {
       setAllTestsPassed(false);
       setChallengeScores([]);
       setChallenges([]);
+      setScreenShareReady(false);
     }
   };
 
