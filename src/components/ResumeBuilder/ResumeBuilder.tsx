@@ -123,14 +123,14 @@ const ResumeBuilder = ({ open, onOpenChange, profile, domain, certificateId }: R
     };
 
     switch (settings.layout) {
-      case 'classic':
-        return <ResumeTemplateClassic {...props} />;
-      case 'minimal':
-        return <ResumeTemplateMinimal {...props} />;
-      case 'creative':
-        return <ResumeTemplateCreative {...props} />;
-      default:
-        return <ResumeTemplateModern {...props} />;
+      case 'classic': return <ResumeTemplateClassic {...props} />;
+      case 'minimal': return <ResumeTemplateMinimal {...props} />;
+      case 'creative': return <ResumeTemplateCreative {...props} />;
+      case 'executive': return <ResumeTemplateExecutive {...props} />;
+      case 'academic': return <ResumeTemplateAcademic {...props} />;
+      case 'techpro': return <ResumeTemplateTechPro {...props} />;
+      case 'elegant': return <ResumeTemplateElegant {...props} />;
+      default: return <ResumeTemplateModern {...props} />;
     }
   };
 
