@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -7,8 +7,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Clock, CheckCircle, XCircle, List, Bookmark, AlertTriangle, Monitor, MonitorOff } from "lucide-react";
+import { ArrowLeft, Clock, CheckCircle, XCircle, List, Bookmark, AlertTriangle, Monitor, MonitorOff, Camera, CameraOff, Eye, Users } from "lucide-react";
 import { useScreenShare } from "@/hooks/useScreenShare";
+import { useFaceDetection } from "@/hooks/useFaceDetection";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -69,6 +70,9 @@ const MCQTest = () => {
   const [generatingQuestions, setGeneratingQuestions] = useState(false);
   const [isCustomDomain, setIsCustomDomain] = useState(!PRESEEDED_DOMAINS.includes(domain));
   const [screenShareReady, setScreenShareReady] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [cameraWarnings, setCameraWarnings] = useState(0);
+  const MAX_CAMERA_WARNINGS = 3;
 
   const {
     isSharing: isScreenSharing,
@@ -83,6 +87,74 @@ const MCQTest = () => {
       handleSubmitTest();
     },
   });
+
+  const {
+    videoRef: cameraVideoRef,
+    cameraActive,
+    cameraError,
+    faceResult,
+    modelsLoading,
+    startCamera,
+    stopCamera,
+  } = useFaceDetection();
+
+  // Camera proctoring: warn on no face or multiple faces during test
+  useEffect(() => {
+    if (!testStarted || showResults || !cameraActive) return;
+    
+    if (faceResult.faceCount > 1) {
+      setCameraWarnings(prev => {
+        const next = prev + 1;
+        toast({
+          variant: "destructive",
+          title: `Multiple Faces Detected (Warning ${next}/${MAX_CAMERA_WARNINGS})`,
+          description: "Only you should be visible during the test.",
+        });
+        if (next >= MAX_CAMERA_WARNINGS) {
+          handleSubmitTest();
+        }
+        return next;
+      });
+    }
+  }, [faceResult.faceCount, testStarted, showResults, cameraActive]);
+
+  // Warn when looking away (no face for sustained period)
+  const noFaceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (!testStarted || showResults || !cameraActive) return;
+    
+    if (!faceResult.faceDetected && cameraActive) {
+      if (!noFaceTimerRef.current) {
+        noFaceTimerRef.current = setTimeout(() => {
+          setCameraWarnings(prev => {
+            const next = prev + 1;
+            toast({
+              variant: "destructive",
+              title: `Face Not Visible (Warning ${next}/${MAX_CAMERA_WARNINGS})`,
+              description: "Please look at the screen. Looking away is flagged as suspicious.",
+            });
+            if (next >= MAX_CAMERA_WARNINGS) {
+              handleSubmitTest();
+            }
+            return next;
+          });
+          noFaceTimerRef.current = null;
+        }, 5000); // 5 seconds grace period
+      }
+    } else {
+      if (noFaceTimerRef.current) {
+        clearTimeout(noFaceTimerRef.current);
+        noFaceTimerRef.current = null;
+      }
+    }
+    
+    return () => {
+      if (noFaceTimerRef.current) {
+        clearTimeout(noFaceTimerRef.current);
+        noFaceTimerRef.current = null;
+      }
+    };
+  }, [faceResult.faceDetected, testStarted, showResults, cameraActive]);
 
   // Generate questions - get from database only (no fallback to mock/AI)
   const generateQuestions = useCallback(async () => {
@@ -203,12 +275,25 @@ const MCQTest = () => {
     }
   };
 
+  const handleStartCamera = async () => {
+    await startCamera();
+    setCameraReady(true);
+  };
+
   const handleStartTest = async () => {
     if (!screenShareReady) {
       toast({
         variant: "destructive",
         title: "Screen Share Required",
         description: "Please share your screen before starting the test.",
+      });
+      return;
+    }
+    if (!cameraReady) {
+      toast({
+        variant: "destructive",
+        title: "Camera Required",
+        description: "Please enable your camera before starting the test.",
       });
       return;
     }
@@ -289,6 +374,7 @@ const MCQTest = () => {
       setShowResults(true);
       setTestStarted(false);
       stopScreenShare();
+      stopCamera();
 
       if (testPassed) {
         toast({
@@ -340,6 +426,9 @@ const MCQTest = () => {
       setQuestions([]);
       setMarkedQuestions(new Set());
       setScreenShareReady(false);
+      setCameraReady(false);
+      setCameraWarnings(0);
+      stopCamera();
     }
   };
 
@@ -438,6 +527,7 @@ const MCQTest = () => {
                       <li>• You can mark questions to review later</li>
                       <li>• Use the Preview button to see all questions status</li>
                       <li>• <strong>Screen sharing is mandatory</strong> — stopping it triggers warnings</li>
+                      <li>• <strong>Camera is mandatory</strong> — looking away or multiple faces trigger warnings</li>
                     </ul>
                   </div>
                 </div>
@@ -480,15 +570,68 @@ const MCQTest = () => {
                 )}
               </div>
 
+              {/* Camera Test Section */}
+              <div className="border border-border rounded-lg p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    cameraReady && faceResult.singlePersonValidated ? 'bg-success/20' : 'bg-muted'
+                  }`}>
+                    {cameraReady ? (
+                      <Camera className="w-5 h-5 text-success" />
+                    ) : (
+                      <CameraOff className="w-5 h-5 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Camera Test</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {!cameraReady 
+                        ? "Enable camera for proctoring" 
+                        : faceResult.singlePersonValidated 
+                          ? "Face detected ✓" 
+                          : faceResult.message}
+                    </p>
+                  </div>
+                </div>
+                {!cameraReady ? (
+                  <Button onClick={handleStartCamera} className="w-full" disabled={modelsLoading}>
+                    <Camera className="w-4 h-4 mr-2" />
+                    {modelsLoading ? "Loading..." : "Enable Camera"}
+                  </Button>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="rounded-lg overflow-hidden border border-border w-full h-40 bg-muted relative">
+                      <video
+                        ref={cameraVideoRef}
+                        autoPlay
+                        playsInline
+                        muted
+                        className="w-full h-full object-cover mirror"
+                        style={{ transform: 'scaleX(-1)' }}
+                      />
+                      <div className={`absolute bottom-2 left-2 right-2 text-xs px-2 py-1 rounded ${
+                        faceResult.singlePersonValidated 
+                          ? 'bg-success/80 text-success-foreground' 
+                          : faceResult.faceCount > 1 
+                            ? 'bg-destructive/80 text-destructive-foreground'
+                            : 'bg-warning/80 text-warning-foreground'
+                      }`}>
+                        {faceResult.message}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="pt-6 flex justify-center">
                 <Button 
                   onClick={handleStartTest}
                   size="lg"
                   className="px-8"
                   variant="hero"
-                  disabled={!screenShareReady}
+                  disabled={!screenShareReady || !cameraReady}
                 >
-                  {screenShareReady ? "START TEST →" : "Share Screen to Start"}
+                  {screenShareReady && cameraReady ? "START TEST →" : "Complete Setup to Start"}
                 </Button>
               </div>
             </div>
@@ -599,7 +742,7 @@ const MCQTest = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background py-8">
+    <div className="min-h-screen bg-background py-8 relative">
       <div className="container mx-auto px-6 max-w-4xl">
         {/* Screen Share Warning Banner */}
         {!isScreenSharing && screenShareReady && testStarted && (
@@ -613,6 +756,25 @@ const MCQTest = () => {
             <Button size="sm" variant="destructive" onClick={startScreenShare}>
               Resume Sharing
             </Button>
+          </div>
+        )}
+
+        {/* Camera Warning Banner */}
+        {testStarted && cameraActive && !faceResult.singlePersonValidated && (
+          <div className="mb-4 bg-warning/10 border border-warning/30 rounded-lg p-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {faceResult.faceCount > 1 ? (
+                <Users className="w-4 h-4 text-destructive" />
+              ) : (
+                <Eye className="w-4 h-4 text-warning" />
+              )}
+              <span className="text-sm font-medium text-warning">
+                {faceResult.faceCount > 1 
+                  ? `Multiple faces detected (${faceResult.faceCount})! Only you should be visible.`
+                  : "Face not detected — please look at the screen"}
+                {cameraWarnings > 0 && ` (${cameraWarnings}/${MAX_CAMERA_WARNINGS} warnings)`}
+              </span>
+            </div>
           </div>
         )}
 
@@ -741,6 +903,27 @@ const MCQTest = () => {
           </p>
         </div>
       </div>
+
+      {/* Floating Camera Preview */}
+      {testStarted && cameraActive && (
+        <div className="fixed bottom-4 right-4 z-30 w-40 h-30 rounded-lg overflow-hidden border-2 border-border shadow-lg bg-muted">
+          <video
+            ref={cameraVideoRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full h-full object-cover"
+            style={{ transform: 'scaleX(-1)' }}
+          />
+          <div className={`absolute bottom-0 left-0 right-0 text-[10px] px-1 py-0.5 text-center ${
+            faceResult.singlePersonValidated 
+              ? 'bg-success/80 text-success-foreground' 
+              : 'bg-destructive/80 text-destructive-foreground'
+          }`}>
+            {faceResult.singlePersonValidated ? '✓ Face OK' : faceResult.faceCount > 1 ? `⚠ ${faceResult.faceCount} faces` : '⚠ No face'}
+          </div>
+        </div>
+      )}
 
       {/* Results Dialog */}
       <AlertDialog open={showResults} onOpenChange={setShowResults}>
