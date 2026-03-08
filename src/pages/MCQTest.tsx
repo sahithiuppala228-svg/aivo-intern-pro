@@ -426,6 +426,9 @@ const MCQTest = () => {
       setQuestions([]);
       setMarkedQuestions(new Set());
       setScreenShareReady(false);
+      setCameraReady(false);
+      setCameraWarnings(0);
+      stopCamera();
     }
   };
 
