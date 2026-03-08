@@ -1,7 +1,7 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Award, FileText, Download, ExternalLink, ArrowLeft, CheckCircle2, Briefcase } from "lucide-react";
+import { Award, FileText, Download, ExternalLink, ArrowLeft, CheckCircle2, Briefcase, PenTool } from "lucide-react";
 import { useState, useEffect } from "react";
 import { ResumeBuilder, ProfileData } from "@/components/ResumeBuilder";
 
