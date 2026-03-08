@@ -593,33 +593,33 @@ const MCQTest = () => {
                     </p>
                   </div>
                 </div>
-                {!cameraReady ? (
+                {/* Always render video so ref is available */}
+                <div className={`space-y-2 ${!cameraReady ? 'hidden' : ''}`}>
+                  <div className="rounded-lg overflow-hidden border border-border w-full h-40 bg-muted relative">
+                    <video
+                      ref={cameraVideoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-full object-cover mirror"
+                      style={{ transform: 'scaleX(-1)' }}
+                    />
+                    <div className={`absolute bottom-2 left-2 right-2 text-xs px-2 py-1 rounded ${
+                      faceResult.singlePersonValidated 
+                        ? 'bg-success/80 text-success-foreground' 
+                        : faceResult.faceCount > 1 
+                          ? 'bg-destructive/80 text-destructive-foreground'
+                          : 'bg-warning/80 text-warning-foreground'
+                    }`}>
+                      {faceResult.message}
+                    </div>
+                  </div>
+                </div>
+                {!cameraReady && (
                   <Button onClick={handleStartCamera} className="w-full" disabled={modelsLoading}>
                     <Camera className="w-4 h-4 mr-2" />
                     {modelsLoading ? "Loading..." : "Enable Camera"}
                   </Button>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="rounded-lg overflow-hidden border border-border w-full h-40 bg-muted relative">
-                      <video
-                        ref={cameraVideoRef}
-                        autoPlay
-                        playsInline
-                        muted
-                        className="w-full h-full object-cover mirror"
-                        style={{ transform: 'scaleX(-1)' }}
-                      />
-                      <div className={`absolute bottom-2 left-2 right-2 text-xs px-2 py-1 rounded ${
-                        faceResult.singlePersonValidated 
-                          ? 'bg-success/80 text-success-foreground' 
-                          : faceResult.faceCount > 1 
-                            ? 'bg-destructive/80 text-destructive-foreground'
-                            : 'bg-warning/80 text-warning-foreground'
-                      }`}>
-                        {faceResult.message}
-                      </div>
-                    </div>
-                  </div>
                 )}
               </div>
 
