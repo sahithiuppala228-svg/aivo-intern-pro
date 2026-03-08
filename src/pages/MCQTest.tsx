@@ -601,6 +601,21 @@ const MCQTest = () => {
   return (
     <div className="min-h-screen bg-background py-8">
       <div className="container mx-auto px-6 max-w-4xl">
+        {/* Screen Share Warning Banner */}
+        {!isScreenSharing && screenShareReady && testStarted && (
+          <div className="mb-4 bg-destructive/10 border border-destructive/30 rounded-lg p-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MonitorOff className="w-4 h-4 text-destructive" />
+              <span className="text-sm text-destructive font-medium">
+                Screen share stopped! Warning {screenShareWarnings}/{screenShareMaxWarnings}
+              </span>
+            </div>
+            <Button size="sm" variant="destructive" onClick={startScreenShare}>
+              Resume Sharing
+            </Button>
+          </div>
+        )}
+
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">

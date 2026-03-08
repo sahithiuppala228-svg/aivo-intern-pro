@@ -624,6 +624,19 @@ const CodingTest = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background">
+      {/* Screen Share Warning Banner */}
+      {!isScreenSharing && screenShareReady && (
+        <div className="sticky top-0 z-20 bg-destructive/10 border-b border-destructive/30 p-3 flex items-center justify-center gap-4">
+          <MonitorOff className="w-4 h-4 text-destructive" />
+          <span className="text-sm text-destructive font-medium">
+            Screen share stopped! Warning {screenShareWarnings}/{screenShareMaxWarnings}
+          </span>
+          <Button size="sm" variant="destructive" onClick={startScreenShare}>
+            Resume Sharing
+          </Button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="border-b border-border/50 bg-background/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-6 py-4">

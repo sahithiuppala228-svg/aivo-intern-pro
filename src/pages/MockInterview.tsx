@@ -1381,6 +1381,21 @@ const MockInterview = () => {
 
           {/* Right: Question & Answer */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Screen Share Warning Banner */}
+            {!isScreenSharing && screenShareTestPassed && (
+              <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <MonitorOff className="w-4 h-4 text-destructive" />
+                  <span className="text-sm text-destructive font-medium">
+                    Screen share stopped! Warning {screenShareWarnings}/{screenShareMaxWarnings}
+                  </span>
+                </div>
+                <Button size="sm" variant="destructive" onClick={startScreenShare}>
+                  Resume Sharing
+                </Button>
+              </div>
+            )}
+
             {/* Camera Feed */}
             <Card className="p-4">
               <div className="flex items-center justify-between mb-3">
@@ -1391,6 +1406,12 @@ const MockInterview = () => {
                     <VideoOff className="w-4 h-4 text-destructive" />
                   )}
                   <span className="text-sm font-medium">Your Camera</span>
+                  {isScreenSharing && (
+                    <Badge variant="outline" className="text-xs border-green-500 text-green-600">
+                      <Monitor className="w-3 h-3 mr-1" />
+                      Screen Shared
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   {faceResult.faceDetected ? (
