@@ -208,7 +208,7 @@ const MockInterview = () => {
         body: { text, voice: 'onyx' }
       });
       
-      if (error || !data?.audioContent) {
+      if (error || data?.error || !data?.audioContent) {
         console.error('TTS error, falling back to browser speech:', error);
         // Fallback to browser TTS
         window.speechSynthesis.cancel();
