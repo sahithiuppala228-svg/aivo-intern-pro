@@ -70,6 +70,9 @@ const MCQTest = () => {
   const [generatingQuestions, setGeneratingQuestions] = useState(false);
   const [isCustomDomain, setIsCustomDomain] = useState(!PRESEEDED_DOMAINS.includes(domain));
   const [screenShareReady, setScreenShareReady] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [cameraWarnings, setCameraWarnings] = useState(0);
+  const MAX_CAMERA_WARNINGS = 3;
 
   const {
     isSharing: isScreenSharing,
@@ -84,6 +87,74 @@ const MCQTest = () => {
       handleSubmitTest();
     },
   });
+
+  const {
+    videoRef: cameraVideoRef,
+    cameraActive,
+    cameraError,
+    faceResult,
+    modelsLoading,
+    startCamera,
+    stopCamera,
+  } = useFaceDetection();
+
+  // Camera proctoring: warn on no face or multiple faces during test
+  useEffect(() => {
+    if (!testStarted || showResults || !cameraActive) return;
+    
+    if (faceResult.faceCount > 1) {
+      setCameraWarnings(prev => {
+        const next = prev + 1;
+        toast({
+          variant: "destructive",
+          title: `Multiple Faces Detected (Warning ${next}/${MAX_CAMERA_WARNINGS})`,
+          description: "Only you should be visible during the test.",
+        });
+        if (next >= MAX_CAMERA_WARNINGS) {
+          handleSubmitTest();
+        }
+        return next;
+      });
+    }
+  }, [faceResult.faceCount, testStarted, showResults, cameraActive]);
+
+  // Warn when looking away (no face for sustained period)
+  const noFaceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (!testStarted || showResults || !cameraActive) return;
+    
+    if (!faceResult.faceDetected && cameraActive) {
+      if (!noFaceTimerRef.current) {
+        noFaceTimerRef.current = setTimeout(() => {
+          setCameraWarnings(prev => {
+            const next = prev + 1;
+            toast({
+              variant: "destructive",
+              title: `Face Not Visible (Warning ${next}/${MAX_CAMERA_WARNINGS})`,
+              description: "Please look at the screen. Looking away is flagged as suspicious.",
+            });
+            if (next >= MAX_CAMERA_WARNINGS) {
+              handleSubmitTest();
+            }
+            return next;
+          });
+          noFaceTimerRef.current = null;
+        }, 5000); // 5 seconds grace period
+      }
+    } else {
+      if (noFaceTimerRef.current) {
+        clearTimeout(noFaceTimerRef.current);
+        noFaceTimerRef.current = null;
+      }
+    }
+    
+    return () => {
+      if (noFaceTimerRef.current) {
+        clearTimeout(noFaceTimerRef.current);
+        noFaceTimerRef.current = null;
+      }
+    };
+  }, [faceResult.faceDetected, testStarted, showResults, cameraActive]);
 
   // Generate questions - get from database only (no fallback to mock/AI)
   const generateQuestions = useCallback(async () => {
