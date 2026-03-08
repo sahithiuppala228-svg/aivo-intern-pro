@@ -400,7 +400,7 @@ const MockInterview = () => {
     });
     
     setTimeout(() => {
-      speakText(`Hello ${userName}! Welcome to your ${domain} technical interview. I'm Mr. James Wilson, your interviewer today. I'll be asking you ${questions.length} questions over the next 20 minutes. Let's begin with the first question.`);
+      speakText(`Hello ${userName}! Welcome to your ${domain} interview. I'm James Wilson, your interviewer today. We'll start with a few introductory questions to get to know you, and then move on to technical topics. Let's begin.`);
     }, 1000);
     
     // Speak first question after intro
