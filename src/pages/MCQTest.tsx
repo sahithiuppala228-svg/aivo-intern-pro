@@ -613,8 +613,13 @@ const MCQTest = () => {
                     }`}>
                       {faceResult.message}
                     </div>
-                    </div>
                   </div>
+                </div>
+                {!cameraReady && (
+                  <Button onClick={handleStartCamera} className="w-full" disabled={modelsLoading}>
+                    <Camera className="w-4 h-4 mr-2" />
+                    {modelsLoading ? "Loading..." : "Enable Camera"}
+                  </Button>
                 )}
               </div>
 
