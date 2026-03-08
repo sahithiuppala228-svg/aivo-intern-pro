@@ -276,7 +276,22 @@ const CodingTest = () => {
     };
   };
 
+  const handleStartScreenShare = async () => {
+    const success = await startScreenShare();
+    if (success) {
+      setScreenShareReady(true);
+    }
+  };
+
   const handleStartTest = async () => {
+    if (!screenShareReady) {
+      toast({
+        variant: "destructive",
+        title: "Screen Share Required",
+        description: "Please share your screen before starting the test.",
+      });
+      return;
+    }
     setShowInstructions(false);
     await fetchChallenges();
   };
