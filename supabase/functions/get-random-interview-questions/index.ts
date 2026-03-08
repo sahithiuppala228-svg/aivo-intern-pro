@@ -6,8 +6,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const REQUIRED_QUESTIONS = 10;
-const QUESTION_DISTRIBUTION = {
+const REQUIRED_QUESTIONS = 12;
+const QUESTION_DISTRIBUTION: Record<string, number> = {
+  personal: 2,
   technical: 5,
   behavioral: 3,
   "problem-solving": 2
@@ -17,7 +18,7 @@ interface InterviewQuestion {
   id: string;
   domain: string;
   question: string;
-  category: "technical" | "behavioral" | "problem-solving";
+  category: "personal" | "technical" | "behavioral" | "problem-solving";
   difficulty: "easy" | "medium" | "hard";
   expected_points: string[];
 }
@@ -29,8 +30,6 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-
-    // Validate inputs
     const { validateDomain, validationError: valErr } = await import("../_shared/validation.ts");
     const domainCheck = validateDomain(body.domain);
     if (!domainCheck.valid) return valErr(domainCheck.error!, corsHeaders);
@@ -42,7 +41,6 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Check existing questions count
     const { count, error: countError } = await supabase
       .from('interview_questions')
       .select('*', { count: 'exact', head: true })
@@ -55,7 +53,6 @@ serve(async (req) => {
 
     console.log(`Found ${count} existing questions for ${domain}`);
 
-    // If we have enough questions, fetch random selection
     if (count && count >= REQUIRED_QUESTIONS) {
       const questions = await fetchRandomQuestions(supabase, domain);
       return new Response(
@@ -64,21 +61,17 @@ serve(async (req) => {
       );
     }
 
-    // Need to generate questions
     console.log(`Generating interview questions for ${domain}...`);
     const newQuestions = await generateQuestions(domain);
     
-    // Save to database
     const { error: insertError } = await supabase
       .from('interview_questions')
       .insert(newQuestions);
 
     if (insertError) {
       console.error('Error inserting questions:', insertError);
-      // Don't throw - still return the generated questions
     }
 
-    // Return the newly generated questions (already properly distributed)
     return new Response(
       JSON.stringify({ questions: newQuestions, generated: true }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -110,12 +103,10 @@ async function fetchRandomQuestions(supabase: any, domain: string): Promise<Inte
       continue;
     }
 
-    // Shuffle and take required count
     const shuffled = data.sort(() => Math.random() - 0.5);
     questions.push(...shuffled.slice(0, count));
   }
 
-  // If we don't have enough by category, fill with any available
   if (questions.length < REQUIRED_QUESTIONS) {
     const { data: extraData } = await supabase
       .from('interview_questions')
@@ -133,7 +124,9 @@ async function fetchRandomQuestions(supabase: any, domain: string): Promise<Inte
     }
   }
 
-  return questions.sort(() => Math.random() - 0.5);
+  // Sort: personal first, then technical, behavioral, problem-solving
+  const categoryOrder = ['personal', 'technical', 'behavioral', 'problem-solving'];
+  return questions.sort((a, b) => categoryOrder.indexOf(a.category) - categoryOrder.indexOf(b.category));
 }
 
 async function generateQuestions(domain: string): Promise<Omit<InterviewQuestion, 'id'>[]> {
@@ -143,30 +136,31 @@ async function generateQuestions(domain: string): Promise<Omit<InterviewQuestion
     throw new Error('LOVABLE_API_KEY is not configured');
   }
 
-  const prompt = `Generate exactly 10 interview questions for a ${domain} technical interview. The questions should be a mix of:
+  const prompt = `Generate exactly 12 interview questions for a ${domain} interview. The questions should be a mix of:
+- 2 Personal/introductory questions (e.g., "Tell me about yourself", "What are your hobbies and interests?", "Describe your educational background", "What motivated you to pursue ${domain}?", "Where do you see yourself in 5 years?"). These are warm-up questions asked at the start of any real interview.
 - 5 Technical questions (domain-specific, testing knowledge of ${domain})
 - 3 Behavioral questions (about teamwork, challenges, learning)
 - 2 Problem-solving questions (scenario-based, testing analytical thinking)
 
 For each question, provide:
 1. The question text
-2. Category (technical, behavioral, or problem-solving)
-3. Difficulty (easy, medium, or hard)
+2. Category (personal, technical, behavioral, or problem-solving)
+3. Difficulty (easy, medium, or hard). Personal questions should always be "easy".
 4. Expected points (3-5 key points that a good answer should cover)
 
-Distribution for difficulty: 3 easy, 4 medium, 3 hard.
+Distribution for difficulty: 4 easy (including 2 personal), 4 medium, 4 hard.
 
 Return ONLY a valid JSON array with this exact structure:
 [
   {
     "question": "Question text here",
-    "category": "technical",
-    "difficulty": "medium",
+    "category": "personal",
+    "difficulty": "easy",
     "expected_points": ["point 1", "point 2", "point 3"]
   }
 ]
 
-Make the questions professional, challenging but fair, and relevant to real-world ${domain} work. No markdown, just pure JSON.`;
+Make the questions professional, challenging but fair, and relevant to real-world ${domain} work. Personal questions should feel natural and conversational, like a real interviewer getting to know the candidate. No markdown, just pure JSON.`;
 
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
@@ -177,7 +171,7 @@ Make the questions professional, challenging but fair, and relevant to real-worl
     body: JSON.stringify({
       model: 'google/gemini-2.5-flash',
       messages: [
-        { role: 'system', content: 'You are an expert technical interviewer. Generate professional interview questions. Always respond with valid JSON only, no markdown formatting.' },
+        { role: 'system', content: 'You are an expert technical interviewer. Generate professional interview questions including personal/introductory ones for a realistic interview experience. Always respond with valid JSON only, no markdown formatting.' },
         { role: 'user', content: prompt }
       ],
       temperature: 0.7,
@@ -197,7 +191,6 @@ Make the questions professional, challenging but fair, and relevant to real-worl
     throw new Error('No content in AI response');
   }
 
-  // Parse JSON from response (handle potential markdown code blocks)
   let questionsJson: string = content;
   if (content.includes('```')) {
     const match = content.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -208,7 +201,10 @@ Make the questions professional, challenging but fair, and relevant to real-worl
 
   const parsedQuestions = JSON.parse(questionsJson);
   
-  // Add domain to each question
+  // Sort: personal first
+  const categoryOrder = ['personal', 'technical', 'behavioral', 'problem-solving'];
+  parsedQuestions.sort((a: any, b: any) => categoryOrder.indexOf(a.category) - categoryOrder.indexOf(b.category));
+
   return parsedQuestions.map((q: any) => ({
     domain,
     question: q.question,
