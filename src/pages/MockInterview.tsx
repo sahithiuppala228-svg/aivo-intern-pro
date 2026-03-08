@@ -723,6 +723,7 @@ const MockInterview = () => {
     }
     window.speechSynthesis.cancel();
     stopCamera();
+    stopScreenShare();
     
     // Save final answer
     const finalAnswers = { ...answers };
