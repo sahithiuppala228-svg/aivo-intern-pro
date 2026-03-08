@@ -31,7 +31,7 @@ const INTERVIEW_TIME_LIMIT = 20 * 60; // 20 minutes in seconds
 interface InterviewQuestion {
   id: string;
   question: string;
-  category: "technical" | "behavioral" | "problem-solving";
+  category: "personal" | "technical" | "behavioral" | "problem-solving";
   difficulty: "easy" | "medium" | "hard";
   expectedPoints: string[];
 }
