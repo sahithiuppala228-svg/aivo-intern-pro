@@ -147,6 +147,9 @@ const CodingTest = () => {
   const [passed, setPassed] = useState(false);
 
   const [screenShareReady, setScreenShareReady] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [cameraWarnings, setCameraWarnings] = useState(0);
+  const MAX_CAMERA_WARNINGS = 3;
 
   const {
     isSharing: isScreenSharing,
@@ -161,6 +164,74 @@ const CodingTest = () => {
       handleSubmitAllChallenges();
     },
   });
+
+  const {
+    videoRef: cameraVideoRef,
+    cameraActive,
+    cameraError,
+    faceResult,
+    modelsLoading,
+    startCamera,
+    stopCamera,
+  } = useFaceDetection();
+
+  // Camera proctoring: warn on multiple faces
+  useEffect(() => {
+    if (showInstructions || showResults || !cameraActive) return;
+    
+    if (faceResult.faceCount > 1) {
+      setCameraWarnings(prev => {
+        const next = prev + 1;
+        toast({
+          variant: "destructive",
+          title: `Multiple Faces Detected (Warning ${next}/${MAX_CAMERA_WARNINGS})`,
+          description: "Only you should be visible during the test.",
+        });
+        if (next >= MAX_CAMERA_WARNINGS) {
+          handleSubmitAllChallenges();
+        }
+        return next;
+      });
+    }
+  }, [faceResult.faceCount, showInstructions, showResults, cameraActive]);
+
+  // Warn when looking away (no face for 5 seconds)
+  const noFaceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (showInstructions || showResults || !cameraActive) return;
+    
+    if (!faceResult.faceDetected && cameraActive) {
+      if (!noFaceTimerRef.current) {
+        noFaceTimerRef.current = setTimeout(() => {
+          setCameraWarnings(prev => {
+            const next = prev + 1;
+            toast({
+              variant: "destructive",
+              title: `Face Not Visible (Warning ${next}/${MAX_CAMERA_WARNINGS})`,
+              description: "Please look at the screen. Looking away is flagged as suspicious.",
+            });
+            if (next >= MAX_CAMERA_WARNINGS) {
+              handleSubmitAllChallenges();
+            }
+            return next;
+          });
+          noFaceTimerRef.current = null;
+        }, 5000);
+      }
+    } else {
+      if (noFaceTimerRef.current) {
+        clearTimeout(noFaceTimerRef.current);
+        noFaceTimerRef.current = null;
+      }
+    }
+    
+    return () => {
+      if (noFaceTimerRef.current) {
+        clearTimeout(noFaceTimerRef.current);
+        noFaceTimerRef.current = null;
+      }
+    };
+  }, [faceResult.faceDetected, showInstructions, showResults, cameraActive]);
 
   const currentChallenge = challenges[currentQuestionIndex];
   const completedChallenges = new Set(challengeScores.map(s => s.questionIndex));
