@@ -14,6 +14,7 @@ import Certificate from "./pages/Certificate";
 import Internships from "./pages/Internships";
 import Analytics from "./pages/Analytics";
 import ResetPassword from "./pages/ResetPassword";
+import ResumeCanvas from "./pages/ResumeCanvas";
 import NotFound from "./pages/NotFound";
 import GlobalAIMentor from "./components/GlobalAIMentor";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -38,6 +39,7 @@ const App = () => (
           <Route path="/certificate" element={<ProtectedRoute><Certificate /></ProtectedRoute>} />
           <Route path="/internships" element={<ProtectedRoute><Internships /></ProtectedRoute>} />
           <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+          <Route path="/resume-canvas" element={<ProtectedRoute><ResumeCanvas /></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

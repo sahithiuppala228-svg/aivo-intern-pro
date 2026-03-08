@@ -1,118 +1,116 @@
+Fix Security Issues and Add Anti-Cheating Measures
 
+## Part 1: Fix Security Scan Errors
 
-# Mega Feature Plan: Resume Canvas, Internship Verification, AI Career Tools
+### 1A. MCQ Test Answers Accessible via Direct Query
 
-This is a large set of features. I will implement them in **3 phases** across multiple messages to keep things manageable and testable.
+The `mcq_questions` table already has `USING (false)` RLS policy from a previous fix. The security finding is stale and needs to be deleted.
 
----
+### 1B. Coding Test Cases Fully Exposed - Students Can Hardcode Solutions
 
-## Phase 1: Enhanced Resume Builder + More Templates
+The `coding_problems` table has `USING (true)` RLS policy, exposing ALL test cases (including hidden ones with expected outputs) to any authenticated user. Students can query the table directly and get all answers.
 
-### New Resume Templates (8 total, up from 4)
-Add 4 new templates to `src/components/ResumeBuilder/`:
-- **Executive** — bold sidebar layout with dark header
-- **Academic** — formal, serif-heavy, publications-friendly
-- **TechPro** — monospace accents, code-style section headers
-- **Elegant** — two-tone with gold accents, script-style name
+**Fix:**
 
-### Resume Canvas Editor
-New page `src/pages/ResumeCanvas.tsx` with:
-- Drag-and-drop section reordering (education, skills, projects, experience)
-- Inline text editing — click any field to edit directly
-- Live preview with selected template
-- AI Enhance button per section (calls Lovable AI to rewrite that section)
-- Export to PDF via print
+- Change `coding_problems` RLS SELECT policy to `USING (false)` (block direct access)
+- Create a `coding_problems_public` view that excludes `test_cases` (hidden answers) and `sample_output`
+- Update the `get-random-coding-problems` edge function to only send visible test cases to the client (strip hidden test case expected outputs)
+- Create a new edge function `validate-coding-solution` that evaluates code server-side against hidden test cases
 
-### Route Addition
-Add `/resume-canvas` route in `App.tsx`, accessible from Certificate page and a new nav item.
+### 1C. Test Answers Exposed - Students Can Cheat on Assessments
 
----
+This is about the overall pattern. The practice_questions and interview_questions tables are already locked down. The remaining exposure is in coding_problems (addressed above).
 
-## Phase 2: Internship Verification & Trust Score
+## Part 2: Anti-Cheating Proctoring for MCQ and Coding Tests
 
-### New Page: `src/pages/InternshipVerifier.tsx`
-User pastes an internship listing URL or text. AI analyzes it across 5 checks:
+### 2A. Create a Reusable Proctoring Hook
 
-### New Edge Function: `supabase/functions/verify-internship/index.ts`
-Uses Lovable AI (gemini-3-flash-preview) to analyze the listing and return structured scores:
+Build a `useProctoring` hook that handles:
 
-| Check | Points | What AI Analyzes |
-|-------|--------|-----------------|
-| Company Verification | 30 | Company name recognition, website existence, LinkedIn presence |
-| Email Domain | 20 | Official domain vs Gmail/Yahoo/random |
-| Job Description Quality | 20 | Realistic claims, professional language, clear responsibilities |
-| Payment Scam Detection | 20 | Detects "pay to join", registration fees, unrealistic salary claims |
-| Online Reputation | 10 | Known company vs unknown, suspicious patterns |
+- **Camera monitoring**: Uses the existing `useFaceDetection` hook to continuously monitor the camera during tests
+- **Camera off detection**: If the camera stream stops or is denied, show a warning toast and a persistent warning banner
+- **Multiple faces detection**: Warn if more than one person is detected
+- **No face detection**: Warn if the student leaves the camera view
+- **Warning counter**: Track warnings; after 3 warnings, auto-submit the test
 
-**Output**: Trust Score (0-100), risk level (Safe/Moderate/High Risk), detailed breakdown per check, specific red flags found.
+### 2B. Add Proctoring to MCQ Test Page
 
-### UI Components
-- Trust score circular gauge with color coding (green >70, yellow 40-70, red <40)
-- Detailed breakdown cards for each check
-- Red flag list with explanations
-- "Verified" / "Risky" / "Suspicious" badge
+- Require camera permission before starting the test
+- Show a small camera preview in the corner during the test
+- Display warning banners when violations are detected
+- Auto-submit after repeated violations
 
----
+### 2C. Add Proctoring to Coding Test Page
 
-## Phase 3: AI Career Intelligence Tools
+- Same camera monitoring as MCQ test
+- Show camera preview and warning system
+- Auto-submit on repeated violations
 
-### 3A. Resume vs Job Description Analyzer
-New section in Resume Canvas page:
-- Paste job description textarea
-- AI compares resume content against JD
-- Returns: match %, missing skills, keyword analysis, actionable suggestions
-- Edge function: `supabase/functions/analyze-resume-jd/index.ts`
+### 2D. Voice/Audio Monitoring
 
-### 3B. AI Skill Gap Detector + 30-Day Plan
-New page: `src/pages/SkillGap.tsx`
-- Pulls user's test scores from `user_test_attempts` table
-- AI analyzes: DSA score, domain score, communication (from interview)
-- Generates personalized 30-day learning plan with:
-  - Weekly topic breakdown
-  - Specific topics to learn (e.g., "Hash Maps", "Recursion")
-  - YouTube video suggestions
-  - Practice problem recommendations
-  - Daily schedule
-- Edge function: `supabase/functions/generate-skill-plan/index.ts`
-
-### 3C. Internship Readiness Score
-Added to Analytics page:
-- Composite score from coding tests, MCQ scores, interview performance
-- Breakdown: Coding (X/100), Communication (X/100), Projects (X/100), Overall (X/100)
-- AI verdict: "Ready for startup internships" / "Need to improve X before product companies"
-
----
+- Use the existing audio detection pattern (from MockInterview) to monitor for suspicious audio during MCQ and coding tests
+- Detect if the student is talking to someone (potential cheating)
+- Warn on sustained voice detection during written tests
 
 ## Technical Details
 
-### New Edge Functions (all using Lovable AI gateway)
-1. `verify-internship` — analyzes internship listing text, returns trust score
-2. `analyze-resume-jd` — compares resume vs job description
-3. `generate-skill-plan` — creates 30-day learning plan from test scores
-4. `enhance-resume-section` — AI rewrites a single resume section
+### Database Migration
 
-### New Pages
-- `src/pages/ResumeCanvas.tsx` — full canvas resume editor
-- `src/pages/InternshipVerifier.tsx` — trust score checker
-- `src/pages/SkillGap.tsx` — skill gap + 30-day plan
+```sql
+-- Block direct access to coding_problems
+DROP POLICY IF EXISTS "Anyone can read coding problems" ON public.coding_problems;
+CREATE POLICY "Block direct select on coding_problems"
+  ON public.coding_problems FOR SELECT
+  USING (false);
 
-### New Components
-- `src/components/ResumeBuilder/ResumeTemplateExecutive.tsx`
-- `src/components/ResumeBuilder/ResumeTemplateAcademic.tsx`
-- `src/components/ResumeBuilder/ResumeTemplateTechPro.tsx`
-- `src/components/ResumeBuilder/ResumeTemplateElegant.tsx`
-- `src/components/TrustScoreGauge.tsx`
-- `src/components/SkillRadarChart.tsx`
+-- Create public view without hidden test case data
+CREATE VIEW public.coding_problems_public
+WITH (security_invoker = on) AS
+SELECT id, domain, title, description, difficulty,
+       input_format, output_format, constraints,
+       sample_input, sample_output, created_at
+FROM public.coding_problems;
+```
 
-### No Database Changes Required
-All new features use existing tables (`user_test_attempts`) and Lovable AI. No new tables needed.
+### Edge Function Changes (`get-random-coding-problems`)
 
----
+- Strip `test_cases` from the response sent to client
+- Only include visible test cases (first 2) with their expected outputs
+- Hidden test cases: send input only (no expected output) so UI can show "Hidden Test Case" labels
 
-## Implementation Order
-1. **Phase 1** first — 4 new templates + canvas editor + AI section enhancement
-2. **Phase 2** next — internship verification with trust score
-3. **Phase 3** last — resume analyzer, skill gap detector, readiness score
+### New Edge Function (`validate-coding-solution`)
 
-I will start with Phase 1 after approval.
+- Accepts: problem_id, user_code
+- Server-side: fetches full test cases from DB (using service role)
+- Evaluates code against all test cases (visible + hidden)
+- Returns: pass/fail results per test case (without exposing expected outputs for hidden cases)
 
+### New Hook: `useProctoring`
+
+```typescript
+interface ProctoringConfig {
+  requireCamera: boolean;
+  requireAudio: boolean;
+  maxWarnings: number;
+  onMaxWarningsReached: () => void;
+}
+
+// Returns: warningCount, violations[], cameraPreview component, isProctoring
+```
+
+### Files to Create
+
+- `src/hooks/useProctoring.ts` - Reusable proctoring hook
+- `supabase/functions/validate-coding-solution/index.ts` - Server-side code validation
+
+### Files to Modify
+
+- `src/pages/MCQTest.tsx` - Add proctoring (camera + audio monitoring)
+- `src/pages/CodingTest.tsx` - Add proctoring + use server-side validation
+- `supabase/functions/get-random-coding-problems/index.ts` - Strip hidden test case answers
+
+### Security Finding Updates
+
+- Delete stale `mcq_correct_answers_exposed` finding
+- Delete `coding_test_cases_exposed` finding after fix
+- Delete `test_answers_exposed` finding after fix

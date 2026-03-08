@@ -11,6 +11,10 @@ import ResumeTemplateModern from "./ResumeTemplateModern";
 import ResumeTemplateClassic from "./ResumeTemplateClassic";
 import ResumeTemplateMinimal from "./ResumeTemplateMinimal";
 import ResumeTemplateCreative from "./ResumeTemplateCreative";
+import ResumeTemplateExecutive from "./ResumeTemplateExecutive";
+import ResumeTemplateAcademic from "./ResumeTemplateAcademic";
+import ResumeTemplateTechPro from "./ResumeTemplateTechPro";
+import ResumeTemplateElegant from "./ResumeTemplateElegant";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -119,14 +123,14 @@ const ResumeBuilder = ({ open, onOpenChange, profile, domain, certificateId }: R
     };
 
     switch (settings.layout) {
-      case 'classic':
-        return <ResumeTemplateClassic {...props} />;
-      case 'minimal':
-        return <ResumeTemplateMinimal {...props} />;
-      case 'creative':
-        return <ResumeTemplateCreative {...props} />;
-      default:
-        return <ResumeTemplateModern {...props} />;
+      case 'classic': return <ResumeTemplateClassic {...props} />;
+      case 'minimal': return <ResumeTemplateMinimal {...props} />;
+      case 'creative': return <ResumeTemplateCreative {...props} />;
+      case 'executive': return <ResumeTemplateExecutive {...props} />;
+      case 'academic': return <ResumeTemplateAcademic {...props} />;
+      case 'techpro': return <ResumeTemplateTechPro {...props} />;
+      case 'elegant': return <ResumeTemplateElegant {...props} />;
+      default: return <ResumeTemplateModern {...props} />;
     }
   };
 
@@ -205,7 +209,7 @@ const ResumeBuilder = ({ open, onOpenChange, profile, domain, certificateId }: R
                 <div>
                   <Label className="text-sm font-medium mb-3 block">Resume Layout</Label>
                   <div className="grid grid-cols-2 gap-2">
-                    {(['modern', 'classic', 'minimal', 'creative'] as const).map(layout => (
+                    {(['modern', 'classic', 'minimal', 'creative', 'executive', 'academic', 'techpro', 'elegant'] as const).map(layout => (
                       <button
                         key={layout}
                         onClick={() => setSettings(prev => ({ ...prev, layout }))}

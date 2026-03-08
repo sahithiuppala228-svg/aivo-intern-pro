@@ -29,7 +29,7 @@ export interface ResumeSettings {
   theme: ResumeTheme;
   showPhoto: boolean;
   fontSize: 'small' | 'medium' | 'large';
-  layout: 'modern' | 'classic' | 'minimal' | 'creative';
+  layout: 'modern' | 'classic' | 'minimal' | 'creative' | 'executive' | 'academic' | 'techpro' | 'elegant';
 }
 
 export const resumeThemes: ResumeTheme[] = [

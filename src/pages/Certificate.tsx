@@ -1,7 +1,7 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Award, FileText, Download, ExternalLink, ArrowLeft, CheckCircle2, Briefcase } from "lucide-react";
+import { Award, FileText, Download, ExternalLink, ArrowLeft, CheckCircle2, Briefcase, PenTool } from "lucide-react";
 import { useState, useEffect } from "react";
 import { ResumeBuilder, ProfileData } from "@/components/ResumeBuilder";
 
@@ -244,6 +244,24 @@ const Certificate = () => {
             </div>
           </Card>
         </div>
+
+        {/* Resume Canvas Button */}
+        <Card className="p-6 border-2 border-purple-200 hover:border-purple-400 transition-all cursor-pointer group hover:shadow-lg bg-white card-hover animate-slide-up stagger-2 mb-4">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-purple-100 rounded-lg group-hover:bg-purple-200 transition-colors icon-hover">
+              <PenTool className="w-6 h-6 text-purple-700" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-purple-900">Resume Canvas Editor</h3>
+              <p className="text-sm text-purple-600">Full visual editor with 8 templates & AI enhancement</p>
+            </div>
+            <Button variant="outline" size="sm"
+              onClick={() => navigate("/resume-canvas")}
+              className="border-purple-600 text-purple-700 hover:bg-purple-50 btn-shine">
+              Open Canvas
+            </Button>
+          </div>
+        </Card>
 
         {/* Next Steps */}
         <Card className="p-6 border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-slate-50">
