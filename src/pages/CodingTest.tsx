@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, CheckCircle2, XCircle, Code2, Play, Trophy, Mic, ExternalLink, Clock, AlertTriangle, Lightbulb, Monitor, MonitorOff } from "lucide-react";
+import { ArrowLeft, CheckCircle2, XCircle, Code2, Play, Trophy, Mic, ExternalLink, Clock, AlertTriangle, Lightbulb, Monitor, MonitorOff, Camera, CameraOff, Eye, Users } from "lucide-react";
 import { useScreenShare } from "@/hooks/useScreenShare";
+import { useFaceDetection } from "@/hooks/useFaceDetection";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
