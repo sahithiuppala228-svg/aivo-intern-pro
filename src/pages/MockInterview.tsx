@@ -1154,7 +1154,7 @@ const MockInterview = () => {
                     </div>
                     <div className="flex gap-3">
                       <span className="font-semibold text-foreground min-w-[24px]">2.</span>
-                      <p><span className="font-semibold text-foreground">Questions:</span> {questions.length} questions covering technical, behavioral, and problem-solving</p>
+                      <p><span className="font-semibold text-foreground">Questions:</span> {questions.length} questions covering personal, technical, behavioral, and problem-solving</p>
                     </div>
                     <div className="flex gap-3">
                       <span className="font-semibold text-foreground min-w-[24px]">3.</span>
