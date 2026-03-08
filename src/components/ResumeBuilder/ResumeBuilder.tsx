@@ -11,6 +11,10 @@ import ResumeTemplateModern from "./ResumeTemplateModern";
 import ResumeTemplateClassic from "./ResumeTemplateClassic";
 import ResumeTemplateMinimal from "./ResumeTemplateMinimal";
 import ResumeTemplateCreative from "./ResumeTemplateCreative";
+import ResumeTemplateExecutive from "./ResumeTemplateExecutive";
+import ResumeTemplateAcademic from "./ResumeTemplateAcademic";
+import ResumeTemplateTechPro from "./ResumeTemplateTechPro";
+import ResumeTemplateElegant from "./ResumeTemplateElegant";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
