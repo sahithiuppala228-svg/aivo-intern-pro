@@ -209,7 +209,7 @@ const ResumeBuilder = ({ open, onOpenChange, profile, domain, certificateId }: R
                 <div>
                   <Label className="text-sm font-medium mb-3 block">Resume Layout</Label>
                   <div className="grid grid-cols-2 gap-2">
-                    {(['modern', 'classic', 'minimal', 'creative'] as const).map(layout => (
+                    {(['modern', 'classic', 'minimal', 'creative', 'executive', 'academic', 'techpro', 'elegant'] as const).map(layout => (
                       <button
                         key={layout}
                         onClick={() => setSettings(prev => ({ ...prev, layout }))}
