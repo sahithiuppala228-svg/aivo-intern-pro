@@ -860,6 +860,8 @@ const MockInterview = () => {
     setFeedback(null);
     setCameraTestPassed(false);
     setAudioTestPassed(false);
+    setScreenShareTestPassed(false);
+    setShowScreenShareTest(false);
     setQuestionAnalyses({});
     setLastAIAnalysis(null);
   };
