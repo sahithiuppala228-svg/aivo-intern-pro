@@ -904,6 +904,27 @@ const MCQTest = () => {
         </div>
       </div>
 
+      {/* Floating Camera Preview */}
+      {testStarted && cameraActive && (
+        <div className="fixed bottom-4 right-4 z-30 w-40 h-30 rounded-lg overflow-hidden border-2 border-border shadow-lg bg-muted">
+          <video
+            ref={cameraVideoRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full h-full object-cover"
+            style={{ transform: 'scaleX(-1)' }}
+          />
+          <div className={`absolute bottom-0 left-0 right-0 text-[10px] px-1 py-0.5 text-center ${
+            faceResult.singlePersonValidated 
+              ? 'bg-success/80 text-success-foreground' 
+              : 'bg-destructive/80 text-destructive-foreground'
+          }`}>
+            {faceResult.singlePersonValidated ? '✓ Face OK' : faceResult.faceCount > 1 ? `⚠ ${faceResult.faceCount} faces` : '⚠ No face'}
+          </div>
+        </div>
+      )
+
       {/* Results Dialog */}
       <AlertDialog open={showResults} onOpenChange={setShowResults}>
         <AlertDialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
