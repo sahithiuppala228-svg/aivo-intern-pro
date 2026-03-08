@@ -134,6 +134,25 @@ const Auth = () => {
     }
   };
 
+  const handleForgotPassword = async () => {
+    if (!resetEmail) {
+      toast({ title: "Error", description: "Please enter your email address", variant: "destructive" });
+      return;
+    }
+    setResetLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setResetLoading(false);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Check your email", description: "We've sent you a password reset link." });
+      setForgotOpen(false);
+      setResetEmail("");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-muted/30 flex items-center justify-center p-6">
       <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-8 items-center">
