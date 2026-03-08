@@ -288,6 +288,7 @@ const MCQTest = () => {
       setWrongAnswers(incorrectAnswers);
       setShowResults(true);
       setTestStarted(false);
+      stopScreenShare();
 
       if (testPassed) {
         toast({
