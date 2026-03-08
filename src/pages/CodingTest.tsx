@@ -417,6 +417,7 @@ const CodingTest = () => {
     setTotalScore({ passed: totalPassedTests, total: totalTests });
     setPassed(testPassed);
     setShowResults(true);
+    stopScreenShare();
   };
 
   const handleResultsClose = () => {
