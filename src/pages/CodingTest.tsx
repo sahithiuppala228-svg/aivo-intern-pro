@@ -765,7 +765,7 @@ const CodingTest = () => {
   const overallProgress = (challengeScores.length / challenges.length) * 100;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background">
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background relative">
       {/* Screen Share Warning Banner */}
       {!isScreenSharing && screenShareReady && (
         <div className="sticky top-0 z-20 bg-destructive/10 border-b border-destructive/30 p-3 flex items-center justify-center gap-4">
@@ -776,6 +776,23 @@ const CodingTest = () => {
           <Button size="sm" variant="destructive" onClick={startScreenShare}>
             Resume Sharing
           </Button>
+        </div>
+      )}
+
+      {/* Camera Warning Banner */}
+      {!showInstructions && cameraActive && !faceResult.singlePersonValidated && (
+        <div className="sticky top-0 z-20 bg-warning/10 border-b border-warning/30 p-3 flex items-center justify-center gap-4">
+          {faceResult.faceCount > 1 ? (
+            <Users className="w-4 h-4 text-destructive" />
+          ) : (
+            <Eye className="w-4 h-4 text-warning" />
+          )}
+          <span className="text-sm font-medium text-warning">
+            {faceResult.faceCount > 1 
+              ? `Multiple faces detected (${faceResult.faceCount})! Only you should be visible.`
+              : "Face not detected — please look at the screen"}
+            {cameraWarnings > 0 && ` (${cameraWarnings}/${MAX_CAMERA_WARNINGS} warnings)`}
+          </span>
         </div>
       )}
 
