@@ -184,39 +184,70 @@ const MockInterview = () => {
     stopCamera 
   } = useFaceDetection();
 
-  // Speech synthesis with personalized name
-  const speakText = useCallback((text: string) => {
+  // Audio ref for current playback
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const speakQueueRef = useRef<string[]>([]);
+  const isSpeakingRef = useRef(false);
+
+  // Natural AI voice via text-to-speech edge function
+  const speakText = useCallback(async (text: string) => {
     if (!soundEnabled) return;
     
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.9;
-    utterance.pitch = 0.9; // Slightly lower for male voice
-    utterance.volume = 0.8;
-    
-    // Try to use a male voice
-    const voices = window.speechSynthesis.getVoices();
-    const maleVoice = voices.find(v => 
-      v.name.toLowerCase().includes('male') || 
-      v.name.toLowerCase().includes('david') ||
-      v.name.toLowerCase().includes('james') ||
-      v.name.toLowerCase().includes('mark')
-    );
-    if (maleVoice) {
-      utterance.voice = maleVoice;
+    // Stop any current playback
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
     }
     
-    utterance.onstart = () => {
-      setIsSpeaking(true);
-      setCurrentSpeech(text);
-    };
+    setIsSpeaking(true);
+    setCurrentSpeech(text);
+    isSpeakingRef.current = true;
     
-    utterance.onend = () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('text-to-speech', {
+        body: { text, voice: 'onyx' }
+      });
+      
+      if (error || !data?.audioContent) {
+        console.error('TTS error, falling back to browser speech:', error);
+        // Fallback to browser TTS
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 0.9;
+        utterance.pitch = 0.9;
+        utterance.onend = () => {
+          setIsSpeaking(false);
+          setCurrentSpeech("");
+          isSpeakingRef.current = false;
+        };
+        window.speechSynthesis.speak(utterance);
+        return;
+      }
+      
+      const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
+      currentAudioRef.current = audio;
+      
+      audio.onended = () => {
+        setIsSpeaking(false);
+        setCurrentSpeech("");
+        isSpeakingRef.current = false;
+        currentAudioRef.current = null;
+      };
+      
+      audio.onerror = () => {
+        setIsSpeaking(false);
+        setCurrentSpeech("");
+        isSpeakingRef.current = false;
+        currentAudioRef.current = null;
+      };
+      
+      await audio.play();
+    } catch (err) {
+      console.error('TTS playback error:', err);
       setIsSpeaking(false);
       setCurrentSpeech("");
-    };
-    
-    window.speechSynthesis.speak(utterance);
+      isSpeakingRef.current = false;
+    }
   }, [soundEnabled]);
 
   // Timer
