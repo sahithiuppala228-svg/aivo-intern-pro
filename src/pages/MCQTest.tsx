@@ -570,15 +570,68 @@ const MCQTest = () => {
                 )}
               </div>
 
+              {/* Camera Test Section */}
+              <div className="border border-border rounded-lg p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    cameraReady && faceResult.singlePersonValidated ? 'bg-success/20' : 'bg-muted'
+                  }`}>
+                    {cameraReady ? (
+                      <Camera className="w-5 h-5 text-success" />
+                    ) : (
+                      <CameraOff className="w-5 h-5 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Camera Test</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {!cameraReady 
+                        ? "Enable camera for proctoring" 
+                        : faceResult.singlePersonValidated 
+                          ? "Face detected ✓" 
+                          : faceResult.message}
+                    </p>
+                  </div>
+                </div>
+                {!cameraReady ? (
+                  <Button onClick={handleStartCamera} className="w-full" disabled={modelsLoading}>
+                    <Camera className="w-4 h-4 mr-2" />
+                    {modelsLoading ? "Loading..." : "Enable Camera"}
+                  </Button>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="rounded-lg overflow-hidden border border-border w-full h-40 bg-muted relative">
+                      <video
+                        ref={cameraVideoRef}
+                        autoPlay
+                        playsInline
+                        muted
+                        className="w-full h-full object-cover mirror"
+                        style={{ transform: 'scaleX(-1)' }}
+                      />
+                      <div className={`absolute bottom-2 left-2 right-2 text-xs px-2 py-1 rounded ${
+                        faceResult.singlePersonValidated 
+                          ? 'bg-success/80 text-success-foreground' 
+                          : faceResult.faceCount > 1 
+                            ? 'bg-destructive/80 text-destructive-foreground'
+                            : 'bg-warning/80 text-warning-foreground'
+                      }`}>
+                        {faceResult.message}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="pt-6 flex justify-center">
                 <Button 
                   onClick={handleStartTest}
                   size="lg"
                   className="px-8"
                   variant="hero"
-                  disabled={!screenShareReady}
+                  disabled={!screenShareReady || !cameraReady}
                 >
-                  {screenShareReady ? "START TEST →" : "Share Screen to Start"}
+                  {screenShareReady && cameraReady ? "START TEST →" : "Complete Setup to Start"}
                 </Button>
               </div>
             </div>
