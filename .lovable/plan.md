@@ -1,47 +1,116 @@
+Fix Security Issues and Add Anti-Cheating Measures
 
+## Part 1: Fix Security Scan Errors
 
-# Improve Mock Interview: Real-World Experience
+### 1A. MCQ Test Answers Accessible via Direct Query
 
-## Changes Overview
+The `mcq_questions` table already has `USING (false)` RLS policy from a previous fix. The security finding is stale and needs to be deleted.
 
-### 1. Add Personal/Introductory Questions to Question Mix
-**File: `supabase/functions/get-random-interview-questions/index.ts`**
+### 1B. Coding Test Cases Fully Exposed - Students Can Hardcode Solutions
 
-Update the question distribution to include a new "personal" category. Change from 10 questions (5 technical, 3 behavioral, 2 problem-solving) to 12 questions:
-- 2 Personal/introductory (e.g., "Tell me about yourself", "What are your hobbies?", "Describe your educational background")
-- 5 Technical (domain-specific)
-- 3 Behavioral
-- 2 Problem-solving
+The `coding_problems` table has `USING (true)` RLS policy, exposing ALL test cases (including hidden ones with expected outputs) to any authenticated user. Students can query the table directly and get all answers.
 
-The personal questions will be asked first (indices 0-1) to simulate a real interview flow where introductions come before technical depth.
+**Fix:**
 
-Update the AI prompt to generate these personal questions as part of the set.
+- Change `coding_problems` RLS SELECT policy to `USING (false)` (block direct access)
+- Create a `coding_problems_public` view that excludes `test_cases` (hidden answers) and `sample_output`
+- Update the `get-random-coding-problems` edge function to only send visible test cases to the client (strip hidden test case expected outputs)
+- Create a new edge function `validate-coding-solution` that evaluates code server-side against hidden test cases
 
-**File: `src/pages/MockInterview.tsx`**
-- Update the `InterviewQuestion` interface to include `"personal"` as a category
-- Update the intro speech to mention the interview will start with introductory questions
+### 1C. Test Answers Exposed - Students Can Cheat on Assessments
 
-### 2. Replace Robotic Browser TTS with Natural AI Voice
-**File: `src/pages/MockInterview.tsx`**
+This is about the overall pattern. The practice_questions and interview_questions tables are already locked down. The remaining exposure is in coding_problems (addressed above).
 
-Replace `window.speechSynthesis` (browser TTS, robotic) with calls to the existing `text-to-speech` edge function which uses OpenAI's TTS API — this produces natural, human-like speech.
+## Part 2: Anti-Cheating Proctoring for MCQ and Coding Tests
 
-- Replace `speakText` function to call the edge function and play the returned base64 audio
-- Use the "onyx" voice (deep male voice, natural sounding) to match the male interviewer persona
-- Add audio queue management so speeches don't overlap
+### 2A. Create a Reusable Proctoring Hook
 
-### 3. Replace Animated Interviewer with Static Realistic Image
-**File: `src/components/AnimatedInterviewer.tsx`**
+Build a `useProctoring` hook that handles:
 
-- Remove all animation logic (blinking overlay, mouth animation bars, pulsing ring)
-- Display the interviewer image as a clean, static photo — like a real person sitting across from you
-- Keep only a subtle "speaking" dot indicator (small green dot) when the interviewer is talking
-- Keep the name tag and speech bubble
+- **Camera monitoring**: Uses the existing `useFaceDetection` hook to continuously monitor the camera during tests
+- **Camera off detection**: If the camera stream stops or is denied, show a warning toast and a persistent warning banner
+- **Multiple faces detection**: Warn if more than one person is detected
+- **No face detection**: Warn if the student leaves the camera view
+- **Warning counter**: Track warnings; after 3 warnings, auto-submit the test
 
-### Summary of Files to Modify
-- `supabase/functions/get-random-interview-questions/index.ts` — Add personal question category
-- `src/pages/MockInterview.tsx` — Use OpenAI TTS instead of browser speech, update question category types, reorder to ask personal questions first
-- `src/components/AnimatedInterviewer.tsx` — Remove animations, make static realistic display
+### 2B. Add Proctoring to MCQ Test Page
 
-No database schema changes needed — the `interview_questions` table already has a flexible `category` text column.
+- Require camera permission before starting the test
+- Show a small camera preview in the corner during the test
+- Display warning banners when violations are detected
+- Auto-submit after repeated violations
 
+### 2C. Add Proctoring to Coding Test Page
+
+- Same camera monitoring as MCQ test
+- Show camera preview and warning system
+- Auto-submit on repeated violations
+
+### 2D. Voice/Audio Monitoring
+
+- Use the existing audio detection pattern (from MockInterview) to monitor for suspicious audio during MCQ and coding tests
+- Detect if the student is talking to someone (potential cheating)
+- Warn on sustained voice detection during written tests
+
+## Technical Details
+
+### Database Migration
+
+```sql
+-- Block direct access to coding_problems
+DROP POLICY IF EXISTS "Anyone can read coding problems" ON public.coding_problems;
+CREATE POLICY "Block direct select on coding_problems"
+  ON public.coding_problems FOR SELECT
+  USING (false);
+
+-- Create public view without hidden test case data
+CREATE VIEW public.coding_problems_public
+WITH (security_invoker = on) AS
+SELECT id, domain, title, description, difficulty,
+       input_format, output_format, constraints,
+       sample_input, sample_output, created_at
+FROM public.coding_problems;
+```
+
+### Edge Function Changes (`get-random-coding-problems`)
+
+- Strip `test_cases` from the response sent to client
+- Only include visible test cases (first 2) with their expected outputs
+- Hidden test cases: send input only (no expected output) so UI can show "Hidden Test Case" labels
+
+### New Edge Function (`validate-coding-solution`)
+
+- Accepts: problem_id, user_code
+- Server-side: fetches full test cases from DB (using service role)
+- Evaluates code against all test cases (visible + hidden)
+- Returns: pass/fail results per test case (without exposing expected outputs for hidden cases)
+
+### New Hook: `useProctoring`
+
+```typescript
+interface ProctoringConfig {
+  requireCamera: boolean;
+  requireAudio: boolean;
+  maxWarnings: number;
+  onMaxWarningsReached: () => void;
+}
+
+// Returns: warningCount, violations[], cameraPreview component, isProctoring
+```
+
+### Files to Create
+
+- `src/hooks/useProctoring.ts` - Reusable proctoring hook
+- `supabase/functions/validate-coding-solution/index.ts` - Server-side code validation
+
+### Files to Modify
+
+- `src/pages/MCQTest.tsx` - Add proctoring (camera + audio monitoring)
+- `src/pages/CodingTest.tsx` - Add proctoring + use server-side validation
+- `supabase/functions/get-random-coding-problems/index.ts` - Strip hidden test case answers
+
+### Security Finding Updates
+
+- Delete stale `mcq_correct_answers_exposed` finding
+- Delete `coding_test_cases_exposed` finding after fix
+- Delete `test_answers_exposed` finding after fix

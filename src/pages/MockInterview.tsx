@@ -31,7 +31,7 @@ const INTERVIEW_TIME_LIMIT = 20 * 60; // 20 minutes in seconds
 interface InterviewQuestion {
   id: string;
   question: string;
-  category: "technical" | "behavioral" | "problem-solving";
+  category: "personal" | "technical" | "behavioral" | "problem-solving";
   difficulty: "easy" | "medium" | "hard";
   expectedPoints: string[];
 }
@@ -184,39 +184,70 @@ const MockInterview = () => {
     stopCamera 
   } = useFaceDetection();
 
-  // Speech synthesis with personalized name
-  const speakText = useCallback((text: string) => {
+  // Audio ref for current playback
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const speakQueueRef = useRef<string[]>([]);
+  const isSpeakingRef = useRef(false);
+
+  // Natural AI voice via text-to-speech edge function
+  const speakText = useCallback(async (text: string) => {
     if (!soundEnabled) return;
     
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.9;
-    utterance.pitch = 0.9; // Slightly lower for male voice
-    utterance.volume = 0.8;
-    
-    // Try to use a male voice
-    const voices = window.speechSynthesis.getVoices();
-    const maleVoice = voices.find(v => 
-      v.name.toLowerCase().includes('male') || 
-      v.name.toLowerCase().includes('david') ||
-      v.name.toLowerCase().includes('james') ||
-      v.name.toLowerCase().includes('mark')
-    );
-    if (maleVoice) {
-      utterance.voice = maleVoice;
+    // Stop any current playback
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
     }
     
-    utterance.onstart = () => {
-      setIsSpeaking(true);
-      setCurrentSpeech(text);
-    };
+    setIsSpeaking(true);
+    setCurrentSpeech(text);
+    isSpeakingRef.current = true;
     
-    utterance.onend = () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('text-to-speech', {
+        body: { text, voice: 'onyx' }
+      });
+      
+      if (error || !data?.audioContent) {
+        console.error('TTS error, falling back to browser speech:', error);
+        // Fallback to browser TTS
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 0.9;
+        utterance.pitch = 0.9;
+        utterance.onend = () => {
+          setIsSpeaking(false);
+          setCurrentSpeech("");
+          isSpeakingRef.current = false;
+        };
+        window.speechSynthesis.speak(utterance);
+        return;
+      }
+      
+      const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
+      currentAudioRef.current = audio;
+      
+      audio.onended = () => {
+        setIsSpeaking(false);
+        setCurrentSpeech("");
+        isSpeakingRef.current = false;
+        currentAudioRef.current = null;
+      };
+      
+      audio.onerror = () => {
+        setIsSpeaking(false);
+        setCurrentSpeech("");
+        isSpeakingRef.current = false;
+        currentAudioRef.current = null;
+      };
+      
+      await audio.play();
+    } catch (err) {
+      console.error('TTS playback error:', err);
       setIsSpeaking(false);
       setCurrentSpeech("");
-    };
-    
-    window.speechSynthesis.speak(utterance);
+      isSpeakingRef.current = false;
+    }
   }, [soundEnabled]);
 
   // Timer
@@ -369,7 +400,7 @@ const MockInterview = () => {
     });
     
     setTimeout(() => {
-      speakText(`Hello ${userName}! Welcome to your ${domain} technical interview. I'm Mr. James Wilson, your interviewer today. I'll be asking you ${questions.length} questions over the next 20 minutes. Let's begin with the first question.`);
+      speakText(`Hello ${userName}! Welcome to your ${domain} interview. I'm James Wilson, your interviewer today. We'll start with a few introductory questions to get to know you, and then move on to technical topics. Let's begin.`);
     }, 1000);
     
     // Speak first question after intro
@@ -657,6 +688,11 @@ const MockInterview = () => {
 
   const handleEndInterview = async () => {
     setIsSubmitting(true);
+    // Stop any playing audio
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
+    }
     window.speechSynthesis.cancel();
     stopCamera();
     
@@ -693,7 +729,7 @@ const MockInterview = () => {
     
     // Calculate category scores using AI analyses
     const technicalQuestions = questions.map((q, i) => ({ ...q, index: i })).filter(q => q.category === "technical");
-    const behavioralQuestions = questions.map((q, i) => ({ ...q, index: i })).filter(q => q.category === "behavioral");
+    const behavioralQuestions = questions.map((q, i) => ({ ...q, index: i })).filter(q => q.category === "behavioral" || q.category === "personal");
     const problemQuestions = questions.map((q, i) => ({ ...q, index: i })).filter(q => q.category === "problem-solving");
     
     const getAverageScore = (qs: typeof technicalQuestions) => {
@@ -1118,7 +1154,7 @@ const MockInterview = () => {
                     </div>
                     <div className="flex gap-3">
                       <span className="font-semibold text-foreground min-w-[24px]">2.</span>
-                      <p><span className="font-semibold text-foreground">Questions:</span> {questions.length} questions covering technical, behavioral, and problem-solving</p>
+                      <p><span className="font-semibold text-foreground">Questions:</span> {questions.length} questions covering personal, technical, behavioral, and problem-solving</p>
                     </div>
                     <div className="flex gap-3">
                       <span className="font-semibold text-foreground min-w-[24px]">3.</span>
