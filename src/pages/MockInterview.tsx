@@ -729,7 +729,7 @@ const MockInterview = () => {
     
     // Calculate category scores using AI analyses
     const technicalQuestions = questions.map((q, i) => ({ ...q, index: i })).filter(q => q.category === "technical");
-    const behavioralQuestions = questions.map((q, i) => ({ ...q, index: i })).filter(q => q.category === "behavioral");
+    const behavioralQuestions = questions.map((q, i) => ({ ...q, index: i })).filter(q => q.category === "behavioral" || q.category === "personal");
     const problemQuestions = questions.map((q, i) => ({ ...q, index: i })).filter(q => q.category === "problem-solving");
     
     const getAverageScore = (qs: typeof technicalQuestions) => {
