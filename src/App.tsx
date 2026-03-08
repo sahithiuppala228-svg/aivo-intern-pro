@@ -29,6 +29,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/profile-setup" element={<ProtectedRoute><ProfileSetup /></ProtectedRoute>} />
           <Route path="/assessment-intro" element={<ProtectedRoute><AssessmentIntro /></ProtectedRoute>} />
           <Route path="/mcq-test" element={<ProtectedRoute><MCQTest /></ProtectedRoute>} />

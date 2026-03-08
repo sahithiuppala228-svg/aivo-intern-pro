@@ -250,7 +250,7 @@ const Auth = () => {
                         Remember me
                       </label>
                     </div>
-                    <Button variant="link" className="px-0 text-sm">
+                    <Button variant="link" className="px-0 text-sm" type="button" onClick={() => setForgotOpen(true)}>
                       Forgot password?
                     </Button>
                   </div>
