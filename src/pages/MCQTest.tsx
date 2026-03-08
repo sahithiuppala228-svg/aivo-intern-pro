@@ -374,6 +374,7 @@ const MCQTest = () => {
       setShowResults(true);
       setTestStarted(false);
       stopScreenShare();
+      stopCamera();
 
       if (testPassed) {
         toast({
