@@ -1283,7 +1283,7 @@ const MockInterview = () => {
                     </div>
                     <div className="flex gap-3">
                       <span className="font-semibold text-foreground min-w-[24px]">3.</span>
-                      <p><span className="font-semibold text-foreground">Camera & Audio:</span> Both will be tested before the interview starts</p>
+                      <p><span className="font-semibold text-foreground">Camera, Screen Share & Audio:</span> All will be tested before the interview starts</p>
                     </div>
                     <div className="flex gap-3">
                       <span className="font-semibold text-foreground min-w-[24px]">4.</span>
