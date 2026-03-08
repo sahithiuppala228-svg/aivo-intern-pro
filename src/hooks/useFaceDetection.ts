@@ -179,14 +179,12 @@ export const useFaceDetection = () => {
         singlePersonValidated: false
       });
       
-      // Load models first
-      const modelsReady = await loadModels();
-      console.log("Models ready:", modelsReady);
-      
+      // Stop any existing stream
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
       
+      // Get camera stream FIRST (preserves user gesture chain)
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 640 },
@@ -198,25 +196,11 @@ export const useFaceDetection = () => {
 
       console.log("Camera stream obtained");
       streamRef.current = stream;
+      setCameraActive(true);
       
+      // Attach stream to video element
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        
-        // Wait for video to be ready before starting detection
-        videoRef.current.onloadedmetadata = () => {
-          console.log("Video metadata loaded:", {
-            width: videoRef.current?.videoWidth,
-            height: videoRef.current?.videoHeight
-          });
-        };
-        
-        videoRef.current.onloadeddata = () => {
-          console.log("Video data loaded, starting face detection...");
-          if (modelsReady) {
-            startFaceDetection();
-          }
-        };
-        
         try {
           await videoRef.current.play();
           console.log("Video playing");
@@ -224,10 +208,28 @@ export const useFaceDetection = () => {
           console.log("Video play error, will retry:", playError);
         }
       }
-      
-      setCameraActive(true);
+
+      setFaceResult({ 
+        faceDetected: false, 
+        faceCount: 0,
+        faceConfidence: 0, 
+        message: "Camera active. Loading face detection...",
+        singlePersonValidated: false
+      });
+
+      // Load models AFTER camera is already running
+      const modelsReady = await loadModels();
+      console.log("Models ready:", modelsReady);
       
       if (modelsReady) {
+        // Re-attach stream in case video ref changed during model loading
+        if (videoRef.current && streamRef.current) {
+          if (videoRef.current.srcObject !== streamRef.current) {
+            videoRef.current.srcObject = streamRef.current;
+            videoRef.current.play().catch(() => {});
+          }
+        }
+        startFaceDetection();
         setFaceResult({ 
           faceDetected: false, 
           faceCount: 0,
@@ -236,7 +238,6 @@ export const useFaceDetection = () => {
           singlePersonValidated: false
         });
       } else {
-        // Fallback message if models didn't load
         setFaceResult({ 
           faceDetected: false, 
           faceCount: 0,
