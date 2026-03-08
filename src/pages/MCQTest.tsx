@@ -339,6 +339,7 @@ const MCQTest = () => {
       setWrongAnswers([]);
       setQuestions([]);
       setMarkedQuestions(new Set());
+      setScreenShareReady(false);
     }
   };
 
