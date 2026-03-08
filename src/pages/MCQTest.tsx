@@ -923,7 +923,7 @@ const MCQTest = () => {
             {faceResult.singlePersonValidated ? '✓ Face OK' : faceResult.faceCount > 1 ? `⚠ ${faceResult.faceCount} faces` : '⚠ No face'}
           </div>
         </div>
-      )
+      )}
 
       {/* Results Dialog */}
       <AlertDialog open={showResults} onOpenChange={setShowResults}>
