@@ -688,6 +688,11 @@ const MockInterview = () => {
 
   const handleEndInterview = async () => {
     setIsSubmitting(true);
+    // Stop any playing audio
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
+    }
     window.speechSynthesis.cancel();
     stopCamera();
     
